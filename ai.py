@@ -19,15 +19,15 @@ class GeminiAI:
     def __init__(self, api_key: str) -> None:
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel(
-            model_name="gemini-1.5-pro",
+            model_name="gemini-2.0-flash",
             generation_config={
                 "temperature": 0.7,
                 "top_p": 0.95,
                 "max_output_tokens": 2048,
             },
         )
-        self.vision_model = genai.GenerativeModel("gemini-1.5-pro")
-        logger.info("✅ Gemini 1.5 Pro tayyor")
+        self.vision_model = genai.GenerativeModel("gemini-2.0-flash")
+        logger.info("✅ Gemini 2.0 Flash tayyor")
 
     async def ask(
         self,
