@@ -127,7 +127,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             return
 
     history.append({"role": "model", "parts": [response]})
-    await update.message.reply_text(response, parse_mode="Markdown")
+    # parse_mode ishlatmaymiz — Gemini javobidagi simbollar Telegram'ni xato chiqaradi
+    try:
+        await update.message.reply_text(response, parse_mode="Markdown")
+    except Exception:
+        await update.message.reply_text(response)
 
 
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -147,13 +151,16 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     try:
         text = await ai.transcribe(tmp_path)
-        await update.message.reply_text(f"📝 *Siz:* {text}", parse_mode="Markdown")
+        await update.message.reply_text(f"🎤 Siz: {text}")
 
         history = context.user_data.setdefault("history", [])
         history.append({"role": "user", "parts": [text]})
         response = await ai.ask(text, history, SYSTEM_PROMPT)
         history.append({"role": "model", "parts": [response]})
-        await update.message.reply_text(response, parse_mode="Markdown")
+        try:
+            await update.message.reply_text(response, parse_mode="Markdown")
+        except Exception:
+            await update.message.reply_text(response)
     finally:
         os.unlink(tmp_path)
 
