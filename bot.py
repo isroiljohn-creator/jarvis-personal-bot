@@ -31,7 +31,7 @@ logger = logging.getLogger("jarvis")
 # ───────────────────────── SOZLAMALAR ──────────────────────────
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
-OWNER_ID = int(os.environ.get("OWNER_TELEGRAM_ID", "0"))  # Faqat siz foydalanishingiz uchun
+OWNER_ID = int(os.environ.get("OWNER_TELEGRAM_ID", "0"))
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 TG_API_ID = os.environ.get("TG_API_ID", "")
 TG_API_HASH = os.environ.get("TG_API_HASH", "")
@@ -57,15 +57,12 @@ Buyruqlar:
 - TG:SEND:<chat_id>:<xabar> — xabar yubor
 - TG:DIALOGS — so'nggi suhbatlar
 - CMD:<buyruq> — terminal buyrug'i bajar
-- CMD:SCREENSHOT — ekran rasmini ol
 """
 
-# ────────────────────────── GUARD ──────────────────────────────
 
 def is_owner(update: Update) -> bool:
-    """Faqat egasi foydalana olsin."""
     if OWNER_ID == 0:
-        return True  # Hali sozlanmagan, hamma foydalana oladi
+        return True
     return update.effective_user.id == OWNER_ID
 
 
@@ -104,67 +101,54 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Barcha matnli xabarlarni qayta ishlash."""
     if not is_owner(update):
         return
 
     user_text = update.message.text or ""
     await update.message.chat.send_action(ChatAction.TYPING)
 
-    # Kontekst tarixini saqlash
     history = context.user_data.setdefault("history", [])
     history.append({"role": "user", "parts": [user_text]})
     if len(history) > 20:
         history.pop(0)
 
-    # AI javob olish
     response = await ai.ask(user_text, history, SYSTEM_PROMPT)
 
-    # TG buyruqlari mavjudmi tekshirish
     if "TG:" in response and userbot and userbot.connected:
         result = await process_tg_command(response, update)
         if result:
             history.append({"role": "model", "parts": [response]})
             return
 
-    # CMD buyruqlari mavjudmi tekshirish
     if "CMD:" in response:
         result = await process_cmd_command(response, update)
         if result:
             history.append({"role": "model", "parts": [response]})
             return
 
-    # Oddiy javob
     history.append({"role": "model", "parts": [response]})
     await update.message.reply_text(response, parse_mode="Markdown")
 
 
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Ovozli xabarlarni qayta ishlash."""
     if not is_owner(update):
         return
 
-    await update.message.reply_text("🎤 Ovozli xabaringizni eshikyapman...")
+    await update.message.reply_text("🎤 Ovozli xabaringizni eshityapman...")
     await update.message.chat.send_action(ChatAction.TYPING)
 
-    # Ovozli faylni yuklab olish
     voice = update.message.voice
     file = await context.bot.get_file(voice.file_id)
-    
-    import tempfile, os
+
+    import tempfile
     with tempfile.NamedTemporaryFile(suffix=".ogg", delete=False) as tmp:
         await file.download_to_drive(tmp.name)
         tmp_path = tmp.name
 
     try:
-        # Gemini orqali transkriptsiya
         text = await ai.transcribe(tmp_path)
         await update.message.reply_text(f"📝 *Siz:* {text}", parse_mode="Markdown")
 
-        # Matn sifatida qayta ishlash
-        context.user_data.setdefault("history", [])
-        fake_update = update
-        # Matnni message sifatida qayta yuboramiz
         history = context.user_data.setdefault("history", [])
         history.append({"role": "user", "parts": [text]})
         response = await ai.ask(text, history, SYSTEM_PROMPT)
@@ -175,7 +159,6 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def process_tg_command(response: str, update: Update) -> bool:
-    """Telegram buyruqlarini bajarish."""
     try:
         if "TG:LIST_CHATS" in response or "TG:DIALOGS" in response:
             dialogs = await userbot.get_dialogs(limit=10)
@@ -191,7 +174,7 @@ async def process_tg_command(response: str, update: Update) -> bool:
             if match:
                 chat_id = int(match.group(1))
                 messages = await userbot.get_messages(chat_id, limit=5)
-                text = f"💬 *Chat {chat_id} — So'nggi xabarlar:*\n\n"
+                text = f"💬 *Chat — So'nggi xabarlar:*\n\n"
                 for m in messages:
                     text += f"*{m['from']}:* {m['text']}\n"
                 await update.message.reply_text(text, parse_mode="Markdown")
@@ -215,13 +198,7 @@ async def process_tg_command(response: str, update: Update) -> bool:
 
 
 async def process_cmd_command(response: str, update: Update) -> bool:
-    """Kompyuter buyruqlarini bajarish."""
     try:
-        if "CMD:SCREENSHOT" in response:
-            path = await computer.screenshot()
-            await update.message.reply_photo(open(path, "rb"), caption="📸 Ekran rasmi")
-            return True
-
         import re
         match = re.search(r"CMD:(.+)", response)
         if match:
@@ -249,7 +226,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             for d in dialogs:
                 text += f"• `{d['id']}` — {d['name']}\n"
         else:
-            text = "❌ Telegram userbot ulanmagan.\nAPI ID va Hash kerak."
+            text = "❌ Telegram userbot ulanmagan."
         await query.edit_message_text(text, parse_mode="Markdown")
 
     elif query.data == "terminal":
@@ -265,19 +242,16 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             f"🤖 AI (Gemini): ✅\n"
             f"📱 Telegram: {userbot_status}\n"
             f"💻 Kompyuter: ✅\n"
-            f"🕒 Server vaqt: {time.strftime('%H:%M:%S')}"
+            f"🕒 Server vaqti: {time.strftime('%H:%M:%S')}"
         )
         await query.edit_message_text(text, parse_mode="Markdown")
 
 
 # ─────────────────────────── MAIN ──────────────────────────────
 
-async def main() -> None:
+async def post_init(application: Application) -> None:
+    """Bot tayyor bo'lgandan so'ng userbot'ni ulang."""
     global userbot
-
-    logger.info("🚀 Jarvis bot ishga tushydi...")
-
-    # Telethon userbot
     if TG_API_ID and TG_API_HASH and TG_PHONE:
         try:
             userbot = UserBot(
@@ -291,10 +265,18 @@ async def main() -> None:
             logger.warning(f"⚠️ Userbot ulana olmadi: {e}")
             userbot = None
     else:
-        logger.info("ℹ️ Userbot sozlanmagan (TG_API_ID/HASH/PHONE yoq)")
+        logger.info("ℹ️ Userbot sozlanmagan")
 
-    # Bot application
-    app = Application.builder().token(BOT_TOKEN).build()
+
+def main() -> None:
+    logger.info("🚀 Jarvis bot ishga tushmoqda...")
+
+    app = (
+        Application.builder()
+        .token(BOT_TOKEN)
+        .post_init(post_init)
+        .build()
+    )
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", start))
@@ -303,8 +285,8 @@ async def main() -> None:
     app.add_handler(CallbackQueryHandler(button_callback))
 
     logger.info("✅ Jarvis tayyor! Polling boshlandi.")
-    await app.run_polling(drop_pending_updates=True)
+    app.run_polling(drop_pending_updates=True)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
