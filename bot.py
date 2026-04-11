@@ -74,22 +74,23 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     userbot_status = "✅ Ulangan" if (userbot and userbot.connected) else "❌ Ulanmagan"
+    auto_status = "✅ Yoqiq" if (userbot and userbot.auto_reply) else "⏸ O'chiq"
     text = (
         f"👾 *Jarvis — Shaxsiy AI Yordamchi*\n\n"
-        f"🤖 AI: Gemini 1.5 Pro ✅\n"
+        f"🤖 AI: Gemini 2.0 Flash ✅\n"
         f"📱 Telegram: {userbot_status}\n"
+        f"🔁 Auto-javob: {auto_status}\n"
         f"💻 Kompyuter: ✅\n\n"
-        f"Menga xabar yozing — har qanday savolingizga javob beraman.\n\n"
-        f"*Misol buyruqlar:*\n"
-        f"• `So'nggi 5 chatimni ko'rsat`\n"
-        f"• `Falonchiga 'salom' deb yoz`\n"
-        f"• `ls ~/Documents bajar`\n"
-        f"• `Bugun qanday ishlar bor?`"
+        f"Menga xabar yozing yoki quyidagi tugmalardan foydalaning:"
     )
     keyboard = [
         [
             InlineKeyboardButton("📱 Chatlar", callback_data="chats"),
             InlineKeyboardButton("💻 Terminal", callback_data="terminal"),
+        ],
+        [
+            InlineKeyboardButton("🔁 Auto-javob YOQ", callback_data="autoon"),
+            InlineKeyboardButton("⏸ To'xtatish", callback_data="autooff"),
         ],
         [InlineKeyboardButton("ℹ️ Holat", callback_data="status")],
     ]
@@ -98,6 +99,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
+    # Egasining chat ID'sini saqlaymiz (bildiruv uchun)
+    context.application.bot_data["owner_chat_id"] = update.effective_chat.id
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -242,6 +245,24 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             f"💻 *Terminal:*\n```\n{result}\n```", parse_mode="Markdown"
         )
 
+    elif query.data == "autoon":
+        if userbot and userbot.connected:
+            userbot.auto_reply = True
+            await query.edit_message_text(
+                "🔁 *Auto-javob yoqildi!*\n\n"
+                "Endi Jarvis sizning shaxsiy chatlaringizga avtomatik javob beradi.\n"
+                "Har bir javob haqida sizga bildiruv keladi.\n\n"
+                "To'xtatish uchun: /autooff",
+                parse_mode="Markdown",
+            )
+        else:
+            await query.edit_message_text("❌ Telegram userbot ulanmagan.")
+
+    elif query.data == "autooff":
+        if userbot:
+            userbot.auto_reply = False
+        await query.edit_message_text("⏸ *Auto-javob o'chirildi.*", parse_mode="Markdown")
+
     elif query.data == "status":
         userbot_status = "✅ Ulangan" if (userbot and userbot.connected) else "❌ Ulanmagan"
         text = (
@@ -252,6 +273,28 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             f"🕒 Server vaqti: {time.strftime('%H:%M:%S')}"
         )
         await query.edit_message_text(text, parse_mode="Markdown")
+
+
+async def auto_on(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Auto-javobni yoqish."""
+    if not is_owner(update):
+        return
+    if userbot and userbot.connected:
+        userbot.auto_reply = True
+        await update.message.reply_text(
+            "🔁 Auto-javob yoqildi! Shaxsiy chatlaringizga Jarvis javob bera boshlaydi."
+        )
+    else:
+        await update.message.reply_text("❌ Userbot ulanmagan.")
+
+
+async def auto_off(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Auto-javobni o'chirish."""
+    if not is_owner(update):
+        return
+    if userbot:
+        userbot.auto_reply = False
+    await update.message.reply_text("⏸ Auto-javob o'chirildi.")
 
 
 # ─────────────────────────── MAIN ──────────────────────────────
@@ -267,6 +310,20 @@ async def post_init(application: Application) -> None:
                 phone=TG_PHONE,
             )
             await userbot.connect()
+
+            # AI va bildiruv callbacklarini ulash
+            userbot.set_ai(ai.ask)
+
+            async def notify_owner(text: str) -> None:
+                try:
+                    owner = application.bot_data.get("owner_chat_id")
+                    if owner:
+                        await application.bot.send_message(owner, text, parse_mode="Markdown")
+                except Exception:
+                    pass
+
+            userbot.set_notify(notify_owner)
+            await userbot.start_auto_reply()
             logger.info("✅ Telegram userbot ulandi")
         except Exception as e:
             logger.warning(f"⚠️ Userbot ulana olmadi: {e}")
@@ -287,6 +344,8 @@ def main() -> None:
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", start))
+    app.add_handler(CommandHandler("autoon", auto_on))
+    app.add_handler(CommandHandler("autooff", auto_off))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(MessageHandler(filters.VOICE, handle_voice))
     app.add_handler(CallbackQueryHandler(button_callback))

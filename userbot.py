@@ -1,10 +1,10 @@
-"""Telethon Userbot — Telegram akkountni boshqarish."""
+"""Telethon Userbot — Telegram akkountni boshqarish va auto-reply."""
 
 from __future__ import annotations
 
 import logging
 import os
-from typing import Any
+from typing import Any, Callable
 
 logger = logging.getLogger("jarvis.userbot")
 
@@ -20,6 +20,10 @@ class UserBot:
         self.api_hash = api_hash
         self.phone = phone
         self.connected = False
+        self.auto_reply = False           # Auto-reply rejimi
+        self.ai_callback: Callable | None = None   # Gemini AI funksiyasi
+        self.notify_callback: Callable | None = None  # Bot'ga bildiruv
+        self._me_id: int | None = None   # O'z Telegram ID'miz
 
         session_string = os.environ.get("TG_SESSION_STRING", "")
         session = StringSession(session_string) if session_string else StringSession()
@@ -30,13 +34,69 @@ class UserBot:
         """Telegram'ga ulaning."""
         await self.client.connect()
         if not await self.client.is_user_authorized():
-            logger.warning("Telegram seansi yaroqsiz. Qayta login talab qilinadi.")
-            raise RuntimeError(
-                "Telegram sessiya yaroqsiz. TG_SESSION_STRING o'rnating."
-            )
+            raise RuntimeError("Telegram sessiya yaroqsiz. TG_SESSION_STRING o'rnating.")
         self.connected = True
         me = await self.client.get_me()
+        self._me_id = me.id
         logger.info(f"✅ Telegram: @{me.username} ({me.first_name})")
+
+    def set_ai(self, ai_callback: Callable) -> None:
+        """Gemini AI funksiyasini ulash."""
+        self.ai_callback = ai_callback
+
+    def set_notify(self, notify_callback: Callable) -> None:
+        """Bot bildiruv funksiyasini ulash."""
+        self.notify_callback = notify_callback
+
+    async def start_auto_reply(self) -> None:
+        """Kiruvchi xabarlarga avtomatik javob berish."""
+        from telethon import events
+
+        @self.client.on(events.NewMessage(incoming=True))
+        async def handler(event):
+            if not self.auto_reply:
+                return
+
+            # Guruh va kanallardan kelgan xabarlarga javob bermaylik (xavfli)
+            if event.is_group or event.is_channel:
+                return
+
+            # O'z xabarlarimizga javob bermaylik
+            if event.sender_id == self._me_id:
+                return
+
+            msg_text = event.message.text or ""
+            if not msg_text.strip():
+                return
+
+            try:
+                sender = await event.get_sender()
+                sender_name = getattr(sender, "first_name", "Noma'lum") or "Noma'lum"
+
+                logger.info(f"📩 Yangi xabar ({sender_name}): {msg_text[:50]}")
+
+                # AI dan javob olish
+                if self.ai_callback:
+                    system = (
+                        f"Sen {sender_name} bilan gaplashayotgan NUVI (Isroiljon)ning "
+                        f"AI yordamchisisisan. "
+                        f"Isroiljonning uslubida javob ber — qisqa, do'stona, o'zbekcha. "
+                        f"Agar savol noaniq bo'lsa, qisqa va iltifotli javob ber."
+                    )
+                    reply = await self.ai_callback(msg_text, [], system)
+                    await event.reply(reply)
+                    logger.info(f"✅ Javob yuborildi: {reply[:50]}")
+
+                    # Egasiga bildiruv
+                    if self.notify_callback:
+                        await self.notify_callback(
+                            f"💬 *{sender_name}* yozdi:\n{msg_text}\n\n"
+                            f"🤖 *Jarvis javob berdi:*\n{reply}"
+                        )
+            except Exception as e:
+                logger.error(f"Auto-reply xatosi: {e}")
+
+        logger.info("🤖 Auto-reply yoqildi")
 
     async def get_dialogs(self, limit: int = 10) -> list[dict[str, Any]]:
         """Oxirgi chatlar ro'yxati."""
