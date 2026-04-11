@@ -1,0 +1,4 @@
+python-telegram-bot==21.5
+google-generativeai==0.7.2
+telethon==1.36.0
+cryptg==0.4.0
