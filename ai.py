@@ -373,68 +373,74 @@ class GeminiAI:
             return f"❌ Rasm tahlili xatosi: {e}"
 
     async def text_to_speech(self, text: str, lang: str = "uz") -> str | None:
-        """Matnni ovozga aylantirish (Aisha / edge-tts)."""
-        import os, tempfile
-        import requests
+        """Matnni ovozga aylantirish (Gemini Native Audio - Puck)."""
+        import os, tempfile, requests, base64
         
-        aisha_key = os.environ.get("AISHA_API_KEY")
-        
-        mp3_path = tempfile.mktemp(suffix=".mp3")
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            return None
+            
+        wav_path = tempfile.mktemp(suffix=".wav")
         ogg_path = tempfile.mktemp(suffix=".ogg")
         
-        try:
-            if aisha_key and lang == "uz":
-                url = "https://back.aisha.group/api/v1/tts/post/"
-                headers = {"x-api-key": aisha_key, "Content-Type": "application/json"}
-                data = {"transcript": text, "speaker_id": 2, "voice": "male", "gender": "male"}
-                
-                def fetch_aisha():
-                    try:
-                        r = requests.post(url, headers=headers, json=data, timeout=15)
-                        if r.status_code in [200, 201]:
-                            json_res = r.json()
-                            audio_url = json_res.get("audio_path")
-                            if audio_url:
-                                audio_data = requests.get(audio_url).content
-                                with open(mp3_path, 'wb') as f:
-                                    f.write(audio_data)
-                                return True
-                    except Exception as e:
-                        logger.error(f"Aisha xatosi: {e}")
-                    return False
-                
-                success = await asyncio.to_thread(fetch_aisha)
-                if not success:
-                    return None
-            else:
-                import edge_tts
-                voices = {
-                    "uz": "uz-UZ-SardorNeural",
-                    "ru": "ru-RU-DmitryNeural",
-                    "en": "en-US-GuyNeural",
+        # GEMINI 2.0 FLASH AUDIO
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+        
+        data = {
+            "systemInstruction": {
+                "parts": [{"text": "Sening vazifang - berilgan matnni xuddi radio suxandoni kabi ochiq, tiniq, o'zbek tilidagi chiroyli va sof erkak ovozingda aytib berish. Matnga hech nima qo'shma va undan olib tashlama, faqat uni gapir."}]
+            },
+            "contents": [{"parts": [{"text": f"Faqat ushbu matnni ohang bilan o'qiding: {text}"}]}],
+            "generationConfig": {
+                "temperature": 0.2,
+                "responseModalities": ["AUDIO"],
+                "speechConfig": {
+                    "voiceConfig": {
+                        "prebuiltVoiceConfig": {
+                            "voiceName": "Puck"
+                        }
+                    }
                 }
-                voice = voices.get(lang, voices["uz"])
-                communicate = edge_tts.Communicate(text, voice)
-                await communicate.save(mp3_path)
-
-            proc = await asyncio.create_subprocess_exec(
-                "ffmpeg", "-i", mp3_path,
-                "-c:a", "libopus", "-b:a", "64k",
-                "-application", "voip",
-                ogg_path, "-y",
-                stdout=asyncio.subprocess.DEVNULL,
-                stderr=asyncio.subprocess.DEVNULL,
-            )
-            await proc.wait()
-
+            }
+        }
+        
+        def fetch_gemini():
             try:
-                os.unlink(mp3_path)
-            except OSError:
-                pass
+                r = requests.post(url, json=data, timeout=30)
+                if r.status_code == 200:
+                    res = r.json()
+                    part = res.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0]
+                    inline = part.get('inlineData')
+                    if inline and 'data' in inline:
+                        with open(wav_path, "wb") as f:
+                            f.write(base64.b64decode(inline['data']))
+                        return True
+                else:
+                    logger.error(f"Gemini TTS failed: {r.status_code} - {r.text}")
+            except Exception as e:
+                logger.error(f"Gemini TTS xatosi: {e}")
+            return False
 
-            if os.path.exists(ogg_path) and os.path.getsize(ogg_path) > 0:
-                return ogg_path
+        success = await asyncio.to_thread(fetch_gemini)
+        if not success:
             return None
-        except Exception as e:
-            logger.error(f"TTS xatosi: {e}")
-            return None
+
+        # OGG Opus ga o'tkazish (Telegram Voice uchun majburiy)
+        proc = await asyncio.create_subprocess_exec(
+            "ffmpeg", "-i", wav_path,
+            "-c:a", "libopus", "-b:a", "64k",
+            "-application", "voip",
+            ogg_path, "-y",
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        await proc.wait()
+
+        try:
+            os.unlink(wav_path)
+        except OSError:
+            pass
+
+        if os.path.exists(ogg_path) and os.path.getsize(ogg_path) > 0:
+            return ogg_path
+        return None
