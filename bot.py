@@ -85,6 +85,15 @@ def is_owner(update: Update) -> bool:
         return True
     return update.effective_user.id == OWNER_ID
 
+async def check_auth(update: Update) -> bool:
+    if is_owner(update):
+        return True
+    if update.effective_chat and update.effective_chat.type == "private":
+        try:
+            await update.message.reply_text("Assalomu alaykum. Men Xususiy AI Yordamchisiman va mendan faqatgina Qodirov Isroiljon foydalana oladilar. Uzr, sizga xizmat ko'rsata olmayman 🤖")
+        except: pass
+    return False
+
 
 # ───────────────────── TOOL EXECUTOR ─────────────────────
 
@@ -226,8 +235,7 @@ def build_system_prompt(history: list | None = None, query: str = "") -> str:
 # ───────────────────── MESSAGE HANDLERS ─────────────────────
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not is_owner(update):
-        await update.message.reply_text("❌ Kirish taqiqlangan.")
+    if not await check_auth(update):
         return
 
     text = (
@@ -245,7 +253,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not is_owner(update): return
+    if not await check_auth(update): return
     user_text = update.message.text or ""
     if not user_text.strip(): return
 
@@ -263,7 +271,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not is_owner(update): return
+    if not await check_auth(update): return
     await update.message.reply_text("🎤 Eshityapman...")
     await update.message.chat.send_action(ChatAction.TYPING)
 
@@ -293,7 +301,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not is_owner(update): return
+    if not await check_auth(update): return
     await update.message.chat.send_action(ChatAction.TYPING)
 
     photo = update.message.photo[-1]
