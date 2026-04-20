@@ -39,13 +39,13 @@ def push_phone_command(cmd_type: str, payload: str = "", time: str = ""):
     logger.info(f"📱 Telefon buyrug'i: {cmd_type} | {payload}")
 
 # ─── Ichki yordamchi: AI va system prompt ───────────────────
-def _get_sys_prompt(message: str = "") -> str:
+async def _get_sys_prompt(message: str = "") -> str:
     """BOT_CONTEXT da build_system_prompt bo'lsa ishlatadi, bo'lmasa SYSTEM_PROMPT ni."""
     builder = BOT_CONTEXT.get("build_system_prompt")
     if builder:
         try:
             from session import get_history
-            hist = get_history()
+            hist = await get_history()
             return builder(hist[:-1], message)
         except Exception:
             pass
@@ -97,10 +97,10 @@ async def _process(message: str, source: str = "ios"):
     try:
         from session import add_to_history, get_history
 
-        add_to_history("user", message, source=source)
-        sys_prompt = _get_sys_prompt(message)
+        await add_to_history("user", message, source=source)
+        sys_prompt = await _get_sys_prompt(message)
         response = await ai.process_message(message, sys_prompt, executor)
-        add_to_history("model", response, source=source)
+        await add_to_history("model", response, source=source)
 
         if userbot and userbot.connected:
             try:
@@ -168,12 +168,12 @@ async def root():
 @app.get("/history")
 async def get_hist():
     from session import get_history_display
-    return {"history": get_history_display()}
+    return {"history": await get_history_display()}
 
 @app.delete("/history")
 async def del_hist():
     from session import clear_history
-    clear_history()
+    await clear_history()
     return {"status": "cleared"}
 
 # ─── AISHA TTS Endpoint (iOS PWA uchun O'zbek ovozi) ────────

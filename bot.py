@@ -286,13 +286,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await update.message.chat.send_action(ChatAction.TYPING)
 
     # ── Umumiy (Telegram + iOS) tarix ──
-    add_to_history("user", user_text, source="telegram")
-    history = get_history()
+    await add_to_history("user", user_text, source="telegram")
+    history = await get_history()
 
     sys_prompt = build_system_prompt(history[:-1], user_text)
     response = await ai.process_message(user_text, sys_prompt, execute_tool)
 
-    add_to_history("model", response, source="telegram")
+    await add_to_history("model", response, source="telegram")
     await _send_reply(update, response)
 
 
@@ -311,13 +311,13 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         text = await ai.transcribe(tmp_path)
         await update.message.reply_text(f"🎤 Siz: _{text}_", parse_mode="Markdown")
 
-        history = context.user_data.setdefault("history", [])
-        history.append({"role": "user", "parts": [text]})
+        await add_to_history("user", text, source="telegram")
+        history = await get_history()
         
         sys_prompt = build_system_prompt(history[:-1], text)
         response = await ai.process_message(text, sys_prompt, execute_tool)
         
-        history.append({"role": "model", "parts": [response]})
+        await add_to_history("model", response, source="telegram")
         await _send_reply(update, response)
 
         if VOICE_REPLY and len(response) > 10 and len(response) < 2000:
@@ -340,13 +340,13 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         image_data = Path(tmp_path).read_bytes()
 
         caption = update.message.caption or "Bu rasmda nima bor?"
-        history = context.user_data.setdefault("history", [])
-        history.append({"role": "user", "parts": [f"[Rasm] {caption}"]})
+        await add_to_history("user", f"[Rasm] {caption}", source="telegram")
+        history = await get_history()
 
         sys_prompt = build_system_prompt(history[:-1], caption)
         response = await ai.process_message(caption, sys_prompt, execute_tool, images=[("image/jpeg", image_data)])
 
-        history.append({"role": "model", "parts": [response]})
+        await add_to_history("model", response, source="telegram")
         await _send_reply(update, response)
     finally:
         try: os.unlink(tmp_path)
