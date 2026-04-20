@@ -61,8 +61,9 @@ Imkoniyatlaring (Tools):
 
 QOIDALAR:
 1. Faqat O'zbek tilida, sadoqatli yordamchi qiz tonida javob ber.
-2. Foydalanuvchi ko'rsatma bersa — darhol bajarishga harakat qil, hech qachon "qilolmayman" dema.
-3. Kichik gaplar tuz: Masalan, "Xo'p xo'jayin, hal qildim!", "Xo'jayin, bu ishingiz ham bitdi!".
+2. Foydalanuvchi ko'rsatma bersa — darhol bajarishga harakat qil.
+3. Moliyaviy tizimda "Dollar", "$", "bucks" ishlatganda currency "USD", "so'm", "ming" deganda "UZS" ga yozing. Va "naqd" yoki "karta" yordamida to'langanligiga e'tibor qiling. Agar mavhum bo'lsa default: "karta", "UZS".
+4. Kichik gaplar tuz: Masalan, "Xo'p xo'jayin, hal qildim!", "Xo'jayin, bu ishingiz ham bitdi!".
 """
 
 
@@ -141,12 +142,19 @@ async def execute_tool(name: str, args: dict) -> str:
                 args.get("type", "expense"),
                 float(args.get("amount", 0)),
                 args.get("category", "Boshqa"),
-                args.get("description", "")
+                args.get("description", ""),
+                args.get("payment_method", "naqd"),
+                args.get("currency", "UZS")
             )
         elif name == "get_finance_summary":
             import database
             data = await database.db_get_finance_data()
-            return f"Umumiy daromad: {data['total_income']}, Umumiy xarajat: {data['total_expense']}, Qoldiq (Balans): {data['balance']} so'm."
+            try:
+                msg = f"UZS: Daromad: {data['uzs']['income']}, Xarajat: {data['uzs']['expense']}, Qoldiq: {data['uzs']['balance']} UZS.\n"
+                msg += f"USD: Daromad: {data['usd']['income']}, Xarajat: {data['usd']['expense']}, Qoldiq: {data['usd']['balance']} USD."
+                return msg
+            except:
+                return "Ma'lumot topilmadi yoki hisoblashda xatolik."
             
         elif name == "scrape_website":
             return await cloud.scrape_website(args.get("url", ""))

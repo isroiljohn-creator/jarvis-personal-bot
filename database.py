@@ -49,6 +49,8 @@ CREATE TABLE IF NOT EXISTS transactions (
     amount      NUMERIC NOT NULL,
     category    TEXT NOT NULL,
     description TEXT,
+    payment_method TEXT DEFAULT 'naqd',
+    currency    TEXT DEFAULT 'UZS',
     created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -63,6 +65,12 @@ async def init_db():
         pool = await get_pool()
         async with pool.acquire() as conn:
             await conn.execute(INIT_SQL)
+            # Try to alter existing table just in case
+            try:
+                await conn.execute("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'naqd'")
+                await conn.execute("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS currency TEXT DEFAULT 'UZS'")
+            except Exception:
+                pass
         logger.info("✅ DB jadvallar tayyor")
     except Exception as e:
         logger.error(f"❌ DB init xatosi: {e}")
@@ -190,16 +198,16 @@ async def db_clear_history():
 
 # ─── MOLIYA (MOLIYAVIY HISOB-KITOB) ────────────────────────────
 
-async def db_log_transaction(type: str, amount: float, category: str, description: str = "") -> str:
+async def db_log_transaction(type: str, amount: float, category: str, description: str = "", payment_method: str = "naqd", currency: str = "UZS") -> str:
     """Yangi daromad yoki xarajatni qayd etadi."""
     try:
         pool = await get_pool()
         async with pool.acquire() as conn:
             await conn.execute(
-                "INSERT INTO transactions (type, amount, category, description) VALUES ($1, $2, $3, $4)",
-                type, amount, category, description
+                "INSERT INTO transactions (type, amount, category, description, payment_method, currency) VALUES ($1, $2, $3, $4, $5, $6)",
+                type, amount, category, description, payment_method, currency
             )
-        return "✅ Moliyaviy yozuv muvaffaqiyatli saqlandi!"
+        return f"✅ Moliyaviy yozuv muvaffaqiyatli saqlandi! ({category} guruhiga, to'lov: {payment_method}, {currency})"
     except Exception as e:
         logger.error(f"db_log_transaction xatosi: {e}")
         return f"❌ Moliya yozishda xatolik: {e}"
@@ -209,37 +217,62 @@ async def db_get_finance_data() -> dict:
     try:
         pool = await get_pool()
         async with pool.acquire() as conn:
-            rows = await conn.fetch("SELECT type, amount, category, description, created_at FROM transactions ORDER BY created_at DESC")
+            rows = await conn.fetch("SELECT type, amount, category, description, payment_method, currency, created_at FROM transactions ORDER BY created_at DESC")
             
         transactions = []
-        total_income = 0
-        total_expense = 0
-        categories_expense = {}
+        # UZS Stats
+        total_income_uzs = 0; total_expense_uzs = 0
+        categories_expense_uzs = {}
+        # USD Stats
+        total_income_usd = 0; total_expense_usd = 0
+        categories_expense_usd = {}
+        # Payment breakdown
+        payment_methods = {"naqd": 0, "karta": 0}
         
         for r in rows:
             amount = float(r["amount"])
             t_type = r["type"]
             cat = r["category"]
+            pm = r.get("payment_method", "naqd") or "naqd"
+            curr = r.get("currency", "UZS") or "UZS"
+            curr = curr.upper()
+            pm = pm.lower()
             
             transactions.append({
                 "type": t_type, "amount": amount, "category": cat,
-                "description": r["description"], "date": r["created_at"].strftime("%Y-%m-%d %H:%M")
+                "description": r["description"], "payment_method": pm, "currency": curr,
+                "date": r["created_at"].strftime("%Y-%m-%d %H:%M")
             })
             
-            if t_type == "income":
-                total_income += amount
-            elif t_type == "expense":
-                total_expense += amount
-                categories_expense[cat] = categories_expense.get(cat, 0) + amount
+            if curr == "UZS":
+                if t_type == "income": total_income_uzs += amount
+                elif t_type == "expense": 
+                    total_expense_uzs += amount
+                    categories_expense_uzs[cat] = categories_expense_uzs.get(cat, 0) + amount
+                    if pm in payment_methods: payment_methods[pm] += amount
+            elif curr == "USD":
+                if t_type == "income": total_income_usd += amount
+                elif t_type == "expense": 
+                    total_expense_usd += amount
+                    categories_expense_usd[cat] = categories_expense_usd.get(cat, 0) + amount
                 
         return {
-            "total_income": total_income,
-            "total_expense": total_expense,
-            "balance": total_income - total_expense,
-            "expense_by_category": categories_expense,
-            "transactions": transactions[:50] # So'nggi 50 tasi history ga
+            "uzs": {
+                "income": total_income_uzs,
+                "expense": total_expense_uzs,
+                "balance": total_income_uzs - total_expense_uzs,
+                "expense_by_category": categories_expense_uzs
+            },
+            "usd": {
+                "income": total_income_usd,
+                "expense": total_expense_usd,
+                "balance": total_income_usd - total_expense_usd,
+                "expense_by_category": categories_expense_usd
+            },
+            "payment_methods": payment_methods,
+            "transactions": transactions[:100]
         }
     except Exception as e:
         logger.error(f"db_get_finance_data xatosi: {e}")
-        return {"total_income": 0, "total_expense": 0, "balance": 0, "expense_by_category": {}, "transactions": []}
+        return {"uzs": {"income": 0, "expense": 0, "balance": 0, "expense_by_category": {}}, "usd": {}, "transactions": []}
 

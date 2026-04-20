@@ -178,12 +178,20 @@ Har doim bu toolni telefon bilan bog'liq so'rovlarda chaqir!""",
                     "type": "STRING",
                     "description": "Kategoriya (masalan: Oziq-ovqat, Transport, Kommunal, Oylik, Biznes, Boshqa)"
                 },
+                "payment_method": {
+                    "type": "STRING",
+                    "description": "To'lov qanday qilindi: 'naqd' yoki 'karta'"
+                },
+                "currency": {
+                    "type": "STRING",
+                    "description": "Valyuta: 'UZS' yoki 'USD'"
+                },
                 "description": {
                     "type": "STRING",
                     "description": "Xarajat nima haqidaligi"
                 }
             },
-            "required": ["type", "amount", "category"]
+            "required": ["type", "amount", "category", "payment_method", "currency"]
         }
     },
     {
