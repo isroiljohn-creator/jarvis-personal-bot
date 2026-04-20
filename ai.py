@@ -383,8 +383,8 @@ class GeminiAI:
         wav_path = tempfile.mktemp(suffix=".wav")
         ogg_path = tempfile.mktemp(suffix=".ogg")
         
-        # GEMINI 2.5 PRO AUDIO (Eng kuchli qatlam)
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key={api_key}"
+        # GEMINI 2.0 FLASH AUDIO (Only flash supports AUDIO modality for now)
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
         
         data = {
             "systemInstruction": {

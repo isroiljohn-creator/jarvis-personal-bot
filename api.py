@@ -192,7 +192,7 @@ async def tts_endpoint(text: str = "", lang: str = "uz"):
 
     try:
         clean = text[:500]
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key={api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
         data = {
             "systemInstruction": {
                 "parts": [{"text": "Sening vazifang - matnni xuddi radio suxandoni kabi toza, bexato va sof erkak ovozda (Puck) o'zbek tilida gapirish. Hech narsa qo'shma."}]
