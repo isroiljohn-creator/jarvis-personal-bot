@@ -38,6 +38,29 @@ async def siri_endpoint(req: SiriRequest):
         logger.error(f"Siri webhook xatosi: {e}")
         return {"status": "error", "reason": str(e)}
 
+@app.get("/siri")
+async def siri_endpoint_get(message: str = ""):
+    """GET metodi (Siri shortcut uchun eng oson variant)."""
+    if not message:
+        return {"status": "error", "reason": "No message"}
+        
+    ai = BOT_CONTEXT.get("ai")
+    userbot = BOT_CONTEXT.get("userbot")
+    builder = BOT_CONTEXT.get("build_system_prompt")
+    executor = BOT_CONTEXT.get("execute_tool")
+    
+    if not userbot or not ai or not userbot.connected:
+        return {"status": "error", "reason": "System offline"}
+    
+    try:
+        sys_prompt = builder([], message)
+        response = await ai.process_message(message, sys_prompt, executor)
+        
+        await userbot.send_message("me", f"📱 *Siri orqali*:\n_{message}_\n\n🤖 *Javob*:\n{response}")
+        return {"status": "success", "response": response}
+    except Exception as e:
+        return {"status": "error", "reason": str(e)}
+
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
