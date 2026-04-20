@@ -134,6 +134,42 @@ async def del_hist():
     clear_history()
     return {"status": "cleared"}
 
+# ─── AISHA TTS Endpoint (iOS PWA uchun O'zbek ovozi) ────────
+@app.get("/tts")
+async def tts_endpoint(text: str = "", lang: str = "uz"):
+    """AISHA O'zbek TTS — matnni ovozga aylantiradi va MP3 qaytaradi."""
+    from fastapi.responses import Response, JSONResponse
+    import requests as req_lib, os
+
+    if not text:
+        return JSONResponse({"error": "text bo'sh"}, status_code=400)
+
+    aisha_key = os.environ.get("AISHA_API_KEY")
+    if not aisha_key:
+        return JSONResponse({"error": "AISHA_API_KEY yo'q"}, status_code=503)
+
+    try:
+        clean = text[:500]  # Maksimal 500 belgi
+        r = req_lib.post(
+            "https://back.aisha.group/api/v1/tts/post/",
+            headers={"x-api-key": aisha_key, "Content-Type": "application/json"},
+            json={"transcript": clean},
+            timeout=15
+        )
+        if r.status_code in [200, 201]:
+            audio_url = r.json().get("audio_path")
+            if audio_url:
+                audio_data = req_lib.get(audio_url, timeout=10).content
+                return Response(
+                    content=audio_data,
+                    media_type="audio/mpeg",
+                    headers={"Access-Control-Allow-Origin": "*"}
+                )
+    except Exception as e:
+        logger.error(f"AISHA TTS xatosi: {e}")
+
+    return JSONResponse({"error": "TTS xatosi"}, status_code=500)
+
 # ─── iPhone Command Queue ─────────────────────────────────────
 @app.get("/commands")
 async def get_commands():
