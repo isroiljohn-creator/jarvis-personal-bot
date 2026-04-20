@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.env
+.venv/
+venv/
+*.ogg
+*.mp3
+*.png
+*.jpg
+data/
+*.session
+*.session-journal
