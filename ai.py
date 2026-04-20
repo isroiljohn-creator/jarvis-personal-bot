@@ -232,7 +232,7 @@ class GeminiAI:
 
     def _create_model(self, system_prompt: str = ""):
         return genai.GenerativeModel(
-            model_name="gemini-pro-latest",
+            model_name="gemini-2.5-pro",
             system_instruction=system_prompt or None,
             generation_config={"temperature": 0.5, "max_output_tokens": 8192},
             tools=[{"function_declarations": TOOL_DECLARATIONS}],
@@ -241,7 +241,7 @@ class GeminiAI:
     @property
     def vision_model(self):
         if not self._vision_model:
-            self._vision_model = genai.GenerativeModel("gemini-pro-latest")
+            self._vision_model = genai.GenerativeModel("gemini-2.5-pro")
         return self._vision_model
 
     async def process_message(
@@ -383,12 +383,12 @@ class GeminiAI:
         wav_path = tempfile.mktemp(suffix=".wav")
         ogg_path = tempfile.mktemp(suffix=".ogg")
         
-        # GEMINI 2.0 FLASH AUDIO
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+        # GEMINI 2.5 PRO AUDIO (Eng kuchli qatlam)
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key={api_key}"
         
         data = {
             "systemInstruction": {
-                "parts": [{"text": "Sening vazifang - berilgan matnni xuddi radio suxandoni kabi ochiq, tiniq, o'zbek tilidagi chiroyli va sof erkak ovozingda aytib berish. Matnga hech nima qo'shma va undan olib tashlama, faqat uni gapir."}]
+                "parts": [{"text": "Sening vazifang - berilgan matnni xuddi radio suxandoni kabi ochiq, tiniq, o'zbek tilidagi chiroyli, mutlaqo bexato va sof erkak ovozingda aytib berish. Urg'ularga va shevaga qarab professional, toza adabiy o'zbek tilida talaffuz qil. Matnga o'zingdan qoshimcha gap qoshma."}]
             },
             "contents": [{"parts": [{"text": f"Faqat ushbu matnni ohang bilan o'qiding: {text}"}]}],
             "generationConfig": {
