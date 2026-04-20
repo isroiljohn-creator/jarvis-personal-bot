@@ -49,14 +49,13 @@ async def _get_sys_prompt(message: str = "") -> str:
             return builder(hist[:-1], message)
         except Exception:
             pass
-    # Zaxira: to'liq SYSTEM_PROMPT ni o'zi yaratadi
     from datetime import datetime as dt
     now = dt.now()
     return f"""[HOZIRGI VAQT]: {now.strftime('%Y-%m-%d %H:%M, %A')}
 
-Sen — Jasursan. Foydalanuvchi Isroiljonning shaxsiy yordamchisi va ukasisan.
-Sening vazifang uni ishlarini hal qilish. Lekin u bilan toza Toshkent shevasida, juda hurmat bilan (Sizlab, Oka deb) gaplashasan.
-Hech qachon "Foydalanuvchi" yoki "Senga" demagin. Doim "Sizga", "Oka" deb murojaat qil. Gaplar qisqa, tushunarli, "qilvuraman", "borvoman" kabi Toshkent shevasida bo'lsin.
+Sen — Jasminasan. Foydalanuvchi Isroiljonning shaxsiy yordamchisi va singlisisan.
+Sening vazifang uning ishlarini hal qilish. O'zbek tilida (Toshkentlik muloyim, jaydari qizdek) juda hurmat bilan, mehr va emotsiya bilan gaplashasan.
+Hech qachon "Foydalanuvchi" yoki "Senga" demagin. Doim "Sizga", "Aka" yoxud "Akajon" deb murojaat qil. Gaplar qisqa, tushunarli, tabiiy bo'lsin. Ovozli xabar qilinganda TTS chiroyli va hissiyotli o'qishi uchun gaplarni vergul, pauzalar va undovlar (!, ?) bilan to'g'ri bo'lib yoz.
 
 Imkoniyatlaring:
 📅 Google Calendar — uchrashuv qo'sh, ko'r
@@ -67,10 +66,10 @@ Imkoniyatlaring:
 📱 iPhone — budilnik, musiqa, ilova ochish (phone_control)
 
 QOIDALAR:
-1. Faqat O'zbek tilida javob ber (agar Rus yoki boshqa tilda so'ralsa ham)
-2. Qisqa, aniq, do'stona uslub
-3. Foydalanuvchi ma'lumot aytsa — save_memory chaqir (jim saqla)
-4. Hech qachon "Men AI man, bajara olmayman" dema — har doim urinib ko'r
+1. Faqat O'zbek tilida, qiz bola samimiy tonida javob ber.
+2. Qisqa, baquvvat, do'stona, emotsiyaga boy uslub.
+3. Foydalanuvchi ma'lumot aytsa — save_memory chaqir (jim saqla).
+4. Hech qachon "Men AI man, bajara olmayman" dema — har doim urinib ko'r.
 """
 
 # ─── ENDPOINTS ───────────────────────────────────────────────
@@ -186,40 +185,29 @@ async def tts_endpoint(text: str = "", lang: str = "uz"):
     if not text:
         return JSONResponse({"error": "text bo'sh"}, status_code=400)
 
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        return JSONResponse({"error": "GEMINI_API_KEY yo'q"}, status_code=503)
+    aisha_key = os.environ.get("AISHA_API_KEY")
+    if not aisha_key:
+        return JSONResponse({"error": "AISHA_API_KEY yo'q"}, status_code=503)
 
     try:
-        clean = text[:500]
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
-        data = {
-            "systemInstruction": {
-                "parts": [{"text": "Sening vazifang - matnni xuddi radio suxandoni kabi toza, bexato va sof erkak ovozda (Puck) o'zbek tilida gapirish. Hech narsa qo'shma."}]
-            },
-            "contents": [{"parts": [{"text": f"Faqat o'qib ber: {clean}"}]}],
-            "generationConfig": {
-                "temperature": 0.2,
-                "responseModalities": ["AUDIO"],
-                "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": "Puck"}}}
-            }
-        }
-        
-        r = req_lib.post(url, json=data, timeout=30)
-        if r.status_code == 200:
-            res = r.json()
-            part = res.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0]
-            inline = part.get('inlineData')
-            if inline and 'data' in inline:
-                import base64
-                audio_data = base64.b64decode(inline['data'])
+        clean = text[:500]  # Maksimal 500 belgi
+        r = req_lib.post(
+            "https://back.aisha.group/api/v1/tts/post/",
+            headers={"x-api-key": aisha_key, "Content-Type": "application/json"},
+            json={"transcript": clean, "speaker_id": 1, "voice": "aisha", "gender": "female"},
+            timeout=15
+        )
+        if r.status_code in [200, 201]:
+            audio_url = r.json().get("audio_path")
+            if audio_url:
+                audio_data = req_lib.get(audio_url, timeout=10).content
                 return Response(
                     content=audio_data,
-                    media_type="audio/wav",
+                    media_type="audio/mpeg",
                     headers={"Access-Control-Allow-Origin": "*"}
                 )
     except Exception as e:
-        logger.error(f"Gemini TTS xatosi: {e}")
+        logger.error(f"AISHA TTS xatosi: {e}")
 
     return JSONResponse({"error": "TTS xatosi"}, status_code=500)
 
