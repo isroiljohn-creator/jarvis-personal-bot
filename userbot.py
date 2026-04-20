@@ -138,6 +138,34 @@ class UserBot:
             )
         return messages
 
+    async def get_daily_digest_messages(self, limit_dialogs: int = 40) -> str:
+        """Kungi xabarlarni tahlil uchun to'plash."""
+        output = []
+        async for dialog in self.client.iter_dialogs(limit=limit_dialogs):
+            is_news_channel = dialog.is_channel and not dialog.is_group
+            if is_news_channel:
+                continue
+                
+            unread = dialog.unread_count
+            if unread > 0:
+                output.append(f"\n--- Chat: {dialog.name} ({unread} ta o'qilmagan xabar) ---")
+                count = 0
+                async for msg in self.client.iter_messages(dialog.id, limit=min(unread, 20)):
+                    sender = "Noma'lum"
+                    if msg.sender:
+                        if hasattr(msg.sender, "first_name"):
+                            sender = msg.sender.first_name or "Noma'lum"
+                        elif hasattr(msg.sender, "title"):
+                            sender = msg.sender.title or "Noma'lum"
+                    text = msg.text or "[Media/Stiker]"
+                    output.append(f"{sender}: {text}")
+                    count += 1
+                if unread > 20:
+                    output.append(f"... (yana {unread - 20} ta xabar o'qilmadi)")
+                    
+        return "\n".join(output) if output else ""
+
+
     async def send_message(self, chat_id: int, text: str) -> None:
         """Xabar yuborish (chat_id bo'yicha)."""
         await self.client.send_message(chat_id, text)

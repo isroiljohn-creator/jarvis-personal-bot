@@ -6,6 +6,8 @@ import os
 import sys
 import tempfile
 import time
+import datetime
+import pytz
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -391,6 +393,27 @@ async def post_init(application: Application) -> None:
             userbot = None
 
 
+async def daily_digest_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.info("⏱ Daily Digest jarayoni boshlandi...")
+    if not userbot:
+        return
+    text_data = await userbot.get_daily_digest_messages(limit_dialogs=40)
+    if not text_data:
+        try: await userbot.send_message("me", "📭 Yordamchi Tahlili: Bugun o'qilmagan xabarlar yo'q.")
+        except: pass
+        return
+
+    prompt = "Quyida foydalanuvchining bugungi barcha muhim chatlaridan yig'ilgan xabarlar ro'yxati berilgan. Bularni o'qib eng muhim, ahamiyatli qismlarini (priority boyicha) asosiy planga chiqarib, eng oxirida muhimlik darajasida o'zbekcha chiroyli hisobot qilib (Digest) ber:\n\n" + text_data
+    
+    try:
+        sys_prompt = build_system_prompt([])
+        response = await ai.process_message("Menga bugungi chatlar tahlilini ber!\n\n" + prompt, sys_prompt, execute_tool)
+        report = f"📊 *Kunlik Kechki Telegram Tahlili (20:00)*\n\n{response}"
+        # O'zining Saved Messages'iga yuborish
+        await userbot.send_message("me", report)
+    except Exception as e:
+        logger.error(f"Digest yuborishda xato: {e}")
+
 def main() -> None:
     app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
     app.add_handler(CommandHandler("start", start))
@@ -400,6 +423,10 @@ def main() -> None:
     app.add_handler(MessageHandler(filters.VOICE, handle_voice))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(CallbackQueryHandler(button_callback))
+
+    tz = pytz.timezone("Asia/Tashkent")
+    t = datetime.time(hour=20, minute=0, tzinfo=tz)
+    app.job_queue.run_daily(daily_digest_job, time=t)
 
     logger.info("✅ Jarvis tayyor! Polling boshlandi.")
     app.run_polling(drop_pending_updates=True)
