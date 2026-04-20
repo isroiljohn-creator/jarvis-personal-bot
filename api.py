@@ -211,12 +211,12 @@ async def tts_endpoint(text: str = "", lang: str = "uz"):
 
     return JSONResponse({"error": "TTS xatosi"}, status_code=500)
 
-# ─── AISHA STT Endpoint ──────────────────────────────────────
+# ─── AISHA STT Endpoint (Polling bilan) ──────────────────────
 @app.post("/stt")
 async def stt_endpoint(request: Request):
-    """AISHA STT — audio faylni O'zbek matnga aylantiradi."""
+    """AISHA STT — audio → matn. AISHA asinxron, polling bilan kutamiz."""
     from fastapi.responses import JSONResponse
-    import requests as req_lib, os
+    import requests as req_lib, os, time
 
     aisha_key = os.environ.get("AISHA_API_KEY")
     if not aisha_key:
@@ -224,42 +224,74 @@ async def stt_endpoint(request: Request):
 
     try:
         body = await request.body()
-        if not body:
-            return JSONResponse({"error": "Audio bo'sh"}, status_code=400)
+        if not body or len(body) < 500:
+            return JSONResponse({"error": "Audio juda qisqa"}, status_code=400)
 
-        content_type = request.headers.get("content-type", "audio/mp4")
-        # Fayl nomini content type ga qarab aniqlash
-        ext_map = {
-            "audio/webm": "audio.webm",
-            "audio/mp4": "audio.mp4",
-            "audio/ogg": "audio.ogg",
-            "audio/mpeg": "audio.mp3",
-        }
-        fname = ext_map.get(content_type.split(";")[0].strip(), "audio.webm")
+        content_type = request.headers.get("content-type", "audio/mp4").split(";")[0].strip()
+        ext_map = {"audio/webm": "audio.webm", "audio/mp4": "audio.mp4",
+                   "audio/ogg": "audio.ogg", "audio/wav": "audio.wav"}
+        fname = ext_map.get(content_type, "audio.mp4")
 
-        logger.info(f"STT: {len(body)} bytes, type={content_type}, file={fname}")
+        logger.info(f"STT yuborildi: {len(body)} bytes, {content_type} → {fname}")
 
-        files  = {"audio": (fname, body, content_type)}
-        headers = {"x-api-key": aisha_key}
+        # 1-qadam: AISHA ga audio yuborish
+        def submit_audio():
+            r = req_lib.post(
+                "https://back.aisha.group/api/v2/stt/post/",
+                headers={"x-api-key": aisha_key},
+                files={"audio": (fname, body, content_type)},
+                timeout=20
+            )
+            return r
 
-        r = req_lib.post(
-            "https://back.aisha.group/api/v2/stt/post/",
-            headers=headers,
-            files=files,
-            timeout=25
-        )
-        logger.info(f"AISHA STT javob: {r.status_code} — {r.text[:300]}")
+        r = await asyncio.to_thread(submit_audio)
+        logger.info(f"AISHA submit: {r.status_code} → {r.text[:200]}")
 
-        if r.status_code in [200, 201]:
-            data = r.json()
-            # AISHA turli field nomlari ishlatishi mumkin
-            text = (data.get("text") or data.get("transcript")
-                    or data.get("result") or data.get("recognized_text", ""))
-            if text:
-                return JSONResponse({"text": text.strip()})
-            return JSONResponse({"error": "Matn aniqlanmadi", "raw": data}, status_code=422)
+        if r.status_code not in [200, 201]:
+            return JSONResponse({"error": f"AISHA {r.status_code}", "detail": r.text[:200]}, status_code=500)
 
-        return JSONResponse({"error": f"AISHA {r.status_code}", "detail": r.text[:200]}, status_code=500)
+        task_data = r.json()
+        task_id = task_data.get("task_id") or task_data.get("id")
+
+        # Agar darhol matn kelsa
+        direct = task_data.get("text") or task_data.get("transcript")
+        if direct:
+            logger.info(f"AISHA STT darhol: {direct[:80]}")
+            return JSONResponse({"text": direct.strip()})
+
+        if not task_id:
+            return JSONResponse({"error": "task_id yo'q", "raw": task_data}, status_code=422)
+
+        # 2-qadam: Natijani polling (max 20 soniya)
+        logger.info(f"AISHA polling task_id={task_id}")
+        def poll_result():
+            for attempt in range(10):
+                time.sleep(2)
+                resp = req_lib.get(
+                    f"https://back.aisha.group/api/v2/stt/{task_id}/",
+                    headers={"x-api-key": aisha_key},
+                    timeout=10
+                )
+                if resp.status_code == 200:
+                    d = resp.json()
+                    status = d.get("status", "")
+                    logger.info(f"  poll[{attempt+1}]: status={status}, keys={list(d.keys())}")
+                    if status in ["DONE", "COMPLETED", "SUCCESS", "done", "completed"]:
+                        # Turli field nomlarini tekshiramiz
+                        text = (d.get("text") or d.get("transcript") or
+                                d.get("result") or d.get("recognized_text") or
+                                d.get("data", {}).get("text", "") if isinstance(d.get("data"), dict) else "")
+                        return text or str(d)
+                    if status in ["FAILED", "ERROR"]:
+                        return None
+            return None
+
+        result = await asyncio.to_thread(poll_result)
+        if result:
+            logger.info(f"AISHA STT natija: {result[:80]}")
+            return JSONResponse({"text": result.strip()})
+
+        return JSONResponse({"error": "20 soniyada natija kelmadi, matn kiriting"}, status_code=408)
 
     except Exception as e:
         logger.error(f"STT exception: {e}", exc_info=True)
