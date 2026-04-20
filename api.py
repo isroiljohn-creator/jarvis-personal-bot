@@ -64,7 +64,7 @@ async def siri_endpoint(req: SiriRequest):
 
 @app.get("/siri")
 async def siri_endpoint_get(message: str = ""):
-    """iOS PWA va GET request uchun — to'liq Jarvis AI bilan ishlaydi."""
+    """iOS PWA va GET request uchun — Telegram bot bilan bir xil miya va tarix!"""
     if not message:
         return {"status": "error", "reason": "No message"}
 
@@ -77,16 +77,23 @@ async def siri_endpoint_get(message: str = ""):
         return {"status": "error", "reason": "AI hali ishga tushmagan, bir daqiqa kuting."}
 
     try:
-        # To'liq Telegram bot bilan bir xil system prompt (bo'sh emas!)
-        sys_prompt = builder([], message) if builder else ""
+        from session import add_to_history, get_history
+
+        # Telegram bot bilan bir xil umumiy tarix!
+        add_to_history("user", message, source="ios")
+        history = get_history()
+
+        sys_prompt = builder(history[:-1], message) if builder else ""
         response = await ai.process_message(message, sys_prompt, executor)
 
-        # Agar userbot ulangan bo'lsa — Saved Messages ga ham nusxa jo'nat
+        add_to_history("model", response, source="ios")
+
+        # Agar userbot ulangan bo'lsa — Saved Messages ga ham nusxa
         if userbot and userbot.connected:
             try:
                 await userbot.send_message("me", f"📱 *iOS Ilova*:\n_{message}_\n\n🤖 *Javob*:\n{response}")
             except Exception:
-                pass  # Telegram nusxasi bo'lmasa ham asosiy javob qaytadi
+                pass
 
         return {"status": "success", "response": response}
     except Exception as e:
@@ -96,6 +103,19 @@ async def siri_endpoint_get(message: str = ""):
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
+
+@app.get("/history")
+async def get_shared_history():
+    """iOS PWA uchun umumiy suhbat tarixini qaytaradi."""
+    from session import get_history_display
+    return {"history": get_history_display()}
+
+@app.delete("/history")
+async def delete_history():
+    """Umumiy tarixni tozalaydi (Telegram + iOS)."""
+    from session import clear_history
+    clear_history()
+    return {"status": "cleared"}
 
 # ─── iPhone Command Queue Endpoints ────────────────────────────
 

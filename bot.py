@@ -24,6 +24,7 @@ from ai import GeminiAI
 from userbot import UserBot
 from cloud import CloudHub
 from memory import load_memory, update_memory, format_memory_for_prompt, search_memory
+from session import add_to_history, get_history, clear_history as clear_shared_history
 
 logging.basicConfig(
     level=logging.INFO,
@@ -276,14 +277,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if not user_text.strip(): return
 
     await update.message.chat.send_action(ChatAction.TYPING)
-    history = context.user_data.setdefault("history", [])
-    history.append({"role": "user", "parts": [user_text]})
-    if len(history) > 20: history.pop(0)
+
+    # ── Umumiy (Telegram + iOS) tarix ──
+    add_to_history("user", user_text, source="telegram")
+    history = get_history()
 
     sys_prompt = build_system_prompt(history[:-1], user_text)
     response = await ai.process_message(user_text, sys_prompt, execute_tool)
 
-    history.append({"role": "model", "parts": [response]})
+    add_to_history("model", response, source="telegram")
     await _send_reply(update, response)
 
 
