@@ -1,6 +1,6 @@
 """Jarvis FastAPI Gateway — mustaqil ishlaydi, bot_context bog'liq emas."""
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
@@ -211,11 +211,10 @@ async def tts_endpoint(text: str = "", lang: str = "uz"):
 
     return JSONResponse({"error": "TTS xatosi"}, status_code=500)
 
-# ─── AISHA STT Endpoint (iOS PWA uchun O'zbek STT) ──────────
+# ─── AISHA STT Endpoint ──────────────────────────────────────
 @app.post("/stt")
-async def stt_endpoint(request):
+async def stt_endpoint(request: Request):
     """AISHA STT — audio faylni O'zbek matnga aylantiradi."""
-    from fastapi import Request
     from fastapi.responses import JSONResponse
     import requests as req_lib, os
 
@@ -225,28 +224,45 @@ async def stt_endpoint(request):
 
     try:
         body = await request.body()
-        content_type = request.headers.get("content-type", "audio/webm")
+        if not body:
+            return JSONResponse({"error": "Audio bo'sh"}, status_code=400)
 
-        files = {"audio": ("audio.ogg", body, content_type)}
+        content_type = request.headers.get("content-type", "audio/mp4")
+        # Fayl nomini content type ga qarab aniqlash
+        ext_map = {
+            "audio/webm": "audio.webm",
+            "audio/mp4": "audio.mp4",
+            "audio/ogg": "audio.ogg",
+            "audio/mpeg": "audio.mp3",
+        }
+        fname = ext_map.get(content_type.split(";")[0].strip(), "audio.webm")
+
+        logger.info(f"STT: {len(body)} bytes, type={content_type}, file={fname}")
+
+        files  = {"audio": (fname, body, content_type)}
         headers = {"x-api-key": aisha_key}
 
         r = req_lib.post(
             "https://back.aisha.group/api/v2/stt/post/",
             headers=headers,
             files=files,
-            timeout=20
+            timeout=25
         )
+        logger.info(f"AISHA STT javob: {r.status_code} — {r.text[:300]}")
+
         if r.status_code in [200, 201]:
             data = r.json()
-            text = data.get("text") or data.get("transcript") or data.get("result", "")
+            # AISHA turli field nomlari ishlatishi mumkin
+            text = (data.get("text") or data.get("transcript")
+                    or data.get("result") or data.get("recognized_text", ""))
             if text:
                 return JSONResponse({"text": text.strip()})
+            return JSONResponse({"error": "Matn aniqlanmadi", "raw": data}, status_code=422)
 
-        logger.error(f"AISHA STT: {r.status_code} — {r.text[:200]}")
-        return JSONResponse({"error": f"STT xatosi: {r.status_code}"}, status_code=500)
+        return JSONResponse({"error": f"AISHA {r.status_code}", "detail": r.text[:200]}, status_code=500)
 
     except Exception as e:
-        logger.error(f"AISHA STT exception: {e}")
+        logger.error(f"STT exception: {e}", exc_info=True)
         return JSONResponse({"error": str(e)}, status_code=500)
 
 # ─── iPhone Command Queue ─────────────────────────────────────
