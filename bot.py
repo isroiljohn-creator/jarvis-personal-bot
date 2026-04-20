@@ -153,6 +153,21 @@ async def execute_tool(name: str, args: dict) -> str:
             return await cloud.scrape_website(args.get("url", ""))
         elif name == "youtube_transcript":
             return await cloud.youtube_transcript(args.get("url", ""))
+        elif name == "phone_control":
+            from api import push_phone_command
+            action  = args.get("action", "url")
+            payload = args.get("payload", "")
+            time    = args.get("time", "")
+            push_phone_command(action, payload, time)
+            action_labels = {
+                "alarm":    f"⏰ Budilnik qo'yildi: {time}",
+                "music":    f"🎵 Musiqa navbatga qo'yildi: {payload}",
+                "url":      f"🔗 Ilova/Havola ochiladi: {payload}",
+                "reminder": f"🔔 Eslatma qo'yildi: {payload} | Vaqti: {time}",
+                "call":     f"📞 Qo'ng'iroq qilinadi: {payload}",
+                "message":  f"💬 SMS yuboriladi: {payload}",
+            }
+            return action_labels.get(action, f"✅ Telefon buyrug'i yuborildi: {action}")
         else:
             return f"❌ Noma'lum tool: {name}"
 

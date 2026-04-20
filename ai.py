@@ -26,6 +26,28 @@ TOOL_DECLARATIONS = [
         },
     },
     {
+        "name": "phone_control",
+        "description": "Foydalanuvchining iPhone telefonida amal bajaradi: budilnik qo'yish, musiqa qo'yish, ilova ochish, eslatma qo'shish va boshqalar. Telefon boshqaruviga doir har qanday so'rovda bu toolni ishlatish majburiy.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "action": {
+                    "type": "STRING",
+                    "description": "Bajariladigan amal turi: 'alarm' (budilnik), 'music' (musiqa), 'url' (ilova yoki havola ochish), 'reminder' (eslatma), 'call' (qo'ng'iroq), 'message' (SMS)"
+                },
+                "payload": {
+                    "type": "STRING",
+                    "description": "Amal uchun ma'lumot: musiqa nomi, URL, telefon raqami, SMS matni va h.k."
+                },
+                "time": {
+                    "type": "STRING",
+                    "description": "Vaqt (faqat alarm va reminder uchun) — 'HH:MM' formatida, masalan: '07:30'"
+                },
+            },
+            "required": ["action", "payload"],
+        },
+    },
+    {
         "name": "scrape_website",
         "description": "Berilgan web saytning barcha matnini tartibli o'qib keladi.",
         "parameters": {

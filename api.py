@@ -1,15 +1,16 @@
-"""Siri Shortcuts uchun FastAPI Webhook Serveri."""
+"""Jarvis FastAPI Webhook Serveri — Siri, iOS PWA va iPhone Command Queue."""
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import logging
+from typing import Optional
+from collections import deque
+import logging, json
 
 logger = logging.getLogger("jarvis.api")
 
-app = FastAPI(title="Jarvis Webhook (Siri)")
+app = FastAPI(title="Jarvis AI Gateway")
 
-# iOS PWA va Siri uchun CORS ruxsati
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,8 +22,21 @@ app.add_middleware(
 class SiriRequest(BaseModel):
     message: str
 
-# Bizga bot instance va ai kerak, buni bot ishlayotganda update qilamiz.
-BOT_CONTEXT = {}
+class PhoneCommand(BaseModel):
+    type: str            # "alarm", "url", "music", "reminder", "notify"
+    payload: Optional[str] = ""
+    time: Optional[str] = ""
+
+# ─── iPhone Command Queue ─────────────────────────────────────
+COMMAND_QUEUE: deque = deque(maxlen=20)
+
+def push_phone_command(cmd_type: str, payload: str = "", time: str = ""):
+    """Bot yoki AI tomonidan chaqiriladi — navbatga buyruq qo'shadi."""
+    COMMAND_QUEUE.append({"type": cmd_type, "payload": payload, "time": time})
+    logger.info(f"📱 Yangi telefon buyrug'i: {cmd_type} | {payload}")
+
+# Botga ham eksport qilamiz
+BOT_CONTEXT = {"push_phone_command": push_phone_command}
 
 @app.post("/siri")
 async def siri_endpoint(req: SiriRequest):
@@ -74,3 +88,23 @@ async def siri_endpoint_get(message: str = ""):
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
+
+# ─── iPhone Command Queue Endpoints ────────────────────────────
+
+@app.get("/commands")
+async def get_commands():
+    """iPhone Shortcut har daqiqada shu endpointni tekshiradi.
+    Yangi buyruq bo'lsa — qaytaradi va navbatdan o'chiradi."""
+    if not COMMAND_QUEUE:
+        return {"commands": []}
+    
+    # Barcha buyruqlarni olb navbatni tozalaymiz
+    cmds = list(COMMAND_QUEUE)
+    COMMAND_QUEUE.clear()
+    return {"commands": cmds}
+
+@app.post("/commands")
+async def add_command(cmd: PhoneCommand):
+    """Bot yoki boshqa manba telefonga buyruq qo'shadi."""
+    push_phone_command(cmd.type, cmd.payload, cmd.time)
+    return {"status": "queued", "command": cmd.type}
