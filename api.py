@@ -121,7 +121,48 @@ async def _process(message: str, source: str = "ios"):
 @app.get("/health")
 async def health():
     ai_ready = bool(BOT_CONTEXT.get("ai"))
-    return {"status": "ok", "ai_ready": ai_ready}
+    try:
+        from database import get_pool
+        pool = await get_pool()
+        db_ok = pool is not None
+    except Exception:
+        db_ok = False
+    return {"status": "ok", "ai_ready": ai_ready, "db": "postgresql" if db_ok else "offline"}
+
+@app.get("/")
+async def root():
+    from fastapi.responses import HTMLResponse
+    html = """<!DOCTYPE html>
+<html lang="uz">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>J.A.R.V.I.S API</title>
+<style>
+  body{margin:0;background:#000;color:#00d4ff;font-family:monospace;display:flex;
+       align-items:center;justify-content:center;min-height:100vh;flex-direction:column;}
+  h1{font-size:2rem;letter-spacing:8px;text-shadow:0 0 20px #00d4ff;margin-bottom:8px;}
+  p{color:#666;margin:0 0 24px;}
+  .endpoints{display:flex;flex-direction:column;gap:8px;min-width:340px;}
+  .ep{background:#0a0a1a;border:1px solid #00d4ff22;border-radius:8px;padding:10px 16px;
+      display:flex;justify-content:space-between;align-items:center;}
+  .method{color:#8b5cf6;font-size:12px;margin-right:12px;}
+  .path{color:#00d4ff;}
+  .desc{color:#555;font-size:12px;text-align:right;}
+  .status{margin-top:24px;color:#22c55e;font-size:13px;}
+</style></head>
+<body>
+  <h1>J.A.R.V.I.S</h1>
+  <p>Personal AI Gateway · Online</p>
+  <div class="endpoints">
+    <div class="ep"><span><span class="method">GET</span><span class="path">/siri?message=...</span></span><span class="desc">iOS PWA · Telegram</span></div>
+    <div class="ep"><span><span class="method">POST</span><span class="path">/stt</span></span><span class="desc">AISHA O'zbek STT</span></div>
+    <div class="ep"><span><span class="method">GET</span><span class="path">/tts?text=...</span></span><span class="desc">AISHA O'zbek TTS</span></div>
+    <div class="ep"><span><span class="method">GET</span><span class="path">/history</span></span><span class="desc">Suhbat tarixi</span></div>
+    <div class="ep"><span><span class="method">GET</span><span class="path">/commands</span></span><span class="desc">iPhone Queue</span></div>
+    <div class="ep"><span><span class="method">GET</span><span class="path">/health</span></span><span class="desc">Holat tekshirish</span></div>
+  </div>
+  <div class="status">✅ Tizim Ishlayapti · PostgreSQL · AISHA · Gemini</div>
+</body></html>"""
+    return HTMLResponse(html)
 
 @app.get("/history")
 async def get_hist():
