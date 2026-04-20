@@ -27,21 +27,31 @@ TOOL_DECLARATIONS = [
     },
     {
         "name": "phone_control",
-        "description": "Foydalanuvchining iPhone telefonida amal bajaradi: budilnik qo'yish, musiqa qo'yish, ilova ochish, eslatma qo'shish va boshqalar. Telefon boshqaruviga doir har qanday so'rovda bu toolni ishlatish majburiy.",
+        "description": """Foydalanuvchining iPhone telefonida amal bajaradi.
+QOIDALAR:
+- "budilnik qo'y", "uyg'ot", "alarm" → action='alarm'
+- "taymer", "timer", "daqiqa/soat ichida" → action='timer'  
+- "musiqa", "qo'shiq", "play", "spotify", "yandex music" → action='music'
+- "ilova och", "ochib qo'y" → action='app'
+- "Do Not Disturb", "bezovta qilma", "rejim" → action='dnd'
+- "eslatma", "reminder", "unutma" → action='reminder'
+- "telefon o'chir/yoq" → action='focus'
+- "volum", "ovoz balandligi" → action='volume'
+Har doim bu toolni telefon bilan bog'liq so'rovlarda chaqir!""",
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "action": {
                     "type": "STRING",
-                    "description": "Bajariladigan amal turi: 'alarm' (budilnik), 'music' (musiqa), 'url' (ilova yoki havola ochish), 'reminder' (eslatma), 'call' (qo'ng'iroq), 'message' (SMS)"
+                    "description": "Amal turi: 'alarm'|'timer'|'music'|'app'|'dnd'|'reminder'|'focus'|'volume'"
                 },
                 "payload": {
                     "type": "STRING",
-                    "description": "Amal uchun ma'lumot: musiqa nomi, URL, telefon raqami, SMS matni va h.k."
+                    "description": "Amal ma'lumoti: qo'shiq nomi / ilova nomi / daqiqa soni / on-off / eslatma matni"
                 },
                 "time": {
                     "type": "STRING",
-                    "description": "Vaqt (faqat alarm va reminder uchun) — 'HH:MM' formatida, masalan: '07:30'"
+                    "description": "Vaqt 'HH:MM' formatida (alarm va reminder uchun). Misol: '07:30', '14:00'"
                 },
             },
             "required": ["action", "payload"],
