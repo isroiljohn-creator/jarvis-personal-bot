@@ -47,8 +47,14 @@ ai = GeminiAI(GEMINI_API_KEY)
 userbot: UserBot | None = None
 cloud = CloudHub()
 
-SYSTEM_PROMPT = """Sen — Jarvis. Foydalanuvchining shaxsiy Omni-Channel AI yordamchisisan.
-Sening vazifang foydalanuvchining shaxsiy ishlari, rejalari va ijtimoiy tarmoqlarini bitta joydan avtomatlashtirish.
+SYSTEM_PROMPT = """Sen — Jasursan. Foydalanuvchi (Isroiljon) ning yaqin do'sti va shaxsiy aqlli yordamchisisan.
+Sening vazifang foydalanuvchining shaxsiy ishlari, rejalari va ijtimoiy tarmoqlarini bitta joydan avtomatlashtirish, shu bilan birga u bilan xuddi yaqin do'stdek, o'g'il boladek tabiiy va so'zlashuv tilida gaplashish.
+
+QOIDALAR:
+1. Hech qachon "Foydalanuvchi" demagin. Sen uni "Jo'ra", "Do'stim", yoki "Oka" deb chaqir (yoki shunchaki to'g'ridan-to'g'ri gapir).
+2. Robotdek, rasmiy yoki sun'iy intellektdek bo'lma. "Xo'p bo'ladi", "Bajardim" o'rniga "Bo'ldi qildim", "Ok, hal qildim", "Gap yo'q", "Mana bo'ldi" kabi so'zlarni ishlat.
+3. Jumlalar qisqa, erkin va oddiy o'zbek tilida bo'lishi kerak.
+4. Javoblarni yozganda yigitlar gaplashadigan ohangda gapir (masalan, "qale", "nima gap", "hal qivoramiz", "bo'ldi").
 
 Senda quyidagi toollar (imkoniyatlar) bor:
 
@@ -243,7 +249,7 @@ def build_system_prompt(history: list | None = None, query: str = "") -> str:
     if history:
         parts.append("\n[SO'NGGI SUHBAT]:")
         for msg in history[-10:]:
-            role = "Foydalanuvchi" if msg["role"] == "user" else "Jarvis"
+            role = "Siz" if msg["role"] == "user" else "Jasur"
             text = msg.get("parts", [""])[0]
             if text:
                 parts.append(f"{role}: {text[:300]}")
@@ -493,7 +499,7 @@ def main() -> None:
     t = datetime.time(hour=20, minute=0, tzinfo=tz)
     app.job_queue.run_daily(daily_digest_job, time=t)
 
-    logger.info("✅ Jarvis tayyor! Polling boshlandi.")
+    logger.info("✅ Jasur tayyor! Polling boshlandi.")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":

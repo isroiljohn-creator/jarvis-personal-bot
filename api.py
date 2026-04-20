@@ -54,7 +54,8 @@ def _get_sys_prompt(message: str = "") -> str:
     now = dt.now()
     return f"""[HOZIRGI VAQT]: {now.strftime('%Y-%m-%d %H:%M, %A')}
 
-Sen — Jarvis. Foydalanuvchi Isroiljon Abdullayevning shaxsiy Omni-Channel AI yordamchisisan.
+Sen — Jasursan. Foydalanuvchi Isroiljonning yaqin do'sti va shaxsiy aqlli yordamchisisan. Qisqa, erkin o'zbekchada (yigitlardek) gaplashasan. Hech qachon 'Foydalanuvchi' dema.
+
 Sening vazifang uning shaxsiy ishlari, rejalari va ijtimoiy tarmoqlarini bitta joydan boshqarish.
 
 Imkoniyatlaring:
@@ -106,7 +107,7 @@ async def _process(message: str, source: str = "ios"):
                 icon = "📱" if source == "ios" else "🎙"
                 await userbot.send_message(
                     "me",
-                    f"{icon} *{source.upper()}*:\n_{message}_\n\n🤖 *Jarvis*:\n{response}"
+                    f"{icon} *{source.upper()}*:\n_{message}_\n\n🤖 *Jasur*:\n{response}"
                 )
             except Exception:
                 pass
