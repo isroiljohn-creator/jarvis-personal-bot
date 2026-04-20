@@ -124,6 +124,7 @@ class CloudHub:
 
     async def notion_read_tasks(self, limit: int = 10) -> str:
         """Notiondan so'nggi vazifalarni o'qib keladi."""
+        limit = int(limit)
         if not self._notion or not NOTION_DB_ID:
             return "❌ Notion ulanmagan."
             
@@ -181,6 +182,7 @@ class CloudHub:
 
     async def calendar_get_events(self, max_results: int = 5) -> str:
         """Kelgusi eventlarni o'qib beradi."""
+        max_results = int(max_results)
         if not self._calendar:
             return "❌ Google Calendar ulanmagan."
             
@@ -232,6 +234,7 @@ class CloudHub:
 
     async def gmail_read_unread(self, limit: int = 5) -> str:
         """Gmail'dan o'qilmagan so'nggi xatlarni o'qib beradi."""
+        limit = int(limit)
         if not GMAIL_EMAIL or not GMAIL_APP_PASSWORD:
             return "❌ Gmail sozlanmagan (GMAIL_EMAIL yoki GMAIL_APP_PASSWORD yo'q)."
             
