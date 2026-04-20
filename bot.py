@@ -254,8 +254,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     history.append({"role": "model", "parts": [response]})
     await _send_reply(update, response)
 
-    if VOICE_REPLY and len(response) > 10 and len(response) < 2000:
-        await _send_voice_reply(update, response)
 
 
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
