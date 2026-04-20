@@ -170,6 +170,44 @@ async def tts_endpoint(text: str = "", lang: str = "uz"):
 
     return JSONResponse({"error": "TTS xatosi"}, status_code=500)
 
+# ─── AISHA STT Endpoint (iOS PWA uchun O'zbek STT) ──────────
+@app.post("/stt")
+async def stt_endpoint(request):
+    """AISHA STT — audio faylni O'zbek matnga aylantiradi."""
+    from fastapi import Request
+    from fastapi.responses import JSONResponse
+    import requests as req_lib, os
+
+    aisha_key = os.environ.get("AISHA_API_KEY")
+    if not aisha_key:
+        return JSONResponse({"error": "AISHA_API_KEY yo'q"}, status_code=503)
+
+    try:
+        body = await request.body()
+        content_type = request.headers.get("content-type", "audio/webm")
+
+        files = {"audio": ("audio.ogg", body, content_type)}
+        headers = {"x-api-key": aisha_key}
+
+        r = req_lib.post(
+            "https://back.aisha.group/api/v2/stt/post/",
+            headers=headers,
+            files=files,
+            timeout=20
+        )
+        if r.status_code in [200, 201]:
+            data = r.json()
+            text = data.get("text") or data.get("transcript") or data.get("result", "")
+            if text:
+                return JSONResponse({"text": text.strip()})
+
+        logger.error(f"AISHA STT: {r.status_code} — {r.text[:200]}")
+        return JSONResponse({"error": f"STT xatosi: {r.status_code}"}, status_code=500)
+
+    except Exception as e:
+        logger.error(f"AISHA STT exception: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+
 # ─── iPhone Command Queue ─────────────────────────────────────
 @app.get("/commands")
 async def get_commands():
