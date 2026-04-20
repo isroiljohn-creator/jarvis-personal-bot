@@ -471,7 +471,7 @@ async def daily_digest_job(context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     text_data = await userbot.get_daily_digest_messages(limit_dialogs=40)
     if not text_data:
-        try: await userbot.send_message("me", "📭 Yordamchi Tahlili: Bugun o'qilmagan xabarlar yo'q.")
+        try: await userbot.send_message("@abdullayev_ii", "📭 Yordamchi Tahlili: Bugun o'qilmagan xabarlar yo'q.")
         except: pass
         return
 
@@ -481,8 +481,8 @@ async def daily_digest_job(context: ContextTypes.DEFAULT_TYPE) -> None:
         sys_prompt = build_system_prompt([])
         response = await ai.process_message("Menga bugungi chatlar tahlilini ber!\n\n" + prompt, sys_prompt, execute_tool)
         report = f"📊 *Kunlik Kechki Telegram Tahlili (20:00)*\n\n{response}"
-        # O'zining Saved Messages'iga yuborish
-        await userbot.send_message("me", report)
+        # @abdullayev_ii ga yuborish
+        await userbot.send_message("@abdullayev_ii", report)
     except Exception as e:
         logger.error(f"Digest yuborishda xato: {e}")
 
@@ -498,7 +498,7 @@ async def morning_briefing_job(context: ContextTypes.DEFAULT_TYPE) -> None:
         sys_prompt = build_system_prompt([])
         response = await ai.process_message("Menga bugungi ertalabki brifingni tayyorla!\n\n" + prompt, sys_prompt, execute_tool)
         report = f"🌅 *Jasurdan Ertalabki Brifing (08:00)*\n\n{response}"
-        await userbot.send_message("me", report)
+        await userbot.send_message("@abdullayev_ii", report)
         
         # Ovozli qilib ham yuborish
         if VOICE_REPLY:
