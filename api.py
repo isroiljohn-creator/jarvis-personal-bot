@@ -1,16 +1,16 @@
-"""Jarvis FastAPI Webhook Serveri — Siri, iOS PWA va iPhone Command Queue."""
+"""Jarvis FastAPI Gateway — mustaqil ishlaydi, bot_context bog'liq emas."""
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 from collections import deque
-import logging, json
+from datetime import datetime
+import logging, os
 
 logger = logging.getLogger("jarvis.api")
 
 app = FastAPI(title="Jarvis AI Gateway")
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -19,120 +19,131 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ─── Pydantic ────────────────────────────────────────────────
 class SiriRequest(BaseModel):
     message: str
 
 class PhoneCommand(BaseModel):
-    type: str            # "alarm", "url", "music", "reminder", "notify"
+    type: str
     payload: Optional[str] = ""
     time: Optional[str] = ""
 
-# ─── iPhone Command Queue ─────────────────────────────────────
+# ─── Bog'liqliklar (bot.py dan inject qilinadi) ─────────────
+BOT_CONTEXT: dict = {}
+
+# ─── iPhone Command Queue ────────────────────────────────────
 COMMAND_QUEUE: deque = deque(maxlen=20)
 
 def push_phone_command(cmd_type: str, payload: str = "", time: str = ""):
-    """Bot yoki AI tomonidan chaqiriladi — navbatga buyruq qo'shadi."""
     COMMAND_QUEUE.append({"type": cmd_type, "payload": payload, "time": time})
-    logger.info(f"📱 Yangi telefon buyrug'i: {cmd_type} | {payload}")
+    logger.info(f"📱 Telefon buyrug'i: {cmd_type} | {payload}")
 
-# Botga ham eksport qilamiz
-BOT_CONTEXT = {"push_phone_command": push_phone_command}
+# ─── Ichki yordamchi: AI va system prompt ───────────────────
+def _get_sys_prompt(message: str = "") -> str:
+    """BOT_CONTEXT da build_system_prompt bo'lsa ishlatadi, bo'lmasa SYSTEM_PROMPT ni."""
+    builder = BOT_CONTEXT.get("build_system_prompt")
+    if builder:
+        try:
+            from session import get_history
+            hist = get_history()
+            return builder(hist[:-1], message)
+        except Exception:
+            pass
+    # Zaxira: to'liq SYSTEM_PROMPT ni o'zi yaratadi
+    from datetime import datetime as dt
+    now = dt.now()
+    return f"""[HOZIRGI VAQT]: {now.strftime('%Y-%m-%d %H:%M, %A')}
+
+Sen — Jarvis. Foydalanuvchi Isroiljon Abdullayevning shaxsiy Omni-Channel AI yordamchisisan.
+Sening vazifang uning shaxsiy ishlari, rejalari va ijtimoiy tarmoqlarini bitta joydan boshqarish.
+
+Imkoniyatlaring:
+📅 Google Calendar — uchrashuv qo'sh, ko'r
+✉️ Gmail — xatlarni o'qi, jo'nat
+📱 Telegram — xabar yoz, chatlarni ko'r
+🌐 Internet — web_search, sayt o'qi, YouTube subtitr
+🧠 Xotira — save_memory bilan eslab qol
+📱 iPhone — budilnik, musiqa, ilova ochish (phone_control)
+
+QOIDALAR:
+1. Faqat O'zbek tilida javob ber (agar Rus yoki boshqa tilda so'ralsa ham)
+2. Qisqa, aniq, do'stona uslub
+3. Foydalanuvchi ma'lumot aytsa — save_memory chaqir (jim saqla)
+4. Hech qachon "Men AI man, bajara olmayman" dema — har doim urinib ko'r
+"""
+
+# ─── ENDPOINTS ───────────────────────────────────────────────
 
 @app.post("/siri")
-async def siri_endpoint(req: SiriRequest):
-    """Sivi (Siri) matnli xabari qabul qilinadi va Telegram orqali javob yuboriladi."""
-    if not req.message:
-        return {"status": "error", "reason": "No message"}
-        
-    ai = BOT_CONTEXT.get("ai")
-    userbot = BOT_CONTEXT.get("userbot")
-    builder = BOT_CONTEXT.get("build_system_prompt")
-    executor = BOT_CONTEXT.get("execute_tool")
-    
-    if not userbot or not ai or not userbot.connected:
-        return {"status": "error", "reason": "System is offline or not fully connected"}
-    
-    try:
-        sys_prompt = builder([], req.message)
-        response = await ai.process_message(req.message, sys_prompt, executor)
-        
-        await userbot.send_message("me", f"📱 *Siri orqali*:\n_{req.message}_\n\n🤖 *Javob*:\n{response}")
-        return {"status": "success", "response": response}
-    except Exception as e:
-        logger.error(f"Siri webhook xatosi: {e}")
-        return {"status": "error", "reason": str(e)}
+async def siri_post(req: SiriRequest):
+    return await _process(req.message, source="siri-post")
 
 @app.get("/siri")
-async def siri_endpoint_get(message: str = ""):
-    """iOS PWA va GET request uchun — Telegram bot bilan bir xil miya va tarix!"""
+async def siri_get(message: str = ""):
     if not message:
-        return {"status": "error", "reason": "No message"}
+        return {"status": "error", "reason": "message bo'sh"}
+    return await _process(message, source="ios")
 
+async def _process(message: str, source: str = "ios"):
+    """Ikki endpoint ham bir xil yerni chaqiradi — bitta miya."""
     ai       = BOT_CONTEXT.get("ai")
-    builder  = BOT_CONTEXT.get("build_system_prompt")
     executor = BOT_CONTEXT.get("execute_tool")
     userbot  = BOT_CONTEXT.get("userbot")
 
     if not ai:
-        return {"status": "error", "reason": "AI hali ishga tushmagan, bir daqiqa kuting."}
+        return {"status": "error", "reason": "Server hali tayyor emas, 1 daqiqa kuting."}
 
     try:
         from session import add_to_history, get_history
 
-        # Telegram bot bilan bir xil umumiy tarix!
-        add_to_history("user", message, source="ios")
-        history = get_history()
-
-        sys_prompt = builder(history[:-1], message) if builder else ""
+        add_to_history("user", message, source=source)
+        sys_prompt = _get_sys_prompt(message)
         response = await ai.process_message(message, sys_prompt, executor)
+        add_to_history("model", response, source=source)
 
-        add_to_history("model", response, source="ios")
-
-        # Agar userbot ulangan bo'lsa — Saved Messages ga ham nusxa
         if userbot and userbot.connected:
             try:
-                await userbot.send_message("me", f"📱 *iOS Ilova*:\n_{message}_\n\n🤖 *Javob*:\n{response}")
+                icon = "📱" if source == "ios" else "🎙"
+                await userbot.send_message(
+                    "me",
+                    f"{icon} *{source.upper()}*:\n_{message}_\n\n🤖 *Jarvis*:\n{response}"
+                )
             except Exception:
                 pass
 
         return {"status": "success", "response": response}
+
     except Exception as e:
-        logger.error(f"iOS PWA endpoint xatosi: {e}")
+        logger.error(f"[{source}] Xatolik: {e}", exc_info=True)
         return {"status": "error", "reason": str(e)}
 
+
 @app.get("/health")
-async def health_check():
-    return {"status": "ok"}
+async def health():
+    ai_ready = bool(BOT_CONTEXT.get("ai"))
+    return {"status": "ok", "ai_ready": ai_ready}
 
 @app.get("/history")
-async def get_shared_history():
-    """iOS PWA uchun umumiy suhbat tarixini qaytaradi."""
+async def get_hist():
     from session import get_history_display
     return {"history": get_history_display()}
 
 @app.delete("/history")
-async def delete_history():
-    """Umumiy tarixni tozalaydi (Telegram + iOS)."""
+async def del_hist():
     from session import clear_history
     clear_history()
     return {"status": "cleared"}
 
-# ─── iPhone Command Queue Endpoints ────────────────────────────
-
+# ─── iPhone Command Queue ─────────────────────────────────────
 @app.get("/commands")
 async def get_commands():
-    """iPhone Shortcut har daqiqada shu endpointni tekshiradi.
-    Yangi buyruq bo'lsa — qaytaradi va navbatdan o'chiradi."""
     if not COMMAND_QUEUE:
         return {"commands": []}
-    
-    # Barcha buyruqlarni olb navbatni tozalaymiz
     cmds = list(COMMAND_QUEUE)
     COMMAND_QUEUE.clear()
     return {"commands": cmds}
 
 @app.post("/commands")
 async def add_command(cmd: PhoneCommand):
-    """Bot yoki boshqa manba telefonga buyruq qo'shadi."""
     push_phone_command(cmd.type, cmd.payload, cmd.time)
     return {"status": "queued", "command": cmd.type}
