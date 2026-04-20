@@ -1,19 +1,14 @@
-"""Jarvis xotira tizimi — JSON-based uzoq muddatli xotira."""
+"""Jarvis xotira tizimi — PostgreSQL RAG xotira (JSON dan migratsiya)."""
 
 from __future__ import annotations
-
-import json
-import logging
-import os
+import json, logging, os, asyncio
 from datetime import datetime
-from pathlib import Path
 import numpy as np
 import google.generativeai as genai
 
 logger = logging.getLogger("jarvis.memory")
 
-MEMORY_FILE = Path(os.environ.get("MEMORY_PATH", "data/memory.json"))
-
+# ─── Embedding ────────────────────────────────────────────────
 def get_embedding(text: str) -> list[float]:
     """Gemini orqali matnning Embedding vektorini olish."""
     try:
@@ -24,106 +19,90 @@ def get_embedding(text: str) -> list[float]:
         )
         return response.get('embedding', [])
     except Exception as e:
-        logger.error(f"Embedding yaratishda xato: {e}")
+        logger.error(f"Embedding xatosi: {e}")
         return []
 
-def load_memory() -> list:
-    """Xotirani yuklash."""
-    if not MEMORY_FILE.exists():
-        return []
+# ─── Sync wrappers (bot.py sync context uchun) ────────────────
+def load_memory() -> dict:
+    """PostgreSQL dan barcha xotirani dict formatida qaytaradi."""
     try:
-        data = json.loads(MEMORY_FILE.read_text(encoding="utf-8"))
-        if isinstance(data, dict):
-            # Old memory format migration
-            new_data = []
-            for cat, items in data.items():
-                for k, v in items.items():
-                    val = v["value"] if isinstance(v, dict) else v
-                    new_data.append({
-                        "category": cat,
-                        "key": k,
-                        "value": val,
-                        "embedding": get_embedding(f"{cat} - {k}: {val}"),
-                        "updated": datetime.now().isoformat()
-                    })
-            _save(new_data)
-            return new_data
-        return data
-    except Exception:
-        return []
-
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # Async kontekstda — future sifatida
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                future = pool.submit(_run_async, _load_from_db())
+                return future.result(timeout=10)
+        else:
+            return loop.run_until_complete(_load_from_db())
+    except Exception as e:
+        logger.error(f"load_memory xatosi: {e}")
+        return {}
 
 def update_memory(category: str, key: str, value: str) -> str:
-    """RAG Xotiraga vektor bilan saqlash."""
-    mem = load_memory()
-    text_content = f"{category} - {key}: {value}"
-    emb = get_embedding(text_content)
-    
-    found = False
-    for item in mem:
-        if item.get("category") == category and item.get("key") == key:
-            item["value"] = value
-            item["embedding"] = emb
-            item["updated"] = datetime.now().isoformat()
-            found = True
-            break
-            
-    if not found:
-        mem.append({
-            "category": category,
-            "key": key,
-            "value": value,
-            "embedding": emb,
-            "updated": datetime.now().isoformat()
-        })
-        
-    _save(mem)
-    logger.info(f"💾 Vector Xotira: {category}/{key} = {value}")
-    return f"Saqlandi: {key} = {value}"
+    """RAG Xotiraga PostgreSQL ga vektor bilan saqlaydi."""
+    try:
+        text_content = f"{category} - {key}: {value}"
+        emb = get_embedding(text_content)
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            asyncio.ensure_future(_save_to_db(category, key, value, emb))
+            return f"✅ Xotiraga saqlandi: [{category}] {key}"
+        else:
+            return loop.run_until_complete(_save_to_db(category, key, value, emb))
+    except Exception as e:
+        logger.error(f"update_memory xatosi: {e}")
+        return f"❌ Xatolik: {e}"
 
+def search_memory(query: str, top_k: int = 5) -> list:
+    """Matnni vektori bo'yicha xotiradan qidiradi."""
+    try:
+        q_emb = get_embedding(query)
+        if not q_emb:
+            return []
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                future = pool.submit(_run_async, _search_db(q_emb, top_k))
+                return future.result(timeout=10)
+        else:
+            return loop.run_until_complete(_search_db(q_emb, top_k))
+    except Exception as e:
+        logger.error(f"search_memory xatosi: {e}")
+        return []
 
-def search_memory(query: str, top_k: int = 5) -> str:
-    """Cosine Similarity yordamida Vektor qidiruv (RAG)."""
-    mem = load_memory()
-    if not mem or not query:
+def format_memory_for_prompt(memories: dict) -> str:
+    """Xotirani system prompt uchun tekst formatiga o'tkazadi."""
+    if not memories:
         return ""
-        
-    q_emb = get_embedding(query)
-    if not q_emb: return ""
-    
-    q_vec = np.array(q_emb)
-    scores = []
-    
-    for item in mem:
-        if "embedding" not in item or not item["embedding"]:
-            continue
-        item_vec = np.array(item["embedding"])
-        # Cosine similarity
-        score = np.dot(q_vec, item_vec) / (np.linalg.norm(q_vec) * np.linalg.norm(item_vec) + 1e-9)
-        scores.append((score, item))
-        
-    scores.sort(key=lambda x: x[0], reverse=True)
-    
-    # 0.5 dan yuqori yaqinlikka ega top xotiralar
-    top_items = [x[1] for x in scores[:top_k] if x[0] > 0.55]
-    
-    if not top_items:
-        return ""
-        
-    lines = ["[AI UCHUN XOTIRADAN TOPILGAN MA'LUMOTLAR]"]
-    for it in top_items:
-        lines.append(f"  - {it['category'].upper()} | {it['key']}: {it['value']}")
+    lines = ["[JARVIS UZOQ MUDDATLI XOTIRA]:"]
+    for cat, items in memories.items():
+        lines.append(f"\n📂 {cat.upper()}:")
+        if isinstance(items, dict):
+            for k, v in items.items():
+                lines.append(f"  • {k}: {v}")
+        else:
+            lines.append(f"  • {items}")
     return "\n".join(lines)
 
+# ─── Async DB funksiyalar ─────────────────────────────────────
+async def _load_from_db() -> dict:
+    from database import db_load_all_memories
+    return await db_load_all_memories()
 
-def format_memory_for_prompt() -> str:
-    """Eski tizim (Bot qotib qolmasligi uchun)."""
-    return search_memory("umumiy shaxsiy ma'lumotlar tavsif")
+async def _save_to_db(category: str, key: str, value: str, embedding: list) -> str:
+    from database import db_save_memory
+    return await db_save_memory(category, key, value, embedding)
 
+async def _search_db(q_emb: list, top_k: int) -> list:
+    from database import db_search_memory
+    return await db_search_memory(q_emb, top_k)
 
-def _save(data: list) -> None:
-    """JSON faylga saqlash."""
-    MEMORY_FILE.parent.mkdir(parents=True, exist_ok=True)
-    MEMORY_FILE.write_text(
-        json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+def _run_async(coro):
+    """Yangi event loop da coroutine ishlatadi."""
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()

@@ -403,6 +403,16 @@ async def clear_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def post_init(application: Application) -> None:
     global userbot
+
+    # ── PostgreSQL DB jadvallarini yaratish ──
+    try:
+        from database import init_db
+        await init_db()
+        logger.info("✅ PostgreSQL tayyor")
+    except Exception as e:
+        logger.error(f"❌ DB init muvaffaqiyatsiz: {e}")
+
+
     if TG_API_ID and TG_API_HASH and TG_PHONE:
         try:
             userbot = UserBot(api_id=int(TG_API_ID), api_hash=TG_API_HASH, phone=TG_PHONE)
