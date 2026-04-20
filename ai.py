@@ -178,16 +178,16 @@ class GeminiAI:
 
     def _create_model(self, system_prompt: str = ""):
         return genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
+            model_name="gemini-pro-latest",
             system_instruction=system_prompt or None,
-            generation_config={"temperature": 0.7, "max_output_tokens": 4096},
+            generation_config={"temperature": 0.5, "max_output_tokens": 8192},
             tools=[{"function_declarations": TOOL_DECLARATIONS}],
         )
 
     @property
     def vision_model(self):
         if not self._vision_model:
-            self._vision_model = genai.GenerativeModel("gemini-1.5-flash")
+            self._vision_model = genai.GenerativeModel("gemini-pro-latest")
         return self._vision_model
 
     async def process_message(
