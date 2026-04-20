@@ -26,6 +26,28 @@ TOOL_DECLARATIONS = [
         },
     },
     {
+        "name": "scrape_website",
+        "description": "Berilgan web saytning barcha matnini tartibli o'qib keladi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "url": {"type": "STRING", "description": "Sayt havolasi (URL)"}
+            },
+            "required": ["url"],
+        },
+    },
+    {
+        "name": "youtube_transcript",
+        "description": "Youtube videosidan barcha taglavha(subtitr)larni o'qib matn qilib beradi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "url": {"type": "STRING", "description": "Youtube video havolasi (URL)"}
+            },
+            "required": ["url"],
+        },
+    },
+    {
         "name": "send_telegram_message",
         "description": "Telegram orqali matnli xabar yuboradi.",
         "parameters": {

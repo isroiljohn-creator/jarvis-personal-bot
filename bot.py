@@ -23,7 +23,7 @@ from telegram.constants import ChatAction
 from ai import GeminiAI
 from userbot import UserBot
 from cloud import CloudHub
-from memory import load_memory, update_memory, format_memory_for_prompt
+from memory import load_memory, update_memory, format_memory_for_prompt, search_memory
 
 logging.basicConfig(
     level=logging.INFO,
@@ -137,6 +137,10 @@ async def execute_tool(name: str, args: dict) -> str:
         elif name == "save_memory":
             return update_memory(args.get("category", "notes"), args.get("key", ""), args.get("value", ""))
             
+        elif name == "scrape_website":
+            return await cloud.scrape_website(args.get("url", ""))
+        elif name == "youtube_transcript":
+            return await cloud.youtube_transcript(args.get("url", ""))
         else:
             return f"❌ Noma'lum tool: {name}"
 
@@ -194,7 +198,7 @@ async def _tool_read_chat(contact: str, limit: int = 5) -> str:
 
 # ───────────────────── Build System Prompt ─────────────────────
 
-def build_system_prompt(history: list | None = None) -> str:
+def build_system_prompt(history: list | None = None, query: str = "") -> str:
     from datetime import datetime
     parts = []
     
@@ -202,7 +206,7 @@ def build_system_prompt(history: list | None = None) -> str:
     now = datetime.now()
     parts.append(f"[HOZIRGI VAQT]: {now.strftime('%Y-%m-%d %H:%M, %A')} | ISO: {now.isoformat()[:19]}Z\n")
 
-    mem = format_memory_for_prompt()
+    mem = search_memory(query) if query else format_memory_for_prompt()
     if mem:
         parts.append(mem + "\n")
 
@@ -250,7 +254,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     history.append({"role": "user", "parts": [user_text]})
     if len(history) > 20: history.pop(0)
 
-    sys_prompt = build_system_prompt(history[:-1])
+    sys_prompt = build_system_prompt(history[:-1], user_text)
     response = await ai.process_message(user_text, sys_prompt, execute_tool)
 
     history.append({"role": "model", "parts": [response]})
@@ -275,7 +279,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         history = context.user_data.setdefault("history", [])
         history.append({"role": "user", "parts": [text]})
         
-        sys_prompt = build_system_prompt(history[:-1])
+        sys_prompt = build_system_prompt(history[:-1], text)
         response = await ai.process_message(text, sys_prompt, execute_tool)
         
         history.append({"role": "model", "parts": [response]})
@@ -304,7 +308,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         history = context.user_data.setdefault("history", [])
         history.append({"role": "user", "parts": [f"[Rasm] {caption}"]})
 
-        sys_prompt = build_system_prompt(history[:-1])
+        sys_prompt = build_system_prompt(history[:-1], caption)
         response = await ai.process_message(caption, sys_prompt, execute_tool, images=[("image/jpeg", image_data)])
 
         history.append({"role": "model", "parts": [response]})
@@ -375,7 +379,14 @@ async def post_init(application: Application) -> None:
         try:
             userbot = UserBot(api_id=int(TG_API_ID), api_hash=TG_API_HASH, phone=TG_PHONE)
             await userbot.connect()
-
+            global OWNER_ID
+            try:
+                me = await userbot.client.get_me()
+                if me:
+                    OWNER_ID = me.id
+                    logger.info(f"🔒 Bot xavfsizlik uchun faqat {OWNER_ID} ga qulflangan!")
+            except Exception as ex:
+                logger.warning(f"Owner ID olishda xato: {ex}")
             async def ai_for_autoreply(text, history, system):
                 return await ai.process_message(text, system, execute_tool)
             userbot.set_ai(ai_for_autoreply)
@@ -391,6 +402,22 @@ async def post_init(application: Application) -> None:
         except Exception as e:
             logger.warning(f"⚠️ Userbot ulana olmadi: {e}")
             userbot = None
+
+    try:
+        import uvicorn
+        from api import app as fastapi_app, BOT_CONTEXT
+        BOT_CONTEXT["ai"] = ai
+        BOT_CONTEXT["userbot"] = userbot
+        BOT_CONTEXT["build_system_prompt"] = build_system_prompt
+        BOT_CONTEXT["execute_tool"] = execute_tool
+        
+        port = int(os.environ.get("PORT", "8080"))
+        config = uvicorn.Config(fastapi_app, host="0.0.0.0", port=port, log_level="warning")
+        server = uvicorn.Server(config)
+        asyncio.create_task(server.serve())
+        logger.info(f"🚀 FastAPI Webhook serveri {port}-portida ishga tushdi.")
+    except Exception as e:
+        logger.error(f"FastAPI ishga tushmadi: {e}")
 
 
 async def daily_digest_job(context: ContextTypes.DEFAULT_TYPE) -> None:

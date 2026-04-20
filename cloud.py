@@ -296,6 +296,54 @@ class CloudHub:
                     smtp.send_message(msg)
                     
             await asyncio.to_thread(send)
-            return f"✅ Email yuborildi: {to_email} ga."
+            return "✅ Email muvaffaqiyatli jo'natildi."
         except Exception as e:
-            return f"❌ Gmail yuborish xatosi: {e}"
+            return f"❌ Email jo'natish xatosi: {e}"
+
+    # ─────────────────── AGENT & WEB SCRAPING ───────────────────
+
+    async def youtube_transcript(self, url: str) -> str:
+        """Youtube videosi subtitrini o'qiydi."""
+        try:
+            from youtube_transcript_api import YouTubeTranscriptApi
+            import urllib.parse
+            
+            # extract video ID
+            parsed_url = urllib.parse.urlparse(url)
+            if 'youtu.be' in parsed_url.netloc:
+                video_id = parsed_url.path[1:]
+            else:
+                qs = urllib.parse.parse_qs(parsed_url.query)
+                video_id = qs.get("v", [""])[0]
+                
+            if not video_id: return "❌ Youtube Linkdan ID topilmadi."
+            
+            def get_text():
+                transcriptList = YouTubeTranscriptApi.get_transcript(video_id, languages=['uz', 'ru', 'en'])
+                return " ".join([t['text'] for t in transcriptList])
+                
+            text = await asyncio.to_thread(get_text)
+            return text[:4000] # Limiting context window
+        except Exception as e:
+            return f"❌ Youtube o'qishda xatolik: {e}"
+
+    async def scrape_website(self, url: str) -> str:
+        """Berilgan linkdagi sayt matnini o'qib keladi."""
+        try:
+            import requests
+            from bs4 import BeautifulSoup
+            
+            headers = {"User-Agent": "Mozilla/5.0"}
+            def fetch():
+                res = requests.get(url, headers=headers, timeout=10)
+                res.raise_for_status()
+                soup = BeautifulSoup(res.text, "html.parser")
+                # keraksiz teglarni olib tashlaymiz
+                for s in soup(["script", "style", "nav", "footer", "header"]):
+                    s.decompose()
+                return " ".join(soup.stripped_strings)
+                
+            text = await asyncio.to_thread(fetch)
+            return text[:4000] # Limiting context window
+        except Exception as e:
+            return f"❌ Sayt o'qishda xatolik: {e}"
