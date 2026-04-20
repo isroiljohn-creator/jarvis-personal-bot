@@ -186,29 +186,40 @@ async def tts_endpoint(text: str = "", lang: str = "uz"):
     if not text:
         return JSONResponse({"error": "text bo'sh"}, status_code=400)
 
-    aisha_key = os.environ.get("AISHA_API_KEY")
-    if not aisha_key:
-        return JSONResponse({"error": "AISHA_API_KEY yo'q"}, status_code=503)
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        return JSONResponse({"error": "GEMINI_API_KEY yo'q"}, status_code=503)
 
     try:
-        clean = text[:500]  # Maksimal 500 belgi
-        r = req_lib.post(
-            "https://back.aisha.group/api/v1/tts/post/",
-            headers={"x-api-key": aisha_key, "Content-Type": "application/json"},
-            json={"transcript": clean, "speaker_id": 2, "voice": "male", "gender": "male"},
-            timeout=15
-        )
-        if r.status_code in [200, 201]:
-            audio_url = r.json().get("audio_path")
-            if audio_url:
-                audio_data = req_lib.get(audio_url, timeout=10).content
+        clean = text[:500]
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key={api_key}"
+        data = {
+            "systemInstruction": {
+                "parts": [{"text": "Sening vazifang - matnni xuddi radio suxandoni kabi toza, bexato va sof erkak ovozda (Puck) o'zbek tilida gapirish. Hech narsa qo'shma."}]
+            },
+            "contents": [{"parts": [{"text": f"Faqat o'qib ber: {clean}"}]}],
+            "generationConfig": {
+                "temperature": 0.2,
+                "responseModalities": ["AUDIO"],
+                "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": "Puck"}}}
+            }
+        }
+        
+        r = req_lib.post(url, json=data, timeout=30)
+        if r.status_code == 200:
+            res = r.json()
+            part = res.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0]
+            inline = part.get('inlineData')
+            if inline and 'data' in inline:
+                import base64
+                audio_data = base64.b64decode(inline['data'])
                 return Response(
                     content=audio_data,
-                    media_type="audio/mpeg",
+                    media_type="audio/wav",
                     headers={"Access-Control-Allow-Origin": "*"}
                 )
     except Exception as e:
-        logger.error(f"AISHA TTS xatosi: {e}")
+        logger.error(f"Gemini TTS xatosi: {e}")
 
     return JSONResponse({"error": "TTS xatosi"}, status_code=500)
 
