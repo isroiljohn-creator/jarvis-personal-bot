@@ -35,7 +35,7 @@ logger = logging.getLogger("jarvis")
 # ───────────────────────── SOZLAMALAR ──────────────────────────
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
-OWNER_ID = int(os.environ.get("OWNER_TELEGRAM_ID", "0"))
+OWNER_ID = int(os.environ.get("OWNER_TELEGRAM_ID", "1392501306"))
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 TG_API_ID = os.environ.get("TG_API_ID", "")
 TG_API_HASH = os.environ.get("TG_API_HASH", "")
@@ -81,7 +81,7 @@ QOIDALAR:
 
 
 def is_owner(update: Update) -> bool:
-    env_id = int(os.environ.get("OWNER_TELEGRAM_ID", "0"))
+    env_id = int(os.environ.get("OWNER_TELEGRAM_ID", "1392501306"))
     if env_id != 0 and update.effective_user.id == env_id:
         return True
     if OWNER_ID == 0:
