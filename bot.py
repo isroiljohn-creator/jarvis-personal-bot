@@ -486,6 +486,30 @@ async def daily_digest_job(context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         logger.error(f"Digest yuborishda xato: {e}")
 
+async def morning_briefing_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.info("⏱ Morning Briefing jarayoni boshlandi...")
+    if not userbot:
+        return
+    text_data = await userbot.get_daily_digest_messages(limit_dialogs=15)
+    
+    prompt = "Bugun ertalabki brifing (Ertalab soat 08:00). Menga motivatsion ohangda (Sizlab, Oka deb) qisqacha bugungi rejam, havo harorati (o'zing biladigan eng so'nggi ma'lumotdan) va oxirgi chatlardagi muhim xabarlarni aytib ber:\n\n" + (text_data or "Hech qanday yangi xabar yo'q.")
+    
+    try:
+        sys_prompt = build_system_prompt([])
+        response = await ai.process_message("Menga bugungi ertalabki brifingni tayyorla!\n\n" + prompt, sys_prompt, execute_tool)
+        report = f"🌅 *Jasurdan Ertalabki Brifing (08:00)*\n\n{response}"
+        await userbot.send_message("me", report)
+        
+        # Ovozli qilib ham yuborish
+        if VOICE_REPLY:
+            ogg_path = await ai.text_to_speech(response)
+            if ogg_path:
+                try: await context.bot.send_voice(chat_id=context.job.chat_id or BOT_TOKEN.split(":")[0], voice=open(ogg_path, "rb"))
+                except: pass
+    except Exception as e:
+        logger.error(f"Briefing yuborishda xato: {e}")
+
+
 def main() -> None:
     app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
     app.add_handler(CommandHandler("start", start))
@@ -497,8 +521,10 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(button_callback))
 
     tz = pytz.timezone("Asia/Tashkent")
-    t = datetime.time(hour=20, minute=0, tzinfo=tz)
-    app.job_queue.run_daily(daily_digest_job, time=t)
+    # Kechki digest
+    app.job_queue.run_daily(daily_digest_job, time=datetime.time(hour=20, minute=0, tzinfo=tz))
+    # Ertalabki brifing
+    app.job_queue.run_daily(morning_briefing_job, time=datetime.time(hour=8, minute=0, tzinfo=tz))
 
     logger.info("✅ Jasur tayyor! Polling boshlandi.")
     app.run_polling(drop_pending_updates=True)
