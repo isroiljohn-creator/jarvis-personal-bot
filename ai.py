@@ -142,6 +142,29 @@ TOOL_DECLARATIONS = [
             "required": ["username", "message"],
         },
     },
+    {
+        "name": "gmail_read_unread",
+        "description": "Gmail dan so'nggi o'qilmagan xatlarni o'qib keladi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "limit": {"type": "INTEGER", "description": "Nechta xabar o'qish (default: 5)"}
+            },
+        },
+    },
+    {
+        "name": "gmail_send_email",
+        "description": "Kimgadir email yuborish.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "to_email": {"type": "STRING", "description": "Qabul qiluvchining email manzili"},
+                "subject": {"type": "STRING", "description": "Xat mavzusi"},
+                "body": {"type": "STRING", "description": "Xat matni"},
+            },
+            "required": ["to_email", "subject", "body"],
+        },
+    },
 ]
 
 

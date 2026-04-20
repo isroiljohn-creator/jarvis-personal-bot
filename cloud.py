@@ -4,6 +4,10 @@ import json
 import logging
 import os
 import asyncio
+import email
+from email.message import EmailMessage
+import imaplib
+import smtplib
 from typing import Any
 
 logger = logging.getLogger("jarvis.cloud")
@@ -19,6 +23,10 @@ INSTA_PASSWORD = os.environ.get("INSTAGRAM_PASS")
 # Google Calendar (JSON credential yo'li)
 GOOGLE_CRED_PATH = "credentials.json"
 CALENDAR_ID = os.environ.get("GOOGLE_CALENDAR_ID", "primary")
+
+# Gmail (App Password orqali)
+GMAIL_EMAIL = os.environ.get("GMAIL_EMAIL")
+GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD")
 
 class CloudHub:
     def __init__(self):
@@ -219,3 +227,72 @@ class CloudHub:
             return f"✅ Instagram ({username}) ga xabar yuborildi."
         except Exception as e:
             return f"❌ Instagram xatosi: {e}"
+
+    # ─────────────────── GMAIL (IMAP / SMTP) ───────────────────
+
+    async def gmail_read_unread(self, limit: int = 5) -> str:
+        """Gmail'dan o'qilmagan so'nggi xatlarni o'qib beradi."""
+        if not GMAIL_EMAIL or not GMAIL_APP_PASSWORD:
+            return "❌ Gmail sozlanmagan (GMAIL_EMAIL yoki GMAIL_APP_PASSWORD yo'q)."
+            
+        try:
+            def read_emails():
+                mail = imaplib.IMAP4_SSL('imap.gmail.com')
+                mail.login(GMAIL_EMAIL, GMAIL_APP_PASSWORD)
+                mail.select("inbox")
+                
+                status, messages = mail.search(None, 'UNSEEN')
+                if status != 'OK' or not messages[0]:
+                    return "Yangi (o'qilmagan) xatlar yo'q."
+                    
+                msg_nums = messages[0].split()
+                # Olish kerak bo'lgan xatlar ro'yxatini shakllantiramiz (oxirgisidan)
+                to_fetch = msg_nums[-limit:]
+                
+                results = ["✉️ O'qilmagan So'nggi Xatlar:"]
+                for num in reversed(to_fetch):
+                    res, msg_data = mail.fetch(num, '(RFC822)')
+                    if res != 'OK': continue
+                    for response_part in msg_data:
+                        if isinstance(response_part, tuple):
+                            msg = email.message_from_bytes(response_part[1])
+                            
+                            # Subject
+                            subject_tuple = email.header.decode_header(msg['Subject'])[0]
+                            subject = subject_tuple[0]
+                            if isinstance(subject, bytes):
+                                try: subject = subject.decode(subject_tuple[1] or 'utf-8')
+                                except: subject = str(subject)
+                                
+                            # Sender
+                            sender = msg.get('From', 'Noma\'lum')
+                            
+                            results.append(f"• Kimdan: {sender}\n  Mavzu: {subject}")
+                mail.logout()
+                return "\n".join(results)
+                
+            return await asyncio.to_thread(read_emails)
+        except Exception as e:
+            return f"❌ Gmail o'qish xatosi: {e}"
+
+    async def gmail_send_email(self, to_email: str, subject: str, body: str) -> str:
+        """Kimgadir yangi elektron pochta(Gmail) yuboradi."""
+        if not GMAIL_EMAIL or not GMAIL_APP_PASSWORD:
+            return "❌ Gmail sozlanmagan (GMAIL_EMAIL yoki GMAIL_APP_PASSWORD yo'q)."
+            
+        try:
+            def send():
+                msg = EmailMessage()
+                msg.set_content(body)
+                msg['Subject'] = subject
+                msg['From'] = GMAIL_EMAIL
+                msg['To'] = to_email
+
+                with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+                    smtp.login(GMAIL_EMAIL, GMAIL_APP_PASSWORD)
+                    smtp.send_message(msg)
+                    
+            await asyncio.to_thread(send)
+            return f"✅ Email yuborildi: {to_email} ga."
+        except Exception as e:
+            return f"❌ Gmail yuborish xatosi: {e}"

@@ -57,6 +57,10 @@ Senda quyidagi toollar (imkoniyatlar) bor:
 - Yangi qisqa vazifa (to-do) qo'shish (notion_add_task)
 - Hozirgi vazifalarni o'qish (notion_read_tasks)
 
+✉️ GMAIL
+- Elektron pochtadagi yangi/o'qilmagan xatlarni o'qish (gmail_read_unread)
+- Kimgadir pochta orqali xat jo'natish (gmail_send_email)
+
 📱 TELEGRAM (Boshqalarga xabar yozish / o'qish)
 - Telegramda kimgadir xabar yuborish (send_telegram_message)
 - Telegram ovozli xabar yuborish (send_telegram_voice)
@@ -116,6 +120,12 @@ async def execute_tool(name: str, args: dict) -> str:
         # INSTAGRAM
         elif name == "insta_send_dm":
             return await cloud.insta_send_dm(args.get("username", ""), args.get("message", ""))
+            
+        # GMAIL
+        elif name == "gmail_read_unread":
+            return await cloud.gmail_read_unread(args.get("limit", 5))
+        elif name == "gmail_send_email":
+            return await cloud.gmail_send_email(args.get("to_email", ""), args.get("subject", ""), args.get("body", ""))
             
         # OTHER
         elif name == "web_search":
