@@ -81,6 +81,9 @@ QOIDALAR:
 
 
 def is_owner(update: Update) -> bool:
+    env_id = int(os.environ.get("OWNER_TELEGRAM_ID", "0"))
+    if env_id != 0 and update.effective_user.id == env_id:
+        return True
     if OWNER_ID == 0:
         return True
     return update.effective_user.id == OWNER_ID
