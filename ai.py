@@ -161,6 +161,36 @@ Har doim bu toolni telefon bilan bog'liq so'rovlarda chaqir!""",
         },
     },
     {
+        "name": "log_finance",
+        "description": "Moliyaviy kirim yoki chiqimlarni (daromad yoki xarajatlarni) ma'lumotlar bazasiga yozish. 'xarajat' yoki 'kirdi-chiqdi' haqida gapirganda FOYDALANLADI.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "type": {
+                    "type": "STRING",
+                    "description": "'income' (daromad/kirim) yoki 'expense' (xarajat/chiqim)"
+                },
+                "amount": {
+                    "type": "NUMBER",
+                    "description": "Summa (faqat raqam)"
+                },
+                "category": {
+                    "type": "STRING",
+                    "description": "Kategoriya (masalan: Oziq-ovqat, Transport, Kommunal, Oylik, Biznes, Boshqa)"
+                },
+                "description": {
+                    "type": "STRING",
+                    "description": "Xarajat nima haqidaligi"
+                }
+            },
+            "required": ["type", "amount", "category"]
+        }
+    },
+    {
+        "name": "get_finance_summary",
+        "description": "Joriy moliyaviy holat, jami daromad, xarajatlar va qoldiqni so'raganda ishlatiladi.",
+    },
+    {
         "name": "calendar_add_event",
         "description": "Google Calendar ga yangi uchrashuv yozadi.",
         "parameters": {

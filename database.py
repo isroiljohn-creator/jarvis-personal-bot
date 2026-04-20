@@ -43,8 +43,18 @@ CREATE TABLE IF NOT EXISTS messages (
     created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS transactions (
+    id          SERIAL PRIMARY KEY,
+    type        TEXT NOT NULL, -- 'income' or 'expense'
+    amount      NUMERIC NOT NULL,
+    category    TEXT NOT NULL,
+    description TEXT,
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_memories_category ON memories(category);
 CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_transactions_created ON transactions(created_at DESC);
 """
 
 async def init_db():
@@ -175,6 +185,61 @@ async def db_clear_history():
         pool = await get_pool()
         async with pool.acquire() as conn:
             await conn.execute("DELETE FROM messages")
-        logger.info("Suhbat tarixi tozalandi")
     except Exception as e:
         logger.error(f"db_clear_history xatosi: {e}")
+
+# ─── MOLIYA (MOLIYAVIY HISOB-KITOB) ────────────────────────────
+
+async def db_log_transaction(type: str, amount: float, category: str, description: str = "") -> str:
+    """Yangi daromad yoki xarajatni qayd etadi."""
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO transactions (type, amount, category, description) VALUES ($1, $2, $3, $4)",
+                type, amount, category, description
+            )
+        return "✅ Moliyaviy yozuv muvaffaqiyatli saqlandi!"
+    except Exception as e:
+        logger.error(f"db_log_transaction xatosi: {e}")
+        return f"❌ Moliya yozishda xatolik: {e}"
+
+async def db_get_finance_data() -> dict:
+    """Barcha tranzaksiyalar va summarini chartlar uchun yig'ib beradi."""
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch("SELECT type, amount, category, description, created_at FROM transactions ORDER BY created_at DESC")
+            
+        transactions = []
+        total_income = 0
+        total_expense = 0
+        categories_expense = {}
+        
+        for r in rows:
+            amount = float(r["amount"])
+            t_type = r["type"]
+            cat = r["category"]
+            
+            transactions.append({
+                "type": t_type, "amount": amount, "category": cat,
+                "description": r["description"], "date": r["created_at"].strftime("%Y-%m-%d %H:%M")
+            })
+            
+            if t_type == "income":
+                total_income += amount
+            elif t_type == "expense":
+                total_expense += amount
+                categories_expense[cat] = categories_expense.get(cat, 0) + amount
+                
+        return {
+            "total_income": total_income,
+            "total_expense": total_expense,
+            "balance": total_income - total_expense,
+            "expense_by_category": categories_expense,
+            "transactions": transactions[:50] # So'nggi 50 tasi history ga
+        }
+    except Exception as e:
+        logger.error(f"db_get_finance_data xatosi: {e}")
+        return {"total_income": 0, "total_expense": 0, "balance": 0, "expense_by_category": {}, "transactions": []}
+

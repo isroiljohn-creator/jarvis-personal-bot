@@ -135,6 +135,19 @@ async def execute_tool(name: str, args: dict) -> str:
         elif name == "save_memory":
             return update_memory(args.get("category", "notes"), args.get("key", ""), args.get("value", ""))
             
+        elif name == "log_finance":
+            import database
+            return await database.db_log_transaction(
+                args.get("type", "expense"),
+                float(args.get("amount", 0)),
+                args.get("category", "Boshqa"),
+                args.get("description", "")
+            )
+        elif name == "get_finance_summary":
+            import database
+            data = await database.db_get_finance_data()
+            return f"Umumiy daromad: {data['total_income']}, Umumiy xarajat: {data['total_expense']}, Qoldiq (Balans): {data['balance']} so'm."
+            
         elif name == "scrape_website":
             return await cloud.scrape_website(args.get("url", ""))
         elif name == "youtube_transcript":
@@ -248,9 +261,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"📱 Telegram\n📸 Instagram\n📝 Notion\n📅 Calendar\n\n"
         f"Qanday yordam bera olaman?"
     )
+    domain = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "jarvis-personal-bot.up.railway.app")
+    finance_url = f"https://{domain}/finance" if not domain.startswith("http") else f"{domain}/finance"
+    
+    from telegram import WebAppInfo
     keyboard = [
         [InlineKeyboardButton("🔁 Auto-javob YOQ", callback_data="autoon"), InlineKeyboardButton("⏸ To'xtatish", callback_data="autooff")],
-        [InlineKeyboardButton("🧠 Xotira", callback_data="memory"), InlineKeyboardButton("ℹ️ Holat", callback_data="status")]
+        [InlineKeyboardButton("🧠 Xotira", callback_data="memory"), InlineKeyboardButton("ℹ️ Holat", callback_data="status")],
+        [InlineKeyboardButton("💰 Moliya (Kirim/Chiqim)", web_app=WebAppInfo(url=finance_url))]
     ]
     await update.message.reply_text(text, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
     context.application.bot_data["owner_chat_id"] = update.effective_chat.id

@@ -159,10 +159,159 @@ async def root():
     <div class="ep"><span><span class="method">GET</span><span class="path">/history</span></span><span class="desc">Suhbat tarixi</span></div>
     <div class="ep"><span><span class="method">GET</span><span class="path">/commands</span></span><span class="desc">iPhone Queue</span></div>
     <div class="ep"><span><span class="method">GET</span><span class="path">/health</span></span><span class="desc">Holat tekshirish</span></div>
+    <div class="ep"><span><span class="method">GET</span><span class="path">/finance</span></span><span class="desc">Moliyaviy TMA (Web App)</span></div>
   </div>
   <div class="status">✅ Tizim Ishlayapti · PostgreSQL · AISHA · Gemini</div>
 </body></html>"""
     return HTMLResponse(html)
+
+@app.get("/finance")
+async def finance_dashboard():
+    """Telegram Mini App uchun vizual Hisob-kitob (Moliya) interfeysi."""
+    from fastapi.responses import HTMLResponse
+    html = """<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Jasmina - Moliya Nazorati</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg: #121212; --card: #1e1e1e; --text: #ffffff;
+      --accent: #bb86fc; --income: #03dac6; --expense: #cf6679;
+    }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0; padding: 16px; box-sizing: border-box;
+    }
+    .header { text-align: center; margin-bottom: 24px; }
+    .header h2 { margin: 0; font-weight: 600; color: var(--accent); }
+    .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+    .card { background: var(--card); border-radius: 12px; padding: 16px; text-align: center; }
+    .card.balance { grid-column: 1 / -1; }
+    .value { font-size: 1.2rem; font-weight: bold; margin-top: 8px; }
+    .val-income { color: var(--income); }
+    .val-expense { color: var(--expense); }
+    .chart-container { background: var(--card); border-radius: 12px; padding: 16px; margin-bottom: 24px; }
+    .history { background: var(--card); border-radius: 12px; padding: 16px; }
+    .tx { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #333; }
+    .tx:last-child { border-bottom: none; }
+    .tx-info h4 { margin: 0 0 4px 0; font-size: 0.95rem; }
+    .tx-info p { margin: 0; font-size: 0.8rem; color: #aaa; }
+    .tx-amount { font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>Moliya Nazorati</h2>
+    <p style="color: #888; font-size: 14px;">Jasmina AI</p>
+  </div>
+  
+  <div class="cards">
+    <div class="card balance">
+      <div style="font-size: 14px; color: #888;">Qoldiq (Balans)</div>
+      <div class="value" id="balanceLoading">Yuklanmoqda...</div>
+    </div>
+    <div class="card">
+      <div style="font-size: 13px; color: #888;">Kirimlar (Daromad)</div>
+      <div class="value val-income" id="incomeLoading">-</div>
+    </div>
+    <div class="card">
+      <div style="font-size: 13px; color: #888;">Chiqimlar (Xarajat)</div>
+      <div class="value val-expense" id="expenseLoading">-</div>
+    </div>
+  </div>
+
+  <div class="chart-container">
+    <h3 style="margin-top: 0; font-size: 15px;">Xarajatlar Tahlili</h3>
+    <canvas id="expenseChart"></canvas>
+  </div>
+
+  <div class="history">
+    <h3 style="margin-top: 0; font-size: 15px;">So'nggi O'zgarishlar</h3>
+    <div id="txList" style="margin-top: 12px;"></div>
+  </div>
+
+  <script>
+    window.Telegram.WebApp.ready();
+    window.Telegram.WebApp.expand();
+    
+    function formatMoney(amount) {
+      return new Intl.NumberFormat('uz-UZ').format(amount) + " so'm";
+    }
+
+    async function loadData() {
+      try {
+        const res = await fetch('/api/finance/data');
+        const data = await res.json();
+        
+        document.getElementById('balanceLoading').innerText = formatMoney(data.balance);
+        document.getElementById('balanceLoading').style.color = data.balance >= 0 ? 'var(--income)' : 'var(--expense)';
+        
+        document.getElementById('incomeLoading').innerText = formatMoney(data.total_income);
+        document.getElementById('expenseLoading').innerText = formatMoney(data.total_expense);
+        
+        // Render Chart
+        const ctx = document.getElementById('expenseChart').getContext('2d');
+        const catLabels = Object.keys(data.expense_by_category);
+        const catData = Object.values(data.expense_by_category);
+        
+        if (catLabels.length > 0) {
+          new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+              labels: catLabels,
+              datasets: [{
+                data: catData,
+                backgroundColor: ['#cf6679', '#bb86fc', '#03dac6', '#ffb74d', '#4fc3f7', '#a1887f'],
+                borderWidth: 0
+              }]
+            },
+            options: {
+              responsive: true,
+              plugins: { legend: { position: 'bottom', labels: { color: '#fff' } } }
+            }
+          });
+        } else {
+          document.getElementById('expenseChart').style.display = 'none';
+        }
+        
+        // Render List
+        const listDiv = document.getElementById('txList');
+        if (data.transactions.length === 0) {
+          listDiv.innerHTML = "<p style='color:#777;text-align:center;'>Ma'lumot topilmadi.</p>";
+        } else {
+          listDiv.innerHTML = data.transactions.map(t => `
+            <div class="tx">
+              <div class="tx-info">
+                <h4>${t.category}</h4>
+                <p>${t.description || ''} • ${t.date}</p>
+              </div>
+              <div class="tx-amount ${t.type === 'income' ? 'val-income' : 'val-expense'}">
+                ${t.type === 'income' ? '+' : '-'}${formatMoney(t.amount)}
+              </div>
+            </div>
+          `).join('');
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    
+    loadData();
+  </script>
+</body>
+</html>"""
+    return HTMLResponse(html)
+
+@app.get("/api/finance/data")
+async def get_finance_data():
+    """TMA chartlar uchun ma'lumot uzatadi."""
+    from database import db_get_finance_data
+    return await db_get_finance_data()
 
 @app.get("/history")
 async def get_hist():
