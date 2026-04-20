@@ -496,7 +496,7 @@ async def morning_briefing_job(context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     text_data = await userbot.get_daily_digest_messages(limit_dialogs=15)
     
-    prompt = "Bugun ertalabki brifing (Ertalab soat 08:00). Menga motivatsion ohangda (Sizlab, Oka deb) qisqacha bugungi rejam, havo harorati (o'zing biladigan eng so'nggi ma'lumotdan) va oxirgi chatlardagi muhim xabarlarni aytib ber:\n\n" + (text_data or "Hech qanday yangi xabar yo'q.")
+    prompt = "Bugun ertalabki brifing (Ertalab soat 08:00). Menga motivatsion ohangda qisqacha bugungi rejam, havo harorati (o'zing biladigan eng so'nggi ma'lumotdan) va oxirgi chatlardagi muhim xabarlarni aytib ber:\n\n" + (text_data or "Hech qanday yangi xabar yo'q.")
     
     try:
         sys_prompt = build_system_prompt([])
@@ -513,6 +513,32 @@ async def morning_briefing_job(context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         logger.error(f"Briefing yuborishda xato: {e}")
 
+async def viral_news_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.info("⏱ Viral yangiliklar (Internet) izlash boshlandi...")
+    try:
+        from duckduckgo_search import DDGS
+        import asyncio
+        def fetch_news():
+            with DDGS() as ddgs:
+                try:
+                    return list(ddgs.news("tech OR trending OR AI OR world", max_results=30))
+                except:
+                    return []
+        
+        news_data = await asyncio.to_thread(fetch_news)
+        if not news_data:
+            return
+            
+        prompt = "Sen internetdagi quyidagi yangiliklar ro'yxatini olding. Iltimos, ularni tahlil qilib, asosan eng qiziqarli, dunyoni larzaga keltiradigan yoki VIRAL (mashhur) bo'lishi aniq bo'lgan TOP 5 tasini saralab ol. Va ularni emoji va qiziqarli izohlar bilan 'Xo'jayin' degan tilda o'zbekcha yozib ber:\n\n" + str(news_data)
+        
+        sys_prompt = build_system_prompt([])
+        response = await ai.process_message(prompt, sys_prompt, execute_tool)
+        report = f"🔥 *TOP 5 Viral Yangiliklar!*\n\n{response}"
+        
+        if userbot:
+            await userbot.send_message("@abdullayev_ii", report)
+    except Exception as e:
+        logger.error(f"Viral news yuborishda xato: {e}")
 
 def main() -> None:
     app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
@@ -529,6 +555,8 @@ def main() -> None:
     app.job_queue.run_daily(daily_digest_job, time=datetime.time(hour=20, minute=0, tzinfo=tz))
     # Ertalabki brifing
     app.job_queue.run_daily(morning_briefing_job, time=datetime.time(hour=8, minute=0, tzinfo=tz))
+    # Ertalabki Viral yangiliklar
+    app.job_queue.run_daily(viral_news_job, time=datetime.time(hour=8, minute=5, tzinfo=tz))
 
     logger.info("✅ Jasmina tayyor! Polling boshlandi.")
     app.run_polling(drop_pending_updates=True)
