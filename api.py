@@ -195,7 +195,7 @@ async def tts_endpoint(text: str = "", lang: str = "uz"):
         r = req_lib.post(
             "https://back.aisha.group/api/v1/tts/post/",
             headers={"x-api-key": aisha_key, "Content-Type": "application/json"},
-            json={"transcript": clean},
+            json={"transcript": clean, "speaker_id": 2, "voice": "male", "gender": "male"},
             timeout=15
         )
         if r.status_code in [200, 201]:

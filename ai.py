@@ -386,7 +386,7 @@ class GeminiAI:
             if aisha_key and lang == "uz":
                 url = "https://back.aisha.group/api/v1/tts/post/"
                 headers = {"x-api-key": aisha_key, "Content-Type": "application/json"}
-                data = {"transcript": text}
+                data = {"transcript": text, "speaker_id": 2, "voice": "male", "gender": "male"}
                 
                 def fetch_aisha():
                     try:
