@@ -90,7 +90,7 @@ async def check_auth(update: Update) -> bool:
         return True
     if update.effective_chat and update.effective_chat.type == "private":
         try:
-            await update.message.reply_text("Assalomu alaykum. Men Xususiy AI Yordamchisiman va mendan faqatgina Qodirov Isroiljon foydalana oladilar. Uzr, sizga xizmat ko'rsata olmayman 🤖")
+            await update.message.reply_text("Assalomu alaykum. Men Xususiy AI Yordamchisiman va mendan faqatgina Isroiljon Abdullayev foydalana oladilar. Uzr, sizga xizmat ko'rsata olmayman 🤖")
         except: pass
     return False
 
