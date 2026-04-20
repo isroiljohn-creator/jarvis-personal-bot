@@ -64,25 +64,33 @@ async def siri_endpoint(req: SiriRequest):
 
 @app.get("/siri")
 async def siri_endpoint_get(message: str = ""):
-    """GET metodi (Siri shortcut uchun eng oson variant)."""
+    """iOS PWA va GET request uchun — to'liq Jarvis AI bilan ishlaydi."""
     if not message:
         return {"status": "error", "reason": "No message"}
-        
-    ai = BOT_CONTEXT.get("ai")
-    userbot = BOT_CONTEXT.get("userbot")
-    builder = BOT_CONTEXT.get("build_system_prompt")
+
+    ai       = BOT_CONTEXT.get("ai")
+    builder  = BOT_CONTEXT.get("build_system_prompt")
     executor = BOT_CONTEXT.get("execute_tool")
-    
-    if not userbot or not ai or not userbot.connected:
-        return {"status": "error", "reason": "System offline"}
-    
+    userbot  = BOT_CONTEXT.get("userbot")
+
+    if not ai:
+        return {"status": "error", "reason": "AI hali ishga tushmagan, bir daqiqa kuting."}
+
     try:
-        sys_prompt = builder([], message)
+        # To'liq Telegram bot bilan bir xil system prompt (bo'sh emas!)
+        sys_prompt = builder([], message) if builder else ""
         response = await ai.process_message(message, sys_prompt, executor)
-        
-        await userbot.send_message("me", f"📱 *Siri orqali*:\n_{message}_\n\n🤖 *Javob*:\n{response}")
+
+        # Agar userbot ulangan bo'lsa — Saved Messages ga ham nusxa jo'nat
+        if userbot and userbot.connected:
+            try:
+                await userbot.send_message("me", f"📱 *iOS Ilova*:\n_{message}_\n\n🤖 *Javob*:\n{response}")
+            except Exception:
+                pass  # Telegram nusxasi bo'lmasa ham asosiy javob qaytadi
+
         return {"status": "success", "response": response}
     except Exception as e:
+        logger.error(f"iOS PWA endpoint xatosi: {e}")
         return {"status": "error", "reason": str(e)}
 
 @app.get("/health")
