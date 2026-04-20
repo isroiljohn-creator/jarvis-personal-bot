@@ -1,13 +1,10 @@
-"""Gemini AI moduli — Function Calling, Vision, TTS bilan."""
+"""Gemini AI moduli — Omni-Channel (Telegram, Insta, Cloud, Memory) Function Calling bilan."""
 
 from __future__ import annotations
 
 import asyncio
 import base64
 import logging
-import os
-import subprocess
-import tempfile
 from pathlib import Path
 
 import google.generativeai as genai
@@ -18,54 +15,8 @@ logger = logging.getLogger("jarvis.ai")
 
 TOOL_DECLARATIONS = [
     {
-        "name": "run_command",
-        "description": (
-            "Kompyuterda terminal (shell) buyrug'ini bajaradi. "
-            "macOS va Linux buyruqlarini qo'llab-quvvatlaydi. "
-            "Misol: ls, pwd, whoami, df -h, brew list, pip list."
-        ),
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "command": {"type": "STRING", "description": "Terminal buyrug'i"}
-            },
-            "required": ["command"],
-        },
-    },
-    {
-        "name": "screenshot_analyze",
-        "description": (
-            "Kompyuter ekranining rasmini oladi va AI bilan tahlil qiladi. "
-            "Foydalanuvchi 'ekranni ko'r', 'ekranda nima bor', 'screenshot' desa chaqir."
-        ),
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "question": {
-                    "type": "STRING",
-                    "description": "Ekran haqida savol",
-                }
-            },
-            "required": ["question"],
-        },
-    },
-    {
-        "name": "open_app",
-        "description": "Kompyuterda dastur/ilovani ochadi (Chrome, Safari, VS Code, Spotify...).",
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "app_name": {"type": "STRING", "description": "Dastur nomi"}
-            },
-            "required": ["app_name"],
-        },
-    },
-    {
         "name": "web_search",
-        "description": (
-            "Internetdan ma'lumot qidiradi. Har qanday savol, yangilik, "
-            "narx, faktlar uchun shu toolni ishlatgan."
-        ),
+        "description": "Internetdan ochiq ma'lumot qidiradi (DuckDuckGo).",
         "parameters": {
             "type": "OBJECT",
             "properties": {
@@ -76,42 +27,24 @@ TOOL_DECLARATIONS = [
     },
     {
         "name": "send_telegram_message",
-        "description": (
-            "Telegram orqali matnli xabar yuboradi. "
-            "Foydalanuvchining shaxsiy akkountidan boshqa kishiga yozadi."
-        ),
+        "description": "Telegram orqali matnli xabar yuboradi.",
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "contact": {
-                    "type": "STRING",
-                    "description": "Qabul qiluvchi ismi yoki chat_id",
-                },
-                "message": {
-                    "type": "STRING",
-                    "description": "Xabar matni",
-                },
+                "contact": {"type": "STRING", "description": "Qabul qiluvchi ismi/chat_id"},
+                "message": {"type": "STRING", "description": "Xabar matni"},
             },
             "required": ["contact", "message"],
         },
     },
     {
         "name": "send_telegram_voice",
-        "description": (
-            "Telegram orqali ovozli xabar yuboradi. "
-            "Matn ovozga aylantiriladi va voice message sifatida yuboriladi."
-        ),
+        "description": "Telegram orqali ovozli xabar yuboradi (TTS qilib).",
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "contact": {
-                    "type": "STRING",
-                    "description": "Qabul qiluvchi ismi yoki chat_id",
-                },
-                "message": {
-                    "type": "STRING",
-                    "description": "Ovozli xabar matni",
-                },
+                "contact": {"type": "STRING", "description": "Qabul qiluvchi ismi/chat_id"},
+                "message": {"type": "STRING", "description": "Ovozli xabar matni"},
             },
             "required": ["contact", "message"],
         },
@@ -122,10 +55,7 @@ TOOL_DECLARATIONS = [
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "limit": {
-                    "type": "INTEGER",
-                    "description": "Nechta chat (default: 10)",
-                }
+                "limit": {"type": "INTEGER", "description": "Nechta chat (default: 10)"}
             },
         },
     },
@@ -135,77 +65,88 @@ TOOL_DECLARATIONS = [
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "contact": {
-                    "type": "STRING",
-                    "description": "Chat nomi, username yoki ID",
-                },
-                "limit": {
-                    "type": "INTEGER",
-                    "description": "Nechta xabar (default: 5)",
-                },
+                "contact": {"type": "STRING", "description": "Chat nomi yoki ism"},
+                "limit": {"type": "INTEGER", "description": "Nechta xabar (default: 5)"},
             },
             "required": ["contact"],
         },
     },
     {
-        "name": "file_operation",
-        "description": (
-            "Fayl va papkalar bilan ishlaydi: "
-            "list, read, create, delete, find, info."
-        ),
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "action": {
-                    "type": "STRING",
-                    "description": "list | read | create | delete | find | info",
-                },
-                "path": {"type": "STRING", "description": "Fayl/papka yo'li"},
-                "content": {
-                    "type": "STRING",
-                    "description": "Fayl tarkibi (create uchun)",
-                },
-                "search_name": {
-                    "type": "STRING",
-                    "description": "Fayl nomi (find uchun)",
-                },
-            },
-            "required": ["action"],
-        },
-    },
-    {
         "name": "save_memory",
-        "description": (
-            "Foydalanuvchi haqidagi muhim ma'lumotni xotiraga saqlaydi. "
-            "Ism, yosh, shahar, kasb, sevimlilar, oila, rejalar va h.k. "
-            "Bu toolni jim chaqir, foydalanuvchiga aytma."
-        ),
+        "description": "Foydalanuvchi ma'lumotlarini uzoq muddatli xotiraga saqlaydi.",
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "category": {
-                    "type": "STRING",
-                    "description": "identity | preferences | projects | relationships | notes",
-                },
-                "key": {"type": "STRING", "description": "Kalit (name, age, city)"},
+                "category": {"type": "STRING", "description": "identity | preferences | projects | relationships | notes"},
+                "key": {"type": "STRING", "description": "Kalit(masalan: name, work)"},
                 "value": {"type": "STRING", "description": "Qiymat"},
             },
             "required": ["category", "key", "value"],
         },
     },
     {
-        "name": "system_info",
-        "description": "Kompyuter tizimi haqida: CPU, RAM, disk, OS, uptime.",
-        "parameters": {"type": "OBJECT", "properties": {}},
+        "name": "notion_add_task",
+        "description": "Notion Database (To-Do) ga yangi vazifa qo'shadi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "title": {"type": "STRING", "description": "Vazifa nomi"},
+                "status": {"type": "STRING", "description": "Status (masalan: Kutilmoqda, Bajarildi)"},
+            },
+            "required": ["title"],
+        },
+    },
+    {
+        "name": "notion_read_tasks",
+        "description": "Notiondan so'nggi vazifalarni o'qib keladi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "limit": {"type": "INTEGER", "description": "Nechta vazifa o'qish kerak"}
+            },
+        },
+    },
+    {
+        "name": "calendar_add_event",
+        "description": "Google Calendar ga yangi uchrashuv yozadi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "summary": {"type": "STRING", "description": "Uchrashuv nomi"},
+                "start_time": {"type": "STRING", "description": "Boshlanish vaqti (ISO 8601, masalan 2026-04-20T10:00:00)"},
+                "end_time": {"type": "STRING", "description": "Tugash vaqti (ISO 8601, masalan 2026-04-20T11:00:00)"},
+                "description": {"type": "STRING", "description": "Batafsil izoh"},
+            },
+            "required": ["summary", "start_time", "end_time"],
+        },
+    },
+    {
+        "name": "calendar_get_events",
+        "description": "Google Calendardan kelgusi uchrashuv va rejalar ro'yxatini oladi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "max_results": {"type": "INTEGER", "description": "Nechta event qaytarsin"}
+            },
+        },
+    },
+    {
+        "name": "insta_send_dm",
+        "description": "Instagram orqali ko'rsatilgan akkauntga to'g'ridan-to'g'ri DM (xabar) yuboradi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "username": {"type": "STRING", "description": "Instagram username (shunchaki nom, @ siz)"},
+                "message": {"type": "STRING", "description": "Yuboriladigan xabar matni"},
+            },
+            "required": ["username", "message"],
+        },
     },
 ]
 
 
-# ───────────────────── AI Class ─────────────────────
-
-
 class GeminiAI:
-    """Gemini 2.0 Flash + Function Calling + Vision + TTS."""
+    """Gemini 2.0 Flash + Function Calling + Omni-Channels."""
 
     def __init__(self, api_key: str) -> None:
         genai.configure(api_key=api_key)
@@ -213,7 +154,6 @@ class GeminiAI:
         logger.info("✅ Gemini 2.0 Flash tayyor")
 
     def _create_model(self, system_prompt: str = ""):
-        """Har safar yangi model yaratish (system prompt bilan)."""
         return genai.GenerativeModel(
             model_name="gemini-2.0-flash",
             system_instruction=system_prompt or None,
@@ -227,8 +167,6 @@ class GeminiAI:
             self._vision_model = genai.GenerativeModel("gemini-2.0-flash")
         return self._vision_model
 
-    # ─────────────── Asosiy chat + function calling ───────────────
-
     async def process_message(
         self,
         prompt: str,
@@ -236,23 +174,11 @@ class GeminiAI:
         tool_executor,
         images: list[tuple[str, bytes]] | None = None,
     ) -> str:
-        """
-        Xabarni qayta ishlash — function calling loop bilan.
-
-        Args:
-            prompt: Foydalanuvchi xabari
-            system_prompt: Tizim ko'rsatmasi (memory + qoidalar)
-            tool_executor: async callable(name, args) -> str
-            images: [(mime_type, bytes), ...] rasm ma'lumotlari
-
-        Returns:
-            AI javob matni
-        """
+        """Xabarni qayta ishlash — function calling loop."""
         try:
             model = self._create_model(system_prompt)
             chat = model.start_chat()
 
-            # Birinchi xabar
             parts = []
             if images:
                 for mime_type, data in images:
@@ -268,14 +194,12 @@ class GeminiAI:
 
             response = await chat.send_message_async(parts)
 
-            # Function calling loop (max 8 marta)
             for _ in range(8):
                 text, fn_calls = self._parse_response(response)
 
                 if not fn_calls:
                     return text or "..."
 
-                # Toollarni bajarish
                 fn_results = []
                 for fc in fn_calls:
                     logger.info(f"🔧 Tool: {fc['name']}({fc['args']})")
@@ -285,7 +209,6 @@ class GeminiAI:
                         result = f"❌ Tool xatosi: {e}"
                     fn_results.append({"name": fc["name"], "result": str(result)})
 
-                # Natijalarni Gemini'ga qaytarish
                 response_parts = []
                 for fr in fn_results:
                     response_parts.append(
@@ -301,7 +224,6 @@ class GeminiAI:
                     genai.protos.Content(parts=response_parts)
                 )
 
-            # Loop tugadi — oxirgi javobni qaytarish
             text, _ = self._parse_response(response)
             return text or "Jarayonni bajara olmadim."
 
@@ -310,14 +232,11 @@ class GeminiAI:
             return f"❌ AI xatosi: {e}"
 
     def _parse_response(self, response) -> tuple[str | None, list[dict] | None]:
-        """Gemini javobini tahlil qilish — matn va/yoki function calllar."""
         text = None
         fn_calls = []
-
         try:
             if not response.candidates:
                 return None, None
-
             for part in response.candidates[0].content.parts:
                 if (
                     hasattr(part, "function_call")
@@ -341,8 +260,6 @@ class GeminiAI:
 
         return text, fn_calls or None
 
-    # ─────────────── Ovozni matnga aylantirish ───────────────
-
     async def transcribe(self, audio_path: str) -> str:
         """OGG audio faylni matnga aylantirish."""
         try:
@@ -360,20 +277,16 @@ class GeminiAI:
             logger.error(f"Transkriptsiya xatosi: {e}")
             return "[Ovozni aniqlash xatosi]"
 
-    # ─────────────── Rasm tahlili ───────────────
-
     async def analyze_image(
         self, image_data: bytes, prompt: str = ""
     ) -> str:
         """Rasmni Gemini Vision bilan tahlil qilish."""
         try:
             encoded = base64.b64encode(image_data).decode()
-            question = (
-                prompt or "Bu rasmda nima bor? O'zbek tilida batafsil tushuntir."
-            )
+            question = prompt or "Bu rasmda nima bor? O'zbek tilida batafsil tushuntir."
             response = await self.vision_model.generate_content_async(
                 [
-                    {"inline_data": {"mime_type": "image/png", "data": encoded}},
+                    {"inline_data": {"mime_type": "image/jpeg", "data": encoded}},
                     question,
                 ]
             )
@@ -382,21 +295,15 @@ class GeminiAI:
             logger.error(f"Rasm tahlili xatosi: {e}")
             return f"❌ Rasm tahlili xatosi: {e}"
 
-    # ─────────────── Matnni ovozga aylantirish (TTS) ───────────────
-
     async def text_to_speech(self, text: str, lang: str = "uz") -> str | None:
-        """
-        Matnni ovozga aylantirish — edge-tts bilan.
-        OGG Opus fayl yo'lini qaytaradi (Telegram voice uchun).
-        """
+        """Matnni ovozga aylantirish (edge-tts)."""
+        import os, tempfile
         try:
             import edge_tts
-
             voices = {
                 "uz": "uz-UZ-SardorNeural",
                 "ru": "ru-RU-DmitryNeural",
                 "en": "en-US-GuyNeural",
-                "tr": "tr-TR-AhmetNeural",
             }
             voice = voices.get(lang, voices["uz"])
 
@@ -406,7 +313,6 @@ class GeminiAI:
             communicate = edge_tts.Communicate(text, voice)
             await communicate.save(mp3_path)
 
-            # MP3 → OGG Opus (Telegram voice uchun)
             proc = await asyncio.create_subprocess_exec(
                 "ffmpeg", "-i", mp3_path,
                 "-c:a", "libopus", "-b:a", "64k",
@@ -417,7 +323,6 @@ class GeminiAI:
             )
             await proc.wait()
 
-            # MP3 o'chirish
             try:
                 os.unlink(mp3_path)
             except OSError:
@@ -425,10 +330,6 @@ class GeminiAI:
 
             if os.path.exists(ogg_path) and os.path.getsize(ogg_path) > 0:
                 return ogg_path
-            return None
-
-        except ImportError:
-            logger.warning("edge-tts o'rnatilmagan, TTS ishlamaydi")
             return None
         except Exception as e:
             logger.error(f"TTS xatosi: {e}")
