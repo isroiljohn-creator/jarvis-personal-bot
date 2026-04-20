@@ -319,22 +319,49 @@ class GeminiAI:
             return f"❌ Rasm tahlili xatosi: {e}"
 
     async def text_to_speech(self, text: str, lang: str = "uz") -> str | None:
-        """Matnni ovozga aylantirish (edge-tts)."""
+        """Matnni ovozga aylantirish (Aisha / edge-tts)."""
         import os, tempfile
+        import requests
+        
+        aisha_key = os.environ.get("AISHA_API_KEY")
+        
+        mp3_path = tempfile.mktemp(suffix=".mp3")
+        ogg_path = tempfile.mktemp(suffix=".ogg")
+        
         try:
-            import edge_tts
-            voices = {
-                "uz": "uz-UZ-SardorNeural",
-                "ru": "ru-RU-DmitryNeural",
-                "en": "en-US-GuyNeural",
-            }
-            voice = voices.get(lang, voices["uz"])
-
-            mp3_path = tempfile.mktemp(suffix=".mp3")
-            ogg_path = tempfile.mktemp(suffix=".ogg")
-
-            communicate = edge_tts.Communicate(text, voice)
-            await communicate.save(mp3_path)
+            if aisha_key and lang == "uz":
+                url = "https://back.aisha.group/api/v1/tts/post/"
+                headers = {"x-api-key": aisha_key, "Content-Type": "application/json"}
+                data = {"transcript": text}
+                
+                def fetch_aisha():
+                    try:
+                        r = requests.post(url, headers=headers, json=data, timeout=15)
+                        if r.status_code in [200, 201]:
+                            json_res = r.json()
+                            audio_url = json_res.get("audio_path")
+                            if audio_url:
+                                audio_data = requests.get(audio_url).content
+                                with open(mp3_path, 'wb') as f:
+                                    f.write(audio_data)
+                                return True
+                    except Exception as e:
+                        logger.error(f"Aisha xatosi: {e}")
+                    return False
+                
+                success = await asyncio.to_thread(fetch_aisha)
+                if not success:
+                    return None
+            else:
+                import edge_tts
+                voices = {
+                    "uz": "uz-UZ-SardorNeural",
+                    "ru": "ru-RU-DmitryNeural",
+                    "en": "en-US-GuyNeural",
+                }
+                voice = voices.get(lang, voices["uz"])
+                communicate = edge_tts.Communicate(text, voice)
+                await communicate.save(mp3_path)
 
             proc = await asyncio.create_subprocess_exec(
                 "ffmpeg", "-i", mp3_path,
