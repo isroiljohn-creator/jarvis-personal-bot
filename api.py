@@ -171,8 +171,32 @@ async def root():
 
 @app.get("/finance")
 async def finance_dashboard():
-    """Telegram Mini App uchun vizual Hisob-kitob (Moliya) interfeysi (AI Finansist UI)."""
-    return FileResponse("static/index.html")
+    """Jasmina - Yangi maxsus moliyaviy mini app."""
+    return FileResponse("static/finance.html")
+
+@app.post("/api/finance/transactions")
+async def save_transaction(request: Request):
+    """Yangi tranzaksiya saqlash (Mini App orqali)."""
+    from database import db_log_transaction
+    try:
+        body = await request.json()
+        tx_type = body.get("type", "expense")
+        amount = float(body.get("amount", 0))
+        category = body.get("category", "Boshqa")
+        payment = body.get("payment_method", "naqd")
+        note = body.get("description", "")
+        currency = body.get("currency", "UZS")
+
+        if amount <= 0:
+            return {"ok": False, "error": "Miqdor noto'g'ri"}
+
+        result = await db_log_transaction(
+            type=tx_type, amount=amount, category=category,
+            description=note, payment_method=payment, currency=currency
+        )
+        return {"ok": True, "message": result}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 @app.get("/api/finance/data")
 async def get_finance_data(force: bool = False):

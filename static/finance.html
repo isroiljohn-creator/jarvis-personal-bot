@@ -1,0 +1,1584 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Jasmina · Moliya</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    /* ─── RESET & ROOT ─────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0A0A0F;
+      --bg2: #111116;
+      --card: rgba(255,255,255,0.05);
+      --card-border: rgba(255,255,255,0.08);
+      --text: #FFFFFF;
+      --text2: rgba(255,255,255,0.55);
+      --text3: rgba(255,255,255,0.3);
+      --green: #00E5A0;
+      --green-dim: rgba(0,229,160,0.12);
+      --red: #FF4D6A;
+      --red-dim: rgba(255,77,106,0.12);
+      --blue: #4D9FFF;
+      --blue-dim: rgba(77,159,255,0.12);
+      --gold: #FFB830;
+      --gold-dim: rgba(255,184,48,0.12);
+      --purple: #A78BFA;
+      --purple-dim: rgba(167,139,250,0.12);
+      --radius-sm: 12px;
+      --radius-md: 18px;
+      --radius-lg: 24px;
+      --radius-xl: 32px;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 20px);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+
+    /* ─── MAIN LAYOUT ─────────────────────── */
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+    }
+
+    /* ─── HEADER ─────────────────────────── */
+    .header {
+      flex-shrink: 0;
+      padding: calc(var(--safe-top) + 16px) 20px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg);
+      position: relative;
+      z-index: 10;
+    }
+    .header-left h1 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    .header-left p {
+      font-size: 12px;
+      color: var(--text2);
+      margin-top: 1px;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .header-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--green-dim);
+      border: 1px solid rgba(0,229,160,0.2);
+      border-radius: 20px;
+      padding: 5px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--green);
+    }
+    .header-badge .dot {
+      width: 6px; height: 6px;
+      background: var(--green);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* ─── SCROLL AREA ─────────────────────── */
+    .scroll-area {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      padding: 0 16px calc(var(--safe-bottom) + 80px);
+    }
+    .scroll-area::-webkit-scrollbar { display: none; }
+
+    /* ─── PERIOD TABS ─────────────────────── */
+    .period-tabs {
+      display: flex;
+      gap: 6px;
+      margin: 4px 0 18px;
+      background: rgba(255,255,255,0.04);
+      border-radius: var(--radius-sm);
+      padding: 4px;
+    }
+    .period-tab {
+      flex: 1;
+      padding: 8px;
+      border: none;
+      background: transparent;
+      color: var(--text2);
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .period-tab.active {
+      background: white;
+      color: #0A0A0F;
+    }
+
+    /* ─── BALANCE CARD ─────────────────────── */
+    .balance-card {
+      background: linear-gradient(135deg, #0D2A1F 0%, #0A1628 100%);
+      border: 1px solid rgba(0,229,160,0.15);
+      border-radius: var(--radius-xl);
+      padding: 24px;
+      margin-bottom: 14px;
+      position: relative;
+      overflow: hidden;
+    }
+    .balance-card::before {
+      content: '';
+      position: absolute;
+      top: -60px; right: -60px;
+      width: 180px; height: 180px;
+      background: radial-gradient(circle, rgba(0,229,160,0.15) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .balance-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text2);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .balance-amount {
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: -2px;
+      color: white;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .balance-amount .currency {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text2);
+      margin-left: 4px;
+    }
+    .balance-trend {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--green);
+      margin-top: 6px;
+    }
+    .balance-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid rgba(255,255,255,0.07);
+    }
+    .balance-stat-item { }
+    .balance-stat-label {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 3px;
+    }
+    .balance-stat-value {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    .income-color { color: var(--green); }
+    .expense-color { color: var(--red); }
+
+    /* ─── CHART CARD ─────────────────────── */
+    .chart-card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 18px 16px;
+      margin-bottom: 14px;
+    }
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .chart-title {
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .chart-legend {
+      display: flex;
+      gap: 12px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text2);
+    }
+    .legend-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+    }
+    .chart-wrap {
+      height: 160px;
+      position: relative;
+    }
+
+    /* ─── KPI GRID ─────────────────────── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .kpi-card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 16px 14px;
+      transition: transform 0.15s;
+    }
+    .kpi-card:active { transform: scale(0.96); }
+    .kpi-icon {
+      width: 34px; height: 34px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+    .kpi-value {
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 3px;
+    }
+    .kpi-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text2);
+    }
+
+    /* ─── TRANSACTIONS ─────────────────── */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .section-title {
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .section-action {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--blue);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      padding: 0;
+    }
+
+    .tx-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+    .tx-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 13px 14px;
+      transition: background 0.15s;
+    }
+    .tx-item:active { background: rgba(255,255,255,0.08); }
+    .tx-icon {
+      width: 38px; height: 38px;
+      border-radius: 11px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px;
+      flex-shrink: 0;
+    }
+    .tx-info { flex: 1; min-width: 0; }
+    .tx-name {
+      font-size: 14px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tx-meta {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text2);
+      margin-top: 2px;
+    }
+    .tx-amount {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      white-space: nowrap;
+    }
+
+    /* ─── DONUT SECTION ─────────────────── */
+    .donut-section {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 16px;
+      align-items: center;
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 18px 16px;
+      margin-bottom: 14px;
+    }
+    .donut-wrap {
+      position: relative;
+      width: 120px; height: 120px;
+    }
+    .donut-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    .donut-center-val {
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+    .donut-center-label {
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .donut-legend { display: flex; flex-direction: column; gap: 8px; }
+    .donut-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .donut-legend-dot {
+      width: 9px; height: 9px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .donut-legend-name {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text2);
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .donut-legend-val {
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    /* ─── BOTTOM NAV ─────────────────────── */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      padding: 10px 20px calc(var(--safe-bottom) + 4px);
+      background: rgba(10,10,15,0.92);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid rgba(255,255,255,0.06);
+      display: flex;
+      justify-content: space-around;
+      z-index: 100;
+    }
+    .nav-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      background: none;
+      border: none;
+      color: var(--text2);
+      font-size: 9px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      padding: 4px 10px;
+      border-radius: 12px;
+      transition: all 0.15s;
+      min-width: 56px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+    .nav-btn.active { color: var(--text); }
+    .nav-btn svg { width: 22px; height: 22px; }
+    .nav-btn.active svg path, .nav-btn.active svg rect, .nav-btn.active svg circle {
+      stroke: white;
+    }
+
+    /* ─── PAGES ─────────────────────── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ─── ADD TX MODAL ─────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(10px);
+      z-index: 200;
+      display: flex;
+      align-items: flex-end;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s;
+    }
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+    .modal-sheet {
+      width: 100%;
+      background: #161620;
+      border-radius: 28px 28px 0 0;
+      padding: 20px 20px calc(var(--safe-bottom) + 24px);
+      transform: translateY(100%);
+      transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    .modal-overlay.open .modal-sheet {
+      transform: translateY(0);
+    }
+    .modal-handle {
+      width: 36px; height: 4px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 2px;
+      margin: 0 auto 20px;
+    }
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    /* Type Toggle */
+    .type-toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: rgba(255,255,255,0.05);
+      border-radius: 14px;
+      padding: 4px;
+      gap: 4px;
+      margin-bottom: 18px;
+    }
+    .type-btn {
+      padding: 10px;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: transparent;
+      color: var(--text2);
+    }
+    .type-btn.active-income {
+      background: var(--green-dim);
+      color: var(--green);
+      border: 1px solid rgba(0,229,160,0.25);
+    }
+    .type-btn.active-expense {
+      background: var(--red-dim);
+      color: var(--red);
+      border: 1px solid rgba(255,77,106,0.25);
+    }
+
+    /* Amount Input */
+    .amount-display {
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 0 20px;
+    }
+    .amount-num {
+      font-size: 48px;
+      font-weight: 800;
+      letter-spacing: -2px;
+      color: white;
+      min-width: 100px;
+      text-align: center;
+    }
+    .amount-unit {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text2);
+    }
+
+    /* Form Inputs */
+    .input-group { margin-bottom: 14px; }
+    .input-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .input-field {
+      width: 100%;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: var(--radius-sm);
+      padding: 13px 14px;
+      color: white;
+      font-size: 15px;
+      font-family: 'Inter', sans-serif;
+      font-weight: 500;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .input-field:focus { border-color: rgba(255,255,255,0.3); }
+    .input-field::placeholder { color: var(--text3); }
+    select.input-field {
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.4)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+    }
+
+    .save-btn {
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 16px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: all 0.2s;
+    }
+    .save-btn:active { transform: scale(0.97); }
+    .save-btn.income { background: var(--green); color: #0A0A0F; }
+    .save-btn.expense { background: var(--red); color: white; }
+
+    /* ─── FAB ─────────────────────── */
+    .fab {
+      position: fixed;
+      bottom: calc(var(--safe-bottom) + 68px);
+      right: 20px;
+      width: 52px; height: 52px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #00E5A0, #00B8FF);
+      border: none;
+      color: #0A0A0F;
+      font-size: 24px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 24px rgba(0,229,160,0.35);
+      z-index: 99;
+      transition: all 0.2s;
+    }
+    .fab:active { transform: scale(0.92); }
+
+    /* ─── AI CHAT PAGE ─────────────────── */
+    .chat-messages {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding-bottom: 80px;
+    }
+    .chat-msg {
+      max-width: 80%;
+      padding: 12px 14px;
+      border-radius: 18px;
+      font-size: 14px;
+      font-weight: 400;
+      line-height: 1.5;
+    }
+    .chat-msg.user {
+      background: var(--blue);
+      color: white;
+      align-self: flex-end;
+      border-bottom-right-radius: 5px;
+    }
+    .chat-msg.ai {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      align-self: flex-start;
+      border-bottom-left-radius: 5px;
+    }
+    .chat-input-bar {
+      position: fixed;
+      bottom: calc(var(--safe-bottom) + 62px);
+      left: 16px; right: 16px;
+      display: flex;
+      gap: 8px;
+      z-index: 99;
+      background: var(--bg);
+      padding: 8px 0;
+    }
+    .chat-input {
+      flex: 1;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 14px;
+      padding: 12px 14px;
+      color: white;
+      font-size: 15px;
+      font-family: inherit;
+      outline: none;
+    }
+    .chat-send {
+      width: 46px; height: 46px;
+      border-radius: 14px;
+      background: var(--blue);
+      border: none;
+      color: white;
+      font-size: 20px;
+      cursor: pointer;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ─── LOADING & EMPTY STATES ─── */
+    .skeleton {
+      background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.6s infinite;
+      border-radius: 10px;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% center; }
+      100% { background-position: -200% center; }
+    }
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 20px;
+      gap: 10px;
+      color: var(--text2);
+    }
+    .empty-state .emoji { font-size: 44px; margin-bottom: 4px; }
+    .empty-state h3 { font-size: 16px; font-weight: 600; color: var(--text); }
+    .empty-state p { font-size: 13px; text-align: center; line-height: 1.5; }
+
+    /* ─── NUMPAD ─────────────────────── */
+    .numpad {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .numpad-btn {
+      padding: 16px;
+      background: rgba(255,255,255,0.06);
+      border: none;
+      border-radius: 14px;
+      color: white;
+      font-size: 20px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.1s;
+    }
+    .numpad-btn:active { background: rgba(255,255,255,0.12); transform: scale(0.94); }
+    .numpad-btn.del { color: var(--text2); font-size: 18px; }
+    .numpad-btn.zero { grid-column: span 1; }
+
+    /* ─── TOAST ─────────────────────── */
+    .toast-container {
+      position: fixed;
+      top: calc(var(--safe-top) + 60px);
+      left: 16px; right: 16px;
+      z-index: 999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .toast {
+      padding: 13px 16px;
+      border-radius: 14px;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      animation: toastIn 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards;
+      pointer-events: all;
+    }
+    .toast.success { background: var(--green-dim); border: 1px solid rgba(0,229,160,0.3); color: var(--green); }
+    .toast.error { background: var(--red-dim); border: 1px solid rgba(255,77,106,0.3); color: var(--red); }
+    .toast.info { background: var(--blue-dim); border: 1px solid rgba(77,159,255,0.3); color: var(--blue); }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(-10px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* ─── ANALYTICS PAGE ─────────────── */
+    .stat-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .stat-box {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 14px 12px;
+      text-align: center;
+    }
+    .stat-box-val {
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 4px;
+    }
+    .stat-box-label {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- ─── HEADER ─── -->
+  <div class="header">
+    <div class="header-left">
+      <h1>💳 Moliya</h1>
+      <p id="headerDate">Yuklanmoqda...</p>
+    </div>
+    <div class="header-right">
+      <div class="header-badge">
+        <div class="dot"></div>
+        <span id="dbStatus">Live</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── PERIOD TABS ─── -->
+  <div style="padding: 0 16px">
+    <div class="period-tabs">
+      <button class="period-tab active" onclick="setPeriod('daily', this)">Kunlik</button>
+      <button class="period-tab" onclick="setPeriod('weekly', this)">Haftalik</button>
+      <button class="period-tab" onclick="setPeriod('monthly', this)">Oylik</button>
+    </div>
+  </div>
+
+  <!-- ─── SCROLL AREA ─── -->
+  <div class="scroll-area" id="scrollArea">
+    <!-- Dashboard Page -->
+    <div class="page active" id="page-home">
+
+      <!-- Balance Card -->
+      <div class="balance-card" id="balanceCard">
+        <div class="balance-label">Sof balansingiz</div>
+        <div class="balance-amount">
+          <span id="balanceNet">–</span>
+          <span class="currency">so'm</span>
+        </div>
+        <div class="balance-stats">
+          <div class="balance-stat-item">
+            <div class="balance-stat-label">↑ Tushum</div>
+            <div class="balance-stat-value income-color" id="statIncome">–</div>
+          </div>
+          <div class="balance-stat-item">
+            <div class="balance-stat-label">↓ Chiqim</div>
+            <div class="balance-stat-value expense-color" id="statExpense">–</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chart Card -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">Tushum & Chiqim</span>
+          <div class="chart-legend">
+            <div class="legend-item">
+              <div class="legend-dot" style="background:#00E5A0"></div>
+              Tushum
+            </div>
+            <div class="legend-item">
+              <div class="legend-dot" style="background:#FF4D6A"></div>
+              Chiqim
+            </div>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="mainChart"></canvas>
+        </div>
+      </div>
+
+      <!-- KPI Grid -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-icon" style="background:var(--green-dim)">📈</div>
+          <div class="kpi-value income-color" id="kpiMargin">–</div>
+          <div class="kpi-label">Foyda Marginali</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon" style="background:var(--blue-dim)">📅</div>
+          <div class="kpi-value" style="color:var(--blue)" id="kpiDays">–</div>
+          <div class="kpi-label">Faol Kunlar</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon" style="background:var(--gold-dim)">⚡</div>
+          <div class="kpi-value" style="color:var(--gold)" id="kpiAvg">–</div>
+          <div class="kpi-label">Kunlik O'rtacha</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon" style="background:var(--purple-dim)">🏆</div>
+          <div class="kpi-value" style="color:var(--purple)" id="kpiTop">–</div>
+          <div class="kpi-label">Top Manba</div>
+        </div>
+      </div>
+
+      <!-- Payment Sources Donut -->
+      <div class="donut-section">
+        <div class="donut-wrap">
+          <canvas id="donutChart" width="120" height="120"></canvas>
+          <div class="donut-center">
+            <div class="donut-center-val" id="donutTotal">–</div>
+            <div class="donut-center-label">Jami</div>
+          </div>
+        </div>
+        <div class="donut-legend" id="donutLegend">
+          <div class="skeleton" style="height:20px; width:100%; border-radius:6px;"></div>
+          <div class="skeleton" style="height:20px; width:80%; border-radius:6px;"></div>
+          <div class="skeleton" style="height:20px; width:90%; border-radius:6px;"></div>
+        </div>
+      </div>
+
+      <!-- Recent Transactions -->
+      <div class="section-header">
+        <span class="section-title">So'nggi Operatsiyalar</span>
+        <button class="section-action" onclick="navigate('tx')">Barchasi →</button>
+      </div>
+      <div class="tx-list" id="recentTxList">
+        <div style="height:48px;" class="skeleton"></div>
+        <div style="height:48px;" class="skeleton"></div>
+        <div style="height:48px;" class="skeleton"></div>
+      </div>
+    </div>
+
+    <!-- Analytics Page -->
+    <div class="page" id="page-analytics">
+      <div class="stat-row" id="analyticsStats">
+        <div class="stat-box skeleton" style="height:80px;"></div>
+        <div class="stat-box skeleton" style="height:80px;"></div>
+        <div class="stat-box skeleton" style="height:80px;"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title" id="analyticsChartTitle">Oylik Dinamika</span>
+        </div>
+        <div class="chart-wrap" style="height:200px;">
+          <canvas id="analyticsChart"></canvas>
+        </div>
+      </div>
+      <div class="section-header">
+        <span class="section-title">Chiqim Toifalari</span>
+      </div>
+      <div class="tx-list" id="expenseCatList"></div>
+    </div>
+
+    <!-- All Transactions Page -->
+    <div class="page" id="page-tx">
+      <div class="section-header" style="margin-bottom:8px;">
+        <span class="section-title">Barcha Operatsiyalar</span>
+        <div style="display:flex;gap:6px;">
+          <button onclick="filterTx('all')" class="section-action" id="f-all" style="color:var(--text)">Bari</button>
+          <button onclick="filterTx('income')" class="section-action" id="f-income">Tushum</button>
+          <button onclick="filterTx('expense')" class="section-action" id="f-expense">Chiqim</button>
+        </div>
+      </div>
+      <div class="tx-list" id="allTxList"></div>
+    </div>
+
+    <!-- AI Chat Page -->
+    <div class="page" id="page-ai">
+      <div class="chat-messages" id="chatMessages">
+        <div class="chat-msg ai">
+          Salom! Men sizning AI Moliya Maslahatchingizman 🤖<br>
+          Moliyangiz haqida xohlagan savolni yozing, javob beraman!
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── BOTTOM NAV ─── -->
+  <div class="bottom-nav">
+    <button class="nav-btn active" onclick="navigate('home')" id="nav-home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+        <polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+      Asosiy
+    </button>
+    <button class="nav-btn" onclick="navigate('analytics')" id="nav-analytics">
+      <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2">
+        <line x1="18" y1="20" x2="18" y2="10"/>
+        <line x1="12" y1="20" x2="12" y2="4"/>
+        <line x1="6" y1="20" x2="6" y2="14"/>
+      </svg>
+      Tahlil
+    </button>
+    <button class="nav-btn" onclick="navigate('tx')" id="nav-tx">
+      <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+      </svg>
+      Ro'yxat
+    </button>
+    <button class="nav-btn" onclick="navigate('ai')" id="nav-ai">
+      <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+      </svg>
+      AI Chat
+    </button>
+  </div>
+
+  <!-- ─── FAB (Add Transaction) ─── -->
+  <button class="fab" onclick="openModal()" id="fab">+</button>
+</div>
+
+<!-- ─── MODAL ─── -->
+<div class="modal-overlay" id="modal" onclick="e => e.target===this && closeModal()">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Yangi Operatsiya</div>
+
+    <!-- Type Toggle -->
+    <div class="type-toggle">
+      <button class="type-btn active-income" id="typeIncome" onclick="setType('income')">↑ Tushum</button>
+      <button class="type-btn" id="typeExpense" onclick="setType('expense')">↓ Chiqim</button>
+    </div>
+
+    <!-- Amount Display -->
+    <div class="amount-display">
+      <div class="amount-num" id="amountDisplay">0</div>
+      <div class="amount-unit">so'm</div>
+    </div>
+
+    <!-- Numpad -->
+    <div class="numpad">
+      <button class="numpad-btn" onclick="numpad('1')">1</button>
+      <button class="numpad-btn" onclick="numpad('2')">2</button>
+      <button class="numpad-btn" onclick="numpad('3')">3</button>
+      <button class="numpad-btn" onclick="numpad('4')">4</button>
+      <button class="numpad-btn" onclick="numpad('5')">5</button>
+      <button class="numpad-btn" onclick="numpad('6')">6</button>
+      <button class="numpad-btn" onclick="numpad('7')">7</button>
+      <button class="numpad-btn" onclick="numpad('8')">8</button>
+      <button class="numpad-btn" onclick="numpad('9')">9</button>
+      <button class="numpad-btn" onclick="numpad('000')">000</button>
+      <button class="numpad-btn" onclick="numpad('0')">0</button>
+      <button class="numpad-btn del" onclick="numpad('del')">⌫</button>
+    </div>
+
+    <!-- Details -->
+    <div class="input-group">
+      <div class="input-label">Toifa</div>
+      <select class="input-field" id="txCategory">
+        <option value="Maosh">💰 Maosh / Ish haqi</option>
+        <option value="Freelance">💻 Freelance / Loyiha</option>
+        <option value="Biznes">🏢 Biznes Daromad</option>
+        <option value="Oziq-ovqat">🛒 Oziq-ovqat</option>
+        <option value="Transport">🚗 Transport</option>
+        <option value="Kommunal">🏠 Kommunal to'lovlar</option>
+        <option value="Ko'ngilochar">🎮 Ko'ngilochar</option>
+        <option value="Kiyim">👗 Kiyim-kechak</option>
+        <option value="Sog'liq">🏥 Sog'liq / Dori</option>
+        <option value="Boshqa">📌 Boshqa</option>
+      </select>
+    </div>
+
+    <div class="input-group">
+      <div class="input-label">To'lov usuli</div>
+      <select class="input-field" id="txPayment">
+        <option value="naqd">💵 Naqd pul</option>
+        <option value="karta">💳 Karta</option>
+        <option value="transfer">📱 O'tkazma (Payme/Click)</option>
+      </select>
+    </div>
+
+    <div class="input-group">
+      <div class="input-label">Izoh (ixtiyoriy)</div>
+      <input type="text" class="input-field" id="txNote" placeholder="Masalan: Auchan, GreenApple...">
+    </div>
+
+    <button class="save-btn income" id="saveBtn" onclick="saveTx()">Saqlash</button>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toasts"></div>
+
+<!-- AI Chat Input -->
+<div class="chat-input-bar" id="chatBar" style="display:none;">
+  <input type="text" class="chat-input" id="chatInput" placeholder="Moliyangiz haqida so'rang...">
+  <button class="chat-send" onclick="sendAi()">➤</button>
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────
+const S = {
+  data: null,
+  period: 'daily',
+  page: 'home',
+  txFilter: 'all',
+  amountStr: '',
+  txType: 'income',
+};
+
+const COLORS = ['#00E5A0','#FF4D6A','#4D9FFF','#FFB830','#A78BFA','#FF6B6B','#06D6A0','#118AB2'];
+
+// ─── FORMAT ──────────────────────────────────────────────
+const fmt = n => {
+  const abs = Math.abs(n || 0);
+  if (abs >= 1e9) return (n/1e9).toFixed(1) + ' mlrd';
+  if (abs >= 1e6) return (n/1e6).toFixed(1) + ' mln';
+  if (abs >= 1e3) return (n/1e3).toFixed(0) + ' K';
+  return (n||0).toFixed(0);
+};
+const fmtFull = n => Math.abs(n||0).toLocaleString('ru-RU');
+
+// ─── TOAST ───────────────────────────────────────────────
+const toast = (type, msg, ms=3000) => {
+  const icons = {success:'✅', error:'❌', info:'ℹ️'};
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `${icons[type] || ''} ${msg}`;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => el.remove(), ms);
+};
+
+// ─── API ─────────────────────────────────────────────────
+const api = async (endpoint, opts={}) => {
+  try {
+    const headers = opts.headers || {};
+    if (window.Telegram?.WebApp?.initData)
+      headers['X-Telegram-Auth'] = window.Telegram.WebApp.initData;
+    const r = await fetch('/api/finance' + endpoint, {...opts, headers});
+    if (!r.ok) throw new Error(r.status);
+    return await r.json();
+  } catch(e) {
+    console.error('[API]', endpoint, e);
+    return null;
+  }
+};
+
+// ─── LOAD DATA ───────────────────────────────────────────
+const loadData = async () => {
+  const data = await api('/data');
+  if (!data) {
+    toast('error', 'Server bilan aloqa yo\'zlandi');
+    return;
+  }
+  S.data = data;
+  render();
+};
+
+// ─── RENDER ──────────────────────────────────────────────
+const render = () => {
+  if (!S.data) return;
+  const d = S.data;
+  const s = d.summary;
+
+  // Period data select
+  const pData = S.period === 'daily' ? d.daily
+              : S.period === 'weekly' ? d.weekly
+              : d.monthly;
+
+  const entries = Object.entries(pData || {});
+  const labels = entries.map(([k]) => k).slice(-14);
+  const incArr = labels.map(k => pData[k]?.income || 0);
+  const expArr = labels.map(k => pData[k]?.expense || 0);
+
+  // Current period totals (last entry or summary)
+  let curIncome = s.total_income;
+  let curExpense = s.total_expense;
+  if (entries.length > 0) {
+    const last = entries[entries.length - 1][1];
+    if (S.period !== 'monthly') {
+      curIncome = last.income || 0;
+      curExpense = last.expense || 0;
+    }
+  }
+  const curNet = curIncome - curExpense;
+
+  // Header date
+  const now = new Date();
+  document.getElementById('headerDate').textContent =
+    now.toLocaleDateString('uz-UZ', {day:'numeric', month:'long', year:'numeric'});
+  document.getElementById('dbStatus').textContent = d.has_real_data ? 'Live · DB' : 'Demo';
+
+  // Balance card
+  animateNum('balanceNet', curNet, fmtFull);
+  document.getElementById('statIncome').textContent = fmt(curIncome) + ' so\'m';
+  document.getElementById('statExpense').textContent = fmt(curExpense) + ' so\'m';
+
+  // KPIs
+  document.getElementById('kpiMargin').textContent = (s.profit_margin || 0) + '%';
+  document.getElementById('kpiDays').textContent = s.active_days || 0;
+  document.getElementById('kpiAvg').textContent = fmt(s.avg_daily_income);
+  document.getElementById('kpiTop').textContent = s.top_sources?.[0]?.name || '–';
+
+  // Main chart
+  renderMainChart(labels, incArr, expArr);
+
+  // Donut
+  renderDonut(d.source_totals || {});
+
+  // Recent transactions
+  renderRecentTx(d);
+
+  // If analytics page is open, refresh it
+  if (S.page === 'analytics') renderAnalytics();
+  if (S.page === 'tx') renderAllTx(d);
+};
+
+// ─── CHARTS ──────────────────────────────────────────────
+let charts = {};
+const destroyChart = k => { if(charts[k]) { charts[k].destroy(); delete charts[k]; } };
+
+const chartDefaults = () => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  interaction: { mode:'index', intersect:false },
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      backgroundColor: 'rgba(17,17,22,0.95)',
+      borderColor: 'rgba(255,255,255,0.1)',
+      borderWidth: 1,
+      titleColor: '#fff',
+      bodyColor: 'rgba(255,255,255,0.6)',
+      padding: 10,
+      callbacks: { label: c => ` ${c.dataset.label}: ${fmtFull(c.raw)} so'm` }
+    }
+  },
+  scales: {
+    x: { grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'rgba(255,255,255,0.3)', font:{size:10} } },
+    y: { grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'rgba(255,255,255,0.3)', font:{size:10}, callback: v => fmt(v) } }
+  }
+});
+
+const renderMainChart = (labels, inc, exp) => {
+  destroyChart('main');
+  const ctx = document.getElementById('mainChart');
+  if (!ctx) return;
+  charts.main = new Chart(ctx.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label:'Tushum', data:inc, borderColor:'#00E5A0', backgroundColor:'rgba(0,229,160,0.08)', borderWidth:2, tension:0.4, fill:true, pointRadius:2.5, pointBackgroundColor:'#00E5A0' },
+        { label:'Chiqim', data:exp, borderColor:'#FF4D6A', backgroundColor:'rgba(255,77,106,0.06)', borderWidth:2, tension:0.4, fill:true, pointRadius:2.5, pointBackgroundColor:'#FF4D6A' },
+      ]
+    },
+    options: chartDefaults()
+  });
+};
+
+const renderDonut = (sources) => {
+  const keys = Object.keys(sources);
+  const vals = keys.map(k => sources[k]);
+  const total = vals.reduce((a,b)=>a+b, 0);
+
+  destroyChart('donut');
+  const ctx = document.getElementById('donutChart');
+  if (!ctx) return;
+  charts.donut = new Chart(ctx.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: keys,
+      datasets: [{ data: vals, backgroundColor: COLORS, borderColor:'#0A0A0F', borderWidth: 3, hoverOffset: 6 }]
+    },
+    options: {
+      responsive: false,
+      cutout: '68%',
+      plugins: { legend:{display:false}, tooltip:{ callbacks:{ label:c=>` ${c.label}: ${fmt(c.raw)} so'm` } } }
+    }
+  });
+  document.getElementById('donutTotal').textContent = fmt(total);
+
+  // Legend
+  const leg = document.getElementById('donutLegend');
+  leg.innerHTML = keys.slice(0,4).map((k,i)=>`
+    <div class="donut-legend-item">
+      <div class="donut-legend-dot" style="background:${COLORS[i%COLORS.length]}"></div>
+      <div class="donut-legend-name">${k}</div>
+      <div class="donut-legend-val" style="color:${COLORS[i%COLORS.length]}">${fmt(sources[k])}</div>
+    </div>
+  `).join('');
+  if(!keys.length) leg.innerHTML = '<div style="color:var(--text2);font-size:13px;">Tranzaksiya yo\'q</div>';
+};
+
+const renderRecentTx = (d) => {
+  const txns = buildTxList(d).slice(0, 8);
+  const el = document.getElementById('recentTxList');
+  if (!txns.length) {
+    el.innerHTML = `<div class="empty-state"><div class="emoji">💸</div><h3>Operatsiya yo'q</h3><p>Bot orqali birinchi tranzaksiyangizni yozing!</p></div>`;
+    return;
+  }
+  el.innerHTML = txns.map(txHtml).join('');
+};
+
+const renderAllTx = (d) => {
+  let txns = buildTxList(d);
+  if (S.txFilter !== 'all') txns = txns.filter(t => t.type === S.txFilter);
+  const el = document.getElementById('allTxList');
+  if (!txns.length) {
+    el.innerHTML = `<div class="empty-state"><div class="emoji">📋</div><h3>Hech narsa topilmadi</h3></div>`;
+    return;
+  }
+  el.innerHTML = txns.slice(0, 100).map(txHtml).join('');
+};
+
+const buildTxList = (d) => {
+  // Build from daily data - most recent first
+  const daily = d.daily || {};
+  const items = [];
+  Object.entries(daily).reverse().forEach(([date, v]) => {
+    if (v.income > 0) items.push({ date, type:'income', amount:v.income, category:'Tushum', pm:'–' });
+    if (v.expense > 0) items.push({ date, type:'expense', amount:v.expense, category:'Chiqim', pm:'–' });
+  });
+  return items;
+};
+
+const txHtml = (tx) => {
+  const isInc = tx.type === 'income';
+  const icon = isInc ? '💚' : '🔴';
+  const bg = isInc ? 'var(--green-dim)' : 'var(--red-dim)';
+  const col = isInc ? 'var(--green)' : 'var(--red)';
+  const sign = isInc ? '+' : '-';
+  return `
+    <div class="tx-item">
+      <div class="tx-icon" style="background:${bg}">${icon}</div>
+      <div class="tx-info">
+        <div class="tx-name">${tx.category || (isInc ? 'Tushum' : 'Chiqim')}</div>
+        <div class="tx-meta">${tx.date}${tx.pm !== '–' ? ' · ' + tx.pm : ''}</div>
+      </div>
+      <div class="tx-amount" style="color:${col}">${sign}${fmtFull(tx.amount)}</div>
+    </div>
+  `;
+};
+
+const renderAnalytics = () => {
+  if (!S.data) return;
+  const d = S.data;
+  const s = d.summary;
+
+  // Stats row
+  document.getElementById('analyticsStats').innerHTML = `
+    <div class="stat-box">
+      <div class="stat-box-val income-color">${fmt(s.total_income)}</div>
+      <div class="stat-box-label">Jami Tushum</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-box-val expense-color">${fmt(s.total_expense)}</div>
+      <div class="stat-box-label">Jami Chiqim</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-box-val" style="color:var(--blue)">${s.profit_margin}%</div>
+      <div class="stat-box-label">Margin</div>
+    </div>
+  `;
+
+  // Bar chart — monthly
+  const monthly = d.monthly || {};
+  const mKeys = Object.keys(monthly).slice(-6);
+  const mInc = mKeys.map(k => monthly[k].income);
+  const mExp = mKeys.map(k => monthly[k].expense);
+  document.getElementById('analyticsChartTitle').textContent = 'Oylik Taqqoslama';
+
+  destroyChart('analytics');
+  const ctx = document.getElementById('analyticsChart');
+  if (!ctx) return;
+  charts.analytics = new Chart(ctx.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: mKeys.map(k => k.split(' ')[0]),
+      datasets: [
+        { label:'Tushum', data:mInc, backgroundColor:'rgba(0,229,160,0.75)', borderRadius:6 },
+        { label:'Chiqim', data:mExp, backgroundColor:'rgba(255,77,106,0.75)', borderRadius:6 },
+      ]
+    },
+    options: { ...chartDefaults(), plugins: { ...chartDefaults().plugins, legend:{ display:true, labels:{color:'rgba(255,255,255,0.5)', font:{size:11}, boxWidth:10, padding:12 } } } }
+  });
+
+  // Expense categories
+  const expCats = d.expense_categories || {};
+  const sorted = Object.entries(expCats).sort((a,b) => b[1]-a[1]);
+  const total = sorted.reduce((a,[,v])=>a+v, 0);
+  document.getElementById('expenseCatList').innerHTML = sorted.slice(0,8).map(([name, amt], i) => {
+    const pct = total ? Math.round(amt/total*100) : 0;
+    const c = COLORS[i % COLORS.length];
+    return `
+      <div class="tx-item">
+        <div class="tx-icon" style="background:${c}20; color:${c}; font-size:13px; font-weight:700;">
+          ${pct}%
+        </div>
+        <div class="tx-info">
+          <div class="tx-name">${name}</div>
+          <div class="tx-meta" style="position:relative; overflow:hidden; height:4px; background:rgba(255,255,255,0.06); border-radius:2px; margin-top:6px;">
+            <div style="position:absolute;inset:0;width:${pct}%;background:${c};border-radius:2px;"></div>
+          </div>
+        </div>
+        <div class="tx-amount expense-color">-${fmtFull(amt)}</div>
+      </div>
+    `;
+  }).join('') || '<div class="empty-state" style="padding:32px 0;"><div class="emoji">✅</div><p>Chiqimlar yozilmagan</p></div>';
+};
+
+// ─── NAVIGATION ──────────────────────────────────────────
+const navigate = (page) => {
+  S.page = page;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    b.classList.remove('active');
+    b.querySelectorAll('path, line, polyline, rect, circle').forEach(el => el.setAttribute('stroke','rgba(255,255,255,0.5)'));
+  });
+
+  document.getElementById('page-' + page).classList.add('active');
+  const nb = document.getElementById('nav-' + page);
+  if (nb) {
+    nb.classList.add('active');
+    nb.querySelectorAll('path, line, polyline, rect, circle').forEach(el => el.setAttribute('stroke','white'));
+  }
+
+  document.getElementById('fab').style.display = page === 'ai' ? 'none' : 'flex';
+  document.getElementById('chatBar').style.display = page === 'ai' ? 'flex' : 'none';
+
+  document.getElementById('scrollArea').scrollTo(0, 0);
+
+  if (page === 'analytics') renderAnalytics();
+  if (page === 'tx') renderAllTx(S.data || {});
+};
+
+// ─── PERIOD ──────────────────────────────────────────────
+const setPeriod = (p, el) => {
+  S.period = p;
+  document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  render();
+};
+
+// ─── TX FILTER ───────────────────────────────────────────
+const filterTx = (f) => {
+  S.txFilter = f;
+  ['all','income','expense'].forEach(k => {
+    document.getElementById('f-'+k).style.color = k === f ? 'var(--text)' : 'var(--blue)';
+  });
+  renderAllTx(S.data || {});
+};
+
+// ─── MODAL ───────────────────────────────────────────────
+const openModal = () => {
+  document.getElementById('modal').classList.add('open');
+  S.amountStr = '';
+  document.getElementById('amountDisplay').textContent = '0';
+};
+const closeModal = () => document.getElementById('modal').classList.remove('open');
+
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal')) closeModal();
+});
+
+const setType = (type) => {
+  S.txType = type;
+  document.getElementById('typeIncome').className = 'type-btn' + (type==='income' ? ' active-income' : '');
+  document.getElementById('typeExpense').className = 'type-btn' + (type==='expense' ? ' active-expense' : '');
+
+  const sb = document.getElementById('saveBtn');
+  sb.className = 'save-btn ' + type;
+
+  // Show relevant categories
+  const catSel = document.getElementById('txCategory');
+  const incomeOpts = ['Maosh','Freelance','Biznes'];
+  const expenseOpts = ['Oziq-ovqat','Transport','Kommunal','Ko\'ngilochar','Kiyim','Sog\'liq','Boshqa'];
+  Array.from(catSel.options).forEach(o => {
+    const name = o.value;
+    const isInc = incomeOpts.includes(name);
+    const isExp = expenseOpts.includes(name);
+    o.hidden = type === 'income' ? isExp : isInc;
+  });
+  // Select first visible
+  const first = Array.from(catSel.options).find(o => !o.hidden);
+  if (first) catSel.value = first.value;
+};
+
+// Numpad
+const numpad = (val) => {
+  if (val === 'del') {
+    S.amountStr = S.amountStr.slice(0, -1);
+  } else {
+    if (S.amountStr.length >= 12) return;
+    if (S.amountStr === '' && val === '0') return;
+    S.amountStr += val;
+  }
+  const num = parseInt(S.amountStr || '0');
+  document.getElementById('amountDisplay').textContent = fmtFull(num);
+};
+
+// Animate
+const animateNum = (id, to, formatter) => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const start = performance.now();
+  const dur = 700;
+  (function tick(now) {
+    const p = Math.min((now - start) / dur, 1);
+    const ease = 1 - Math.pow(1 - p, 3);
+    el.textContent = formatter(Math.round(to * ease));
+    if (p < 1) requestAnimationFrame(tick);
+  })(start);
+};
+
+// ─── SAVE TX ─────────────────────────────────────────────
+const saveTx = async () => {
+  const amount = parseInt(S.amountStr || '0');
+  if (!amount) { toast('error', 'Miqdor kiriting!'); return; }
+
+  const category = document.getElementById('txCategory').value;
+  const payment  = document.getElementById('txPayment').value;
+  const note     = document.getElementById('txNote').value;
+
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  btn.textContent = 'Saqlanmoqda...';
+
+  const res = await api('/transactions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: S.txType,
+      amount,
+      category,
+      payment_method: payment,
+      description: note,
+      currency: 'UZS'
+    })
+  });
+
+  btn.disabled = false;
+  btn.textContent = 'Saqlash';
+
+  if (res?.ok !== false) {
+    toast('success', `${S.txType === 'income' ? '↑ Tushum' : '↓ Chiqim'} saqlandi!`);
+    closeModal();
+    S.amountStr = '';
+    document.getElementById('txNote').value = '';
+    await loadData();
+  } else {
+    toast('error', 'Saqlashda xatolik');
+  }
+};
+
+// ─── AI CHAT ─────────────────────────────────────────────
+const sendAi = async () => {
+  const inp = document.getElementById('chatInput');
+  const msg = inp.value.trim();
+  if (!msg) return;
+  inp.value = '';
+
+  const msgs = document.getElementById('chatMessages');
+  msgs.innerHTML += `<div class="chat-msg user">${msg.replace(/</g,'&lt;')}</div>`;
+  msgs.innerHTML += `<div class="chat-msg ai" id="aiTyping">⏳ Javob tayyorlanmoqda...</div>`;
+  msgs.scrollTop = msgs.scrollHeight;
+
+  const data = S.data?.summary;
+  const context = data
+    ? `Foydalanuvchi moliyasi: Tushum=${fmtFull(data.total_income)} so'm, Chiqim=${fmtFull(data.total_expense)} so'm, Foyda=${fmtFull(data.total_profit)} so'm, Margin=${data.profit_margin}%.`
+    : '';
+
+  const res = await api('/ai-analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question: msg, context })
+  });
+
+  const typing = document.getElementById('aiTyping');
+  if (typing) {
+    typing.id = '';
+    typing.innerHTML = res?.answer || '❌ Xatolik yuz berdi';
+  }
+  msgs.scrollTop = msgs.scrollHeight;
+};
+
+// Enter key for chat
+document.getElementById('chatInput')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') sendAi();
+});
+
+// ─── INIT ─────────────────────────────────────────────────
+(async () => {
+  if (window.Telegram?.WebApp) {
+    window.Telegram.WebApp.expand();
+    window.Telegram.WebApp.setHeaderColor('#0A0A0F');
+    window.Telegram.WebApp.setBackgroundColor('#0A0A0F');
+  }
+
+  // Date in header
+  const now = new Date();
+  document.getElementById('headerDate').textContent =
+    now.toLocaleDateString('uz-UZ', {day:'numeric', month:'long', year:'numeric'});
+
+  // Initial nav state
+  const home = document.getElementById('nav-home');
+  if (home) home.querySelectorAll('path, polyline').forEach(el => el.setAttribute('stroke','white'));
+
+  await loadData();
+})();
+</script>
+</body>
+</html>
