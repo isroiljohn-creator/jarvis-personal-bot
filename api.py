@@ -197,14 +197,6 @@ async def save_transaction(request: Request):
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
-@app.get("/api/finance/clear")
-async def db_clear_tmp():
-    from database import get_pool
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        await conn.execute("TRUNCATE TABLE transactions RESTART IDENTITY;")
-    return {"message": "cleared!"}
-
 @app.get("/api/finance/data")
 async def get_finance_data(force: bool = False):
     """AI Finansist UI kutayotgan murakkab JSON strukturasini PostgreSQL dan yig'ib beradi."""
