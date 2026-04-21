@@ -4,7 +4,6 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-import datetime
 from pydantic import BaseModel
 from typing import Optional
 from collections import deque
@@ -275,7 +274,7 @@ async def get_finance_data(force: bool = False):
         "weekly": weekly,
         "source_totals": sources,
         "expense_categories": expenses_cat,
-        "last_updated": datetime.datetime.now().isoformat(),
+        "last_updated": datetime.now().isoformat(),
         "has_real_data": len(txns) > 0,
         "sheet_name": "PostgreSQL: transactions"
     }
@@ -287,11 +286,11 @@ async def ai_analyze(request: Request):
     question = body.get("question", "")
     
     res = await get_gemini_response(f"Siz AI Finansist qismisiz. Quyidagi foydalanuvchi moliyaviy savoliga qisqa va aniq vizual formatda (grafik belgilardan foydalanib) javob bering, html emas. Savol: {question}. Database moliyalari bor deb hisoblang.")
-    return {"answer": res.replace("**", "<strong>").replace("\n", "<br>"), "generated_at": datetime.datetime.now().isoformat()}
+    return {"answer": res.replace("**", "<strong>").replace("\n", "<br>"), "generated_at": datetime.now().isoformat()}
 
 @app.get("/api/finance/report/{period}")
 async def report_period(period: str):
-    return {"period": period, "report": f"Bu yerda {period} davr uchun AI hisobot shakllantiriladi.", "generated_at": datetime.datetime.now().isoformat()}
+    return {"period": period, "report": f"Bu yerda {period} davr uchun AI hisobot shakllantiriladi.", "generated_at": datetime.now().isoformat()}
 
 @app.get("/history")
 async def get_hist():
