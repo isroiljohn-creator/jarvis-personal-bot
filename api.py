@@ -167,164 +167,608 @@ async def root():
 
 @app.get("/finance")
 async def finance_dashboard():
-    """Telegram Mini App uchun vizual Hisob-kitob (Moliya) interfeysi."""
+    """Telegram Mini App uchun vizual Hisob-kitob (Moliya) interfeysi — Faktor Biznes Maktabi uslubida."""
     from fastapi.responses import HTMLResponse
     html = """<!DOCTYPE html>
 <html lang="uz">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Moliya Nazorati</title>
+  <title>Moliya Nazorati — Faktor</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
+    /* ── Faktor Biznes Maktabi: Qora · Qizil · Oq ── */
     :root {
-      --bg: #F2F2F7; --card: #FFFFFF; --text: #000000;
-      --accent: #007AFF; --income: #34C759; --expense: #FF3B30;
-      --seg-bg: #E5E5EA; --seg-fg: #FFFFFF;
+      --bg:        #000000;
+      --bg2:       #0D0D0D;
+      --card:      #141414;
+      --card2:     #1A1A1A;
+      --border:    #2A2A2A;
+      --red:       #E30613;
+      --red-dark:  #B00410;
+      --red-glow:  rgba(227, 6, 19, 0.25);
+      --white:     #FFFFFF;
+      --muted:     #6B6B6B;
+      --muted2:    #3A3A3A;
+      --income:    #22C55E;
+      --expense:   #E30613;
+      --text:      #FFFFFF;
+      --text-sub:  #9A9A9A;
     }
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #000000; --card: #1C1C1E; --text: #FFFFFF;
-        --accent: #0A84FF; --income: #30D158; --expense: #FF453A;
-        --seg-bg: #2C2C2E; --seg-fg: #636366;
-      }
-    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
     body {
-      background: var(--bg); color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
-      margin: 0; padding: 20px 16px; box-sizing: border-box;
+      background: var(--bg);
+      color: var(--white);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      padding: 0 0 32px;
       -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
     }
-    .header { text-align: center; margin-bottom: 24px; }
-    .header h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 0.3px; }
-    
-    /* Segmented Control */
-    .segmented-control {
-      display: flex; background: var(--seg-bg); border-radius: 8px;
-      padding: 2px; margin-bottom: 24px;
-    }
-    .segment {
-      flex: 1; text-align: center; padding: 6px 0; font-size: 13px; font-weight: 600;
-      color: var(--text); border-radius: 6px; cursor: pointer; transition: 0.2s;
-    }
-    .segment.active { background: var(--card); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
 
-    .card { background: var(--card); border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
-    .balance-label { font-size: 13px; color: #8E8E93; text-transform: uppercase; letter-spacing: 0.5px; }
-    .balance-val { font-size: 32px; font-weight: 700; margin: 4px 0 16px; }
-    
-    .row { display: flex; justify-content: space-between; }
-    .col { flex: 1; }
-    .col:last-child { text-align: right; }
-    .stat-label { font-size: 13px; color: #8E8E93; }
-    .stat-val { font-size: 17px; font-weight: 600; margin-top: 2px; }
-    .val-income { color: var(--income); }
-    .val-expense { color: var(--expense); }
+    /* ── HEADER ── */
+    .header {
+      background: linear-gradient(180deg, #0D0D0D 0%, #000 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 20px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(20px);
+    }
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand-logo {
+      width: 34px;
+      height: 34px;
+      background: var(--red);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 16px;
+      color: white;
+      letter-spacing: -1px;
+      box-shadow: 0 0 16px var(--red-glow);
+    }
+    .brand-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--white);
+      line-height: 1;
+    }
+    .brand-sub {
+      font-size: 10px;
+      color: var(--muted);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-top: 2px;
+    }
+    .live-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(34,197,94,0.15);
+      border: 1px solid rgba(34,197,94,0.3);
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--income);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+    .live-dot {
+      width: 6px; height: 6px;
+      background: var(--income);
+      border-radius: 50%;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
 
-    .section-title { font-size: 17px; font-weight: 600; margin: 24px 0 12px; }
-    
-    .tx-list { background: var(--card); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
-    .tx { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 0.5px solid #C6C6C8; }
-    @media (prefers-color-scheme: dark) { .tx { border-bottom-color: #38383A; } }
+    /* ── CURRENCY TABS ── */
+    .currency-tabs {
+      display: flex;
+      gap: 8px;
+    }
+    .cur-tab {
+      flex: 1;
+      text-align: center;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      background: var(--card);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .cur-tab.active {
+      color: var(--white);
+      background: var(--red);
+      border-color: var(--red);
+      box-shadow: 0 0 20px var(--red-glow);
+    }
+
+    /* ── MAIN CONTENT ── */
+    .content { padding: 20px 16px 0; }
+
+    /* ── BALANCE CARD ── */
+    .balance-card {
+      background: linear-gradient(135deg, #1A0002 0%, #0D0D0D 50%, #1A0002 100%);
+      border: 1px solid rgba(227, 6, 19, 0.3);
+      border-radius: 20px;
+      padding: 24px 20px;
+      margin-bottom: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+    .balance-card::before {
+      content: '';
+      position: absolute;
+      top: -40px; right: -40px;
+      width: 160px; height: 160px;
+      background: radial-gradient(circle, rgba(227,6,19,0.15) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .balance-card::after {
+      content: '';
+      position: absolute;
+      bottom: -20px; left: -20px;
+      width: 100px; height: 100px;
+      background: radial-gradient(circle, rgba(227,6,19,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .balance-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+    .balance-amount {
+      font-size: 36px;
+      font-weight: 800;
+      color: var(--white);
+      letter-spacing: -1px;
+      margin-bottom: 4px;
+      line-height: 1.1;
+    }
+    .balance-amount.negative { color: var(--expense); }
+    .balance-change {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 20px;
+    }
+    .balance-row {
+      display: grid;
+      grid-template-columns: 1fr 1px 1fr;
+      gap: 0;
+      background: rgba(255,255,255,0.04);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .balance-divider {
+      background: var(--border);
+    }
+    .stat-box {
+      padding: 12px 16px;
+    }
+    .stat-icon-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    .stat-icon {
+      width: 20px; height: 20px;
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px;
+    }
+    .stat-icon.income { background: rgba(34,197,94,0.2); }
+    .stat-icon.expense { background: rgba(227,6,19,0.2); }
+    .stat-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .stat-amount {
+      font-size: 17px;
+      font-weight: 700;
+      margin-top: 2px;
+    }
+    .stat-amount.income { color: var(--income); }
+    .stat-amount.expense { color: var(--expense); }
+
+    /* ── PAYMENT METHOD PILLS ── */
+    .payment-pills {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .pill {
+      flex: 1;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .pill-icon {
+      font-size: 20px;
+    }
+    .pill-label {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .pill-amount {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--white);
+      margin-top: 1px;
+    }
+
+    /* ── SECTION TITLE ── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 24px 0 12px;
+    }
+    .section-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--white);
+    }
+    .section-badge {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--red);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      background: rgba(227,6,19,0.1);
+      border: 1px solid rgba(227,6,19,0.2);
+      padding: 2px 8px;
+      border-radius: 20px;
+    }
+
+    /* ── CHART CARD ── */
+    .chart-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px 16px;
+      margin-bottom: 16px;
+    }
+    .chart-wrap {
+      position: relative;
+      height: 200px;
+      margin-bottom: 0;
+    }
+    .chart-empty {
+      text-align: center;
+      padding: 40px 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .chart-empty-icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+
+    /* ── TRANSACTION LIST ── */
+    .tx-list {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .tx {
+      display: flex;
+      align-items: center;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s ease;
+      cursor: default;
+    }
     .tx:last-child { border-bottom: none; }
-    .tx-icon { width: 36px; height: 36px; border-radius: 18px; background: var(--seg-bg); display: flex; align-items: center; justify-content: center; font-size: 18px; margin-right: 12px; }
-    .tx-details { flex: 1; }
-    .tx-title { font-size: 15px; font-weight: 500; margin: 0 0 2px 0; }
-    .tx-sub { font-size: 12px; color: #8E8E93; m { display: inline-block; background: var(--bg); padding: 2px 6px; border-radius: 4px; font-size: 10px; text-transform: uppercase; margin-left: 4px;} }
-    .tx-amount { font-size: 15px; font-weight: 600; text-align: right; }
+    .tx:active { background: var(--card2); }
+    .tx-icon {
+      width: 40px; height: 40px;
+      border-radius: 12px;
+      background: var(--card2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      margin-right: 12px;
+      flex-shrink: 0;
+      border: 1px solid var(--border);
+    }
+    .tx-info { flex: 1; min-width: 0; }
+    .tx-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--white);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tx-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 3px;
+    }
+    .tx-date {
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .tx-tag {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .tx-tag.naqd {
+      background: rgba(255,149,0,0.15);
+      color: #FF9500;
+      border: 1px solid rgba(255,149,0,0.25);
+    }
+    .tx-tag.karta {
+      background: rgba(90,200,250,0.15);
+      color: #5AC8FA;
+      border: 1px solid rgba(90,200,250,0.25);
+    }
+    .tx-amount {
+      font-size: 15px;
+      font-weight: 700;
+      text-align: right;
+      flex-shrink: 0;
+    }
+    .tx-amount.income { color: var(--income); }
+    .tx-amount.expense { color: var(--expense); }
+
+    /* ── EMPTY STATE ── */
+    .empty {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--muted);
+    }
+    .empty-icon { font-size: 40px; margin-bottom: 10px; }
+    .empty-text { font-size: 13px; }
+
+    /* ── LOADING SKELETON ── */
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .skeleton {
+      background: linear-gradient(90deg, #1A1A1A 25%, #2A2A2A 50%, #1A1A1A 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 8px;
+      height: 16px;
+      margin-bottom: 8px;
+    }
+
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar { width: 0; }
   </style>
 </head>
 <body>
-  <div class="header"><h1>Moliya Nazorati</h1></div>
-  
-  <div class="segmented-control" id="currencyTabs">
-    <div class="segment active" data-cur="UZS">So'm (UZS)</div>
-    <div class="segment" data-cur="USD">Dollar (USD)</div>
-  </div>
 
-  <div class="card">
-    <div class="balance-label">Jami Qoldiq</div>
-    <div class="balance-val" id="balanceVal">...</div>
-    <div class="row">
-      <div class="col">
-        <div class="stat-label">Kirim</div>
-        <div class="stat-val val-income" id="incomeVal">...</div>
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-top">
+      <div class="brand">
+        <div class="brand-logo">ƒ</div>
+        <div>
+          <div class="brand-name">Moliya Nazorati</div>
+          <div class="brand-sub">Faktor · Shaxsiy</div>
+        </div>
       </div>
-      <div class="col">
-        <div class="stat-label">Chiqim</div>
-        <div class="stat-val val-expense" id="expenseVal">...</div>
+      <div class="live-badge">
+        <div class="live-dot"></div>
+        Live
       </div>
+    </div>
+
+    <!-- Currency Tabs -->
+    <div class="currency-tabs">
+      <div class="cur-tab active" data-cur="UZS">🇺🇿 So'm (UZS)</div>
+      <div class="cur-tab" data-cur="USD">🇺🇸 Dollar (USD)</div>
     </div>
   </div>
 
-  <div class="section-title">Kategoriyalar</div>
-  <div class="card" style="padding-top: 24px;">
-    <canvas id="expenseChart" style="max-height: 220px;"></canvas>
-  </div>
+  <!-- MAIN CONTENT -->
+  <div class="content">
 
-  <div class="section-title">Tarix</div>
-  <div class="tx-list" id="txList">
-    <div style="padding: 16px; text-align: center; color: #8E8E93; font-size: 14px;">Yuklanmoqda...</div>
+    <!-- BALANCE CARD -->
+    <div class="balance-card">
+      <div class="balance-label">Jami Qoldiq</div>
+      <div class="balance-amount" id="balanceVal">Yuklanmoqda...</div>
+      <div class="balance-change" id="balanceChange">—</div>
+      <div class="balance-row">
+        <div class="stat-box">
+          <div class="stat-icon-row">
+            <div class="stat-icon income">↑</div>
+            <span class="stat-label">Kirim</span>
+          </div>
+          <div class="stat-amount income" id="incomeVal">—</div>
+        </div>
+        <div class="balance-divider"></div>
+        <div class="stat-box">
+          <div class="stat-icon-row">
+            <div class="stat-icon expense">↓</div>
+            <span class="stat-label">Chiqim</span>
+          </div>
+          <div class="stat-amount expense" id="expenseVal">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAYMENT PILLS -->
+    <div class="payment-pills">
+      <div class="pill">
+        <div class="pill-icon">💵</div>
+        <div>
+          <div class="pill-label">Naqd</div>
+          <div class="pill-amount" id="naqdVal">—</div>
+        </div>
+      </div>
+      <div class="pill">
+        <div class="pill-icon">💳</div>
+        <div>
+          <div class="pill-label">Karta</div>
+          <div class="pill-amount" id="kartaVal">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHART -->
+    <div class="section-header">
+      <div class="section-title">Xarajat Tahlili</div>
+      <div class="section-badge" id="chartLabel">Bu oy</div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-wrap">
+        <canvas id="expenseChart"></canvas>
+        <div class="chart-empty" id="chartEmpty" style="display:none;">
+          <div class="chart-empty-icon">📊</div>
+          <div>Xarajat ma'lumoti yo'q</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TRANSACTIONS -->
+    <div class="section-header">
+      <div class="section-title">So'nggi Tranzaksiyalar</div>
+      <div class="section-badge" id="txCount">0 ta</div>
+    </div>
+    <div class="tx-list" id="txList">
+      <div class="empty">
+        <div class="empty-icon">⏳</div>
+        <div class="empty-text">Yuklanmoqda...</div>
+      </div>
+    </div>
+
   </div>
 
   <script>
-    window.Telegram.WebApp.ready();
-    window.Telegram.WebApp.expand();
-    
+    if (window.Telegram && window.Telegram.WebApp) {
+      window.Telegram.WebApp.ready();
+      window.Telegram.WebApp.expand();
+    }
+
     let financeData = null;
     let currentCurrency = 'UZS';
     let chartInstance = null;
 
     function formatMoney(amount, currency) {
-      if (currency === 'UZS') return new Intl.NumberFormat('uz-UZ').format(amount) + " so'm";
-      return "$" + new Intl.NumberFormat('en-US').format(amount);
+      if (isNaN(amount)) amount = 0;
+      if (currency === 'UZS') {
+        if (amount >= 1000000) {
+          return (amount / 1000000).toFixed(1).replace('.0','') + ' mln so\'m';
+        }
+        return new Intl.NumberFormat('uz-UZ').format(Math.round(amount)) + " so'm";
+      }
+      return "$" + new Intl.NumberFormat('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}).format(amount);
     }
 
-    function getEmoji(cat) {
+    function formatShort(amount, currency) {
+      if (isNaN(amount)) amount = 0;
+      if (currency === 'UZS') {
+        if (amount >= 1000000) return (amount/1000000).toFixed(1).replace('.0','') + 'M';
+        if (amount >= 1000) return (amount/1000).toFixed(0) + 'K';
+        return Math.round(amount).toString();
+      }
+      return '$' + amount.toFixed(2);
+    }
+
+    function getEmoji(cat, type) {
+      if (!cat) return type === 'income' ? '💰' : '💸';
       cat = cat.toLowerCase();
-      if (cat.includes('oziq') || cat.includes('ovqat')) return '🍔';
-      if (cat.includes('transport') || cat.includes('taxi')) return '🚕';
-      if (cat.includes('kiyim')) return '👕';
-      if (cat.includes('oylik')) return '💵';
-      return '🧾';
+      if (cat.includes('oziq') || cat.includes('ovqat') || cat.includes('go\'sht') || cat.includes('non')) return '🛒';
+      if (cat.includes('transport') || cat.includes('taxi') || cat.includes('yoqilg')) return '🚕';
+      if (cat.includes('kiyim') || cat.includes('mo\'yna')) return '👕';
+      if (cat.includes('oylik') || cat.includes('maosh') || cat.includes('daromad')) return '💵';
+      if (cat.includes('uy') || cat.includes('ijar') || cat.includes('kom')) return '🏠';
+      if (cat.includes('sog') || cat.includes('dori') || cat.includes('tibb')) return '💊';
+      if (cat.includes('ta\'lim') || cat.includes('kurs') || cat.includes('kitob')) return '📚';
+      if (cat.includes('restoran') || cat.includes('kafe') || cat.includes('choy')) return '☕';
+      if (cat.includes('sport') || cat.includes('fitness')) return '🏋️';
+      if (cat.includes('sovg') || cat.includes('hadya')) return '🎁';
+      return type === 'income' ? '📈' : '📉';
     }
 
     function renderUI() {
       if (!financeData) return;
-      
-      const st = currentCurrency === 'UZS' ? financeData.uzs : financeData.usd;
-      
-      document.getElementById('balanceVal').innerText = formatMoney(st.balance, currentCurrency);
-      document.getElementById('incomeVal').innerText = "+" + formatMoney(st.income, currentCurrency);
-      document.getElementById('expenseVal').innerText = "-" + formatMoney(st.expense, currentCurrency);
+      const st   = currentCurrency === 'UZS' ? financeData.uzs : financeData.usd;
+      const cur  = currentCurrency;
 
-      // Render History filtered by currency
-      const txHTML = financeData.transactions
-        .filter(t => t.currency === currentCurrency)
-        .map(t => `
-          <div class="tx">
-            <div class="tx-icon">${getEmoji(t.category)}</div>
-            <div class="tx-details">
-              <p class="tx-title">${t.category}</p>
-              <span class="tx-sub">${t.date} <m>${t.payment_method}</m></span>
-            </div>
-            <div class="tx-amount ${t.type === 'income' ? 'val-income' : 'val-expense'}">
-              ${t.type === 'income' ? '+' : '-'}${formatMoney(t.amount, currentCurrency)}
-            </div>
-          </div>
-        `).join('');
-      
-      document.getElementById('txList').innerHTML = txHTML || '<div style="padding: 16px; text-align: center; color: #8E8E93; font-size: 14px;">Ma\\'lumot yo\\'q.</div>';
+      // Balance
+      const balance = (st.income || 0) - (st.expense || 0);
+      const balEl = document.getElementById('balanceVal');
+      balEl.textContent = formatMoney(balance, cur);
+      balEl.className = 'balance-amount' + (balance < 0 ? ' negative' : '');
+      document.getElementById('balanceChange').textContent =
+        balance >= 0 ? '↑ Musbat balans — davom eting!' : '↓ Manfiy balans — nazorat qiling!';
 
-      // Render Chart
+      // Income / Expense
+      document.getElementById('incomeVal').textContent  = '+' + formatMoney(st.income  || 0, cur);
+      document.getElementById('expenseVal').textContent = '-' + formatMoney(st.expense || 0, cur);
+
+      // Payment pills (UZS only for now)
+      if (cur === 'UZS' && financeData.payment_methods) {
+        document.getElementById('naqdVal').textContent  = formatMoney(financeData.payment_methods.naqd  || 0, 'UZS');
+        document.getElementById('kartaVal').textContent = formatMoney(financeData.payment_methods.karta || 0, 'UZS');
+      } else {
+        document.getElementById('naqdVal').textContent  = '—';
+        document.getElementById('kartaVal').textContent = '—';
+      }
+
+      // Chart
       const ctx = document.getElementById('expenseChart').getContext('2d');
       if (chartInstance) chartInstance.destroy();
-      
-      const catLabels = Object.keys(st.expense_by_category);
-      const catData = Object.values(st.expense_by_category);
-      
+      const catLabels = Object.keys(st.expense_by_category || {});
+      const catData   = Object.values(st.expense_by_category || {});
+
       if (catLabels.length > 0) {
+        document.getElementById('chartEmpty').style.display = 'none';
         document.getElementById('expenseChart').style.display = 'block';
         chartInstance = new Chart(ctx, {
           type: 'doughnut',
@@ -332,35 +776,111 @@ async def finance_dashboard():
             labels: catLabels,
             datasets: [{
               data: catData,
-              backgroundColor: ['#FF3B30', '#FF9500', '#FFCC00', '#34C759', '#5AC8FA', '#007AFF', '#5856D6'],
+              backgroundColor: [
+                '#E30613','#FF6B35','#FF9F1C','#FFBF69',
+                '#6A994E','#38B2AC','#667EEA','#9F7AEA'
+              ],
               borderWidth: 0,
-              hoverOffset: 4
+              hoverOffset: 6,
+              borderRadius: 4,
             }]
           },
           options: {
-            cutout: '75%', responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { position: 'right', labels: { usePointStyle: true, boxWidth: 8, font: {family: '-apple-system', size: 11} } } }
+            cutout: '72%',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'right',
+                labels: {
+                  usePointStyle: true,
+                  pointStyle: 'circle',
+                  boxWidth: 7,
+                  padding: 12,
+                  color: '#9A9A9A',
+                  font: { family: 'Inter', size: 11, weight: '500' }
+                }
+              },
+              tooltip: {
+                backgroundColor: '#1A1A1A',
+                borderColor: '#2A2A2A',
+                borderWidth: 1,
+                titleColor: '#FFFFFF',
+                bodyColor: '#9A9A9A',
+                padding: 10,
+                callbacks: {
+                  label: function(ctx) {
+                    const val = formatMoney(ctx.parsed, cur);
+                    return '  ' + val;
+                  }
+                }
+              }
+            }
           }
         });
       } else {
         document.getElementById('expenseChart').style.display = 'none';
+        document.getElementById('chartEmpty').style.display = 'block';
       }
+
+      // Transactions
+      const filtered = (financeData.transactions || []).filter(t => t.currency === cur);
+      document.getElementById('txCount').textContent = filtered.length + ' ta';
+
+      if (filtered.length === 0) {
+        document.getElementById('txList').innerHTML = `
+          <div class="empty">
+            <div class="empty-icon">💼</div>
+            <div class="empty-text">Hali tranzaksiya yo'q</div>
+          </div>`;
+        return;
+      }
+
+      const txHTML = filtered.map(t => {
+        const pm = (t.payment_method || 'naqd').toLowerCase();
+        const pmClass = pm.includes('karta') ? 'karta' : 'naqd';
+        const pmLabel = pm.includes('karta') ? 'Karta' : 'Naqd';
+        const isIncome = t.type === 'income';
+        const sign = isIncome ? '+' : '−';
+        return `
+          <div class="tx">
+            <div class="tx-icon">${getEmoji(t.category, t.type)}</div>
+            <div class="tx-info">
+              <div class="tx-name">${t.category || 'Boshqa'}</div>
+              <div class="tx-meta">
+                <span class="tx-date">${t.date ? t.date.slice(5,16) : ''}</span>
+                <span class="tx-tag ${pmClass}">${pmLabel}</span>
+              </div>
+            </div>
+            <div class="tx-amount ${isIncome ? 'income' : 'expense'}">
+              ${sign}${formatMoney(t.amount, cur)}
+            </div>
+          </div>`;
+      }).join('');
+
+      document.getElementById('txList').innerHTML = txHTML;
     }
 
     async function fetchData() {
       try {
         const res = await fetch('/api/finance/data');
+        if (!res.ok) throw new Error('API xatosi: ' + res.status);
         financeData = await res.json();
         renderUI();
       } catch (err) {
         console.error(err);
+        document.getElementById('txList').innerHTML = `
+          <div class="empty">
+            <div class="empty-icon">⚠️</div>
+            <div class="empty-text">Ma'lumot yuklanmadi</div>
+          </div>`;
       }
     }
 
-    // Tabs Setup
-    document.querySelectorAll('.segment').forEach(el => {
+    // Currency tab switching
+    document.querySelectorAll('.cur-tab').forEach(el => {
       el.addEventListener('click', () => {
-        document.querySelectorAll('.segment').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.cur-tab').forEach(s => s.classList.remove('active'));
         el.classList.add('active');
         currentCurrency = el.getAttribute('data-cur');
         renderUI();
@@ -368,6 +888,8 @@ async def finance_dashboard():
     });
 
     fetchData();
+    // Auto-refresh every 30 seconds
+    setInterval(fetchData, 30000);
   </script>
 </body>
 </html>"""
