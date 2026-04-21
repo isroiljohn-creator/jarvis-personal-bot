@@ -573,6 +573,10 @@ def main() -> None:
     # Ertalabki Viral yangiliklar
     app.job_queue.run_daily(viral_news_job, time=datetime.time(hour=8, minute=5, tzinfo=tz))
 
+    # Test uchun (Bugun)
+    app.job_queue.run_daily(morning_briefing_job, time=datetime.time(hour=15, minute=30, tzinfo=tz))
+    app.job_queue.run_daily(viral_news_job, time=datetime.time(hour=15, minute=32, tzinfo=tz))
+
     logger.info("✅ Jasmina tayyor! Polling boshlandi.")
     app.run_polling(drop_pending_updates=True)
 
