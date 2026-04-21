@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Finansist - My Life Planner | Smart Finance Dashboard</title>
+  <meta name="description" content="AI moliyaviy tahlil tizimi - kunlik, haftalik, oylik hisobotlar va harajatlarni optimallashtirish" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+
+  <!-- Animated Background -->
+  <div class="bg-grid"></div>
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <div class="logo-icon">
+          <svg viewBox="0 0 32 32" fill="none">
+            <circle cx="16" cy="16" r="16" fill="url(#logoGrad)"/>
+            <path d="M10 22 L16 10 L22 22" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12 18 L20 18" stroke="white" stroke-width="2" stroke-linecap="round"/>
+            <defs>
+              <linearGradient id="logoGrad" x1="0" y1="0" x2="32" y2="32">
+                <stop offset="0%" stop-color="#6366f1"/>
+                <stop offset="100%" stop-color="#8b5cf6"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="logo-text">
+          <span class="logo-name">AI Finansist</span>
+          <span class="logo-sub">My Life Planner</span>
+        </div>
+      </div>
+      <button class="sidebar-toggle" id="sidebarToggle">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 12h18M3 6h18M3 18h18"/>
+        </svg>
+      </button>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <span class="nav-label">Asosiy</span>
+        <a href="#" class="nav-item active" data-page="dashboard" id="nav-dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          <span>Dashboard</span>
+          <div class="nav-badge">Yangi</div>
+        </a>
+        <a href="#" class="nav-item" data-page="analytics" id="nav-analytics">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          <span>Tahlil</span>
+        </a>
+        <a href="#" class="nav-item" data-page="reports" id="nav-reports">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          <span>Hisobotlar</span>
+        </a>
+        <a href="#" class="nav-item" data-page="forecast" id="nav-forecast">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
+          <span>Prognoz</span>
+        </a>
+      </div>
+      <div class="nav-section">
+        <span class="nav-label">Ma'lumotlar</span>
+        <a href="#" class="nav-item" data-page="transactions" id="nav-transactions">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          <span>Tranzaksiyalar</span>
+        </a>
+        <a href="#" class="nav-item" data-page="sync" id="nav-sync">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+          <span>Sheets Sync</span>
+        </a>
+      </div>
+      <div class="nav-section">
+        <span class="nav-label">AI</span>
+        <a href="#" class="nav-item" data-page="ai-chat" id="nav-ai-chat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span>AI Maslahat</span>
+          <div class="nav-pulse"></div>
+        </a>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sync-status" id="syncStatus">
+        <div class="sync-dot"></div>
+        <span>Sheets ulangan</span>
+        <span id="dataBadge" title="" style="margin-left:6px;font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(255,255,255,0.08)">🟡 Demo</span>
+      </div>
+      <div class="last-sync">Oxirgi yangilanish: <span id="lastSyncTime">Hozir</span></div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content" id="mainContent">
+    <!-- Top Bar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="menu-btn" id="menuBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+        </button>
+        <div class="breadcrumb">
+          <span id="pageBreadcrumb">Dashboard</span>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="date-display">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span id="currentDate"></span>
+        </div>
+        <div class="period-selector">
+          <button class="period-btn active" data-period="daily">Kunlik</button>
+          <button class="period-btn" data-period="weekly">Haftalik</button>
+          <button class="period-btn" data-period="monthly">Oylik</button>
+        </div>
+        <button class="refresh-btn" id="themeToggle" title="Temani o'zgartirish">
+          <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+        <button class="refresh-btn" id="refreshBtn" title="Ma'lumotlarni yangilash">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Pages Container -->
+    <div class="pages-container">
+      
+      <!-- DASHBOARD PAGE -->
+      <div class="page active" id="page-dashboard">
+        <div class="page-header">
+          <h1>Moliyaviy Dashboard</h1>
+          <p>My Life Planner real vaqt moliyaviy ko'rsatkichlari</p>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="kpi-grid">
+          <div class="kpi-card income" id="kpi-income">
+            <div class="kpi-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+            <div class="kpi-content">
+              <div class="kpi-label">Jami Tushum</div>
+              <div class="kpi-value" id="totalIncome">0 so'm</div>
+              <div class="kpi-trend positive" id="incomeTrend">
+                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 3l5 5H3l5-5z"/></svg>
+                <span>+12.5% o'tgan oyga nisbatan</span>
+              </div>
+            </div>
+            <div class="kpi-chart">
+              <canvas id="incomeSparkline"></canvas>
+            </div>
+          </div>
+
+          <div class="kpi-card expense" id="kpi-expense">
+            <div class="kpi-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22V2M17 19H9.5a3.5 3.5 0 0 1 0-7h5a3.5 3.5 0 0 0 0-7H6"/></svg>
+            </div>
+            <div class="kpi-content">
+              <div class="kpi-label">Jami Chiqim</div>
+              <div class="kpi-value" id="totalExpense">0 so'm</div>
+              <div class="kpi-trend negative" id="expenseTrend">
+                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 13L3 8h10l-5 5z"/></svg>
+                <span>-3.2% o'tgan oyga nisbatan</span>
+              </div>
+            </div>
+            <div class="kpi-chart">
+              <canvas id="expenseSparkline"></canvas>
+            </div>
+          </div>
+
+          <div class="kpi-card profit" id="kpi-profit">
+            <div class="kpi-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+            </div>
+            <div class="kpi-content">
+              <div class="kpi-label">Sof Foyda</div>
+              <div class="kpi-value" id="netProfit">0 so'm</div>
+              <div class="kpi-trend positive" id="profitTrend">
+                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 3l5 5H3l5-5z"/></svg>
+                <span>+18.3% o'sish</span>
+              </div>
+            </div>
+            <div class="kpi-chart">
+              <canvas id="profitSparkline"></canvas>
+            </div>
+          </div>
+
+          <div class="kpi-card commission" id="kpi-commission">
+            <div class="kpi-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 6v2m0 8v2"/></svg>
+            </div>
+            <div class="kpi-content">
+              <div class="kpi-label">Komissiya Xarajat</div>
+              <div class="kpi-value" id="totalCommission">0 so'm</div>
+              <div class="kpi-trend warning" id="commissionTrend">
+                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 13L3 8h10l-5 5z"/></svg>
+                <span>Payme + Click + Uzum</span>
+              </div>
+            </div>
+            <div class="kpi-chart">
+              <canvas id="commissionSparkline"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="charts-row">
+          <div class="chart-card large">
+            <div class="chart-header">
+              <h3>Tushum va Chiqim Dinamikasi</h3>
+              <div class="chart-actions">
+                <button class="chart-btn active" data-chart-type="line">Chiziqli</button>
+                <button class="chart-btn" data-chart-type="bar">Ustunli</button>
+              </div>
+            </div>
+            <div class="chart-body">
+              <canvas id="mainChart"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-header">
+              <h3>To'lov Usullari</h3>
+            </div>
+            <div class="chart-body donut-container">
+              <canvas id="paymentDonut"></canvas>
+              <div class="donut-center">
+                <span class="donut-total" id="donutTotal">0</span>
+                <span class="donut-label">Jami</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Insights & Top Sources -->
+        <div class="bottom-row">
+          <!-- AI Insights Panel -->
+          <div class="insights-card">
+            <div class="insights-header">
+              <div class="ai-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a9 9 0 0 1 9 9 9 9 0 0 1-9 9 9 9 0 0 1-9-9 9 9 0 0 1 9-9z"/><path d="M9 12l2 2 4-4"/></svg>
+                AI Tavsiyalar
+              </div>
+              <div class="insight-refresh" id="insightRefresh">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+              </div>
+            </div>
+            <div class="insights-list" id="insightsList">
+              <!-- Dynamic AI insights -->
+            </div>
+          </div>
+
+          <!-- Top Income Sources -->
+          <div class="sources-card">
+            <div class="chart-header">
+              <h3>Tushum Manbalari (Umumiy)</h3>
+            </div>
+            <div class="sources-list" id="sourcesList">
+              <!-- Dynamic sources -->
+            </div>
+          </div>
+
+          <!-- Expense Breakdown -->
+          <div class="breakdown-card">
+            <div class="chart-header">
+              <h3>Xarajat Taqsimoti (Umumiy)</h3>
+            </div>
+            <div class="breakdown-list" id="breakdownList">
+              <!-- Dynamic breakdown -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ANALYTICS PAGE -->
+      <div class="page" id="page-analytics">
+        <div class="page-header">
+          <h1>Moliyaviy Tahlil</h1>
+          <p>Chuqur statistika va trendlar tahlili</p>
+        </div>
+
+        <div class="analytics-grid">
+          <div class="chart-card full-width">
+            <div class="chart-header">
+              <h3>Oylik Taqqoslama Tahlil</h3>
+            </div>
+            <div class="chart-body">
+              <canvas id="monthlyCompare"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-header">
+              <h3>Haftalik Tushum Trendi</h3>
+            </div>
+            <div class="chart-body">
+              <canvas id="weeklyTrend"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-header">
+              <h3>Komissiya Xarajatlari</h3>
+            </div>
+            <div class="chart-body">
+              <canvas id="commissionChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Performance Metrics -->
+          <div class="metrics-card full-width">
+            <div class="chart-header">
+              <h3>Samaradorlik Ko'rsatkichlari</h3>
+            </div>
+            <div class="metrics-grid" id="metricsGrid">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- REPORTS PAGE -->
+      <div class="page" id="page-reports">
+        <div class="page-header">
+          <h1>Avtomatik Hisobotlar</h1>
+          <p>Kunlik, haftalik va oylik moliyaviy hisobotlar</p>
+        </div>
+
+        <div class="reports-container">
+          <div class="report-tabs">
+            <button class="report-tab active" data-report="daily">📅 Kunlik</button>
+            <button class="report-tab" data-report="weekly">📊 Haftalik</button>
+            <button class="report-tab" data-report="monthly">📈 Oylik</button>
+          </div>
+
+          <div class="report-content" id="reportContent">
+            <!-- Dynamic report content -->
+          </div>
+
+          <div class="report-actions">
+            <button class="action-btn primary" id="generateReport">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Hisobot Yaratish
+            </button>
+            <button class="action-btn secondary" id="exportReport">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Yuklab Olish
+            </button>
+            <button class="action-btn telegram" id="sendTelegram">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.941z"/></svg>
+              Telegram Yuborish
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- FORECAST PAGE -->
+      <div class="page" id="page-forecast">
+        <div class="page-header">
+          <h1>AI Prognoz</h1>
+          <p>Kelajakdagi moliyaviy ko'rsatkichlar bashorati</p>
+        </div>
+
+        <div class="forecast-grid">
+          <div class="forecast-header-card">
+            <div class="forecast-intro">
+              <div class="ai-brain-icon">🧠</div>
+              <h2>AI Moliyaviy Prognoz</h2>
+              <p>Tarixiy ma'lumotlar asosida kelgusi 30 kun uchun moliyaviy bashorat</p>
+            </div>
+            <div class="forecast-controls">
+              <label>Prognoz davri:</label>
+              <select id="forecastPeriod">
+                <option value="7">7 kun</option>
+                <option value="14">14 kun</option>
+                <option value="30" selected>30 kun</option>
+                <option value="90">90 kun</option>
+              </select>
+              <button class="action-btn primary" id="runForecast">Prognoz Hisoblash</button>
+            </div>
+          </div>
+
+          <div class="chart-card full-width">
+            <div class="chart-header">
+              <h3>Prognoz Grafigi</h3>
+              <div class="forecast-legend">
+                <span class="legend-item actual">● Haqiqiy</span>
+                <span class="legend-item predicted">● Bashorat</span>
+                <span class="legend-item confidence">● Ishonch oralig'i</span>
+              </div>
+            </div>
+            <div class="chart-body">
+              <canvas id="forecastChart"></canvas>
+            </div>
+          </div>
+
+          <div class="forecast-cards" id="forecastCards">
+          </div>
+        </div>
+      </div>
+
+      <!-- TRANSACTIONS PAGE -->
+      <div class="page" id="page-transactions">
+        <div class="page-header">
+          <h1>Tranzaksiyalar</h1>
+          <p>Barcha moliyaviy operatsiyalar ro'yxati</p>
+        </div>
+
+        <div class="transactions-container">
+          <div class="transactions-toolbar">
+            <div class="search-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="transactionSearch" placeholder="Tranzaksiya qidirish..." />
+            </div>
+            <select id="categoryFilter" class="filter-select">
+              <option value="">Barcha kategoriyalar</option>
+              <option value="payme">Payme</option>
+              <option value="click">Click</option>
+              <option value="uzum">Uzum</option>
+              <option value="naqd">Naqd</option>
+              <option value="perechisleniya">Perechisleniya</option>
+              <option value="terminal">Terminal</option>
+            </select>
+            <select id="typeFilter" class="filter-select">
+              <option value="">Barcha turlar</option>
+              <option value="income">Tushum</option>
+              <option value="expense">Chiqim</option>
+            </select>
+          </div>
+
+          <div class="transactions-table-wrapper">
+            <table class="transactions-table" id="transactionsTable">
+              <thead>
+                <tr>
+                  <th>Sana</th>
+                  <th>Kategoriya</th>
+                  <th>Tur</th>
+                  <th>Summa</th>
+                  <th>Holat</th>
+                </tr>
+              </thead>
+              <tbody id="transactionsBody">
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- SYNC PAGE -->
+      <div class="page" id="page-sync">
+        <div class="page-header">
+          <h1>Google Sheets Sync</h1>
+          <p>Jadval ma'lumotlarini ulash va sinxronlash</p>
+        </div>
+
+        <div class="sync-container">
+          <div class="sync-card main-sync">
+            <div class="sync-icon-large">
+              <svg viewBox="0 0 48 48" fill="none">
+                <rect width="48" height="48" rx="12" fill="#0f9d58"/>
+                <path d="M12 14h24v20H12V14z" fill="white" opacity="0.3"/>
+                <path d="M16 18h6v4h-6zM24 18h8v4h-8zM16 24h6v4h-6zM24 24h8v4h-8zM16 30h6v4h-6zM24 30h8v4h-8z" fill="white"/>
+              </svg>
+            </div>
+            <div class="sync-info">
+              <h2>Google Sheets Integratsiya</h2>
+              <p>My Life Planner spreadsheet bilan real vaqt sinxronizatsiya</p>
+            </div>
+            <div class="sync-config">
+              <div class="config-item">
+                <label>Spreadsheet ID</label>
+                <input type="text" id="spreadsheetId" value="11aGmHPejwQQ1c16cty7vtwoaLxrOHsM3Id4NSeLIaqk" class="config-input" />
+              </div>
+              <div class="config-item">
+                <label>Google Sheets API Key</label>
+                <input type="password" id="apiKey" placeholder="AIza..." class="config-input" />
+              </div>
+              <div class="config-item">
+                <label>Sheet nomi (GID)</label>
+                <input type="text" id="sheetGid" value="510432696" class="config-input" />
+              </div>
+              <button class="action-btn primary" id="connectSheets">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                Ulash va Sinxronlash
+              </button>
+            </div>
+          </div>
+
+          <div class="sync-status-card">
+            <h3>Sinxronizatsiya Holati</h3>
+            <div class="status-list">
+              <div class="status-item success">
+                <div class="status-icon">✓</div>
+                <div class="status-text">
+                  <strong>Spreadsheet topildi</strong>
+                  <span>My Life Planner 3/2025</span>
+                </div>
+              </div>
+              <div class="status-item success">
+                <div class="status-icon">✓</div>
+                <div class="status-text">
+                  <strong>Tushum ma'lumotlari</strong>
+                  <span>16 kategoriya aniqlandi</span>
+                </div>
+              </div>
+              <div class="status-item success">
+                <div class="status-icon">✓</div>
+                <div class="status-text">
+                  <strong>Demo ma'lumotlar yuklandi</strong>
+                  <span>API key qo'shilganda real data olinadi</span>
+                </div>
+              </div>
+              <div class="status-item info">
+                <div class="status-icon">ℹ</div>
+                <div class="status-text">
+                  <strong>Avtomatik yangilanish</strong>
+                  <span>Har 5 daqiqada</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="auto-report-card">
+            <h3>Avtomatik Hisobot Sozlamalari</h3>
+            <div class="report-settings">
+              <div class="setting-row">
+                <div class="setting-info">
+                  <strong>Kunlik hisobot</strong>
+                  <span>Har kuni soat 18:00 da</span>
+                </div>
+                <label class="toggle">
+                  <input type="checkbox" id="dailyToggle" checked />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="setting-row">
+                <div class="setting-info">
+                  <strong>Haftalik hisobot</strong>
+                  <span>Har dushanba soat 09:00 da</span>
+                </div>
+                <label class="toggle">
+                  <input type="checkbox" id="weeklyToggle" checked />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="setting-row">
+                <div class="setting-info">
+                  <strong>Oylik hisobot</strong>
+                  <span>Har oyning 1-sida</span>
+                </div>
+                <label class="toggle">
+                  <input type="checkbox" id="monthlyToggle" checked />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="setting-row">
+                <div class="setting-info">
+                  <strong>Telegram Bot</strong>
+                  <span>Hisobotlarni Telegram ga yuborish</span>
+                </div>
+                <label class="toggle">
+                  <input type="checkbox" id="telegramToggle" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="telegram-config" id="telegramConfig" style="display:none;flex-direction:column">
+                <input type="text" placeholder="Bot Token: 123456:ABCdef..." class="config-input" id="botToken" />
+                <input type="text" placeholder="Chat ID: -100123456789" class="config-input" id="chatId" />
+                <button class="action-btn primary" id="saveTelegramBtn" style="margin-top:4px">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                  Saqlash
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI CHAT PAGE -->
+      <div class="page" id="page-ai-chat">
+        <div class="page-header">
+          <h1>AI Finansist Maslahat</h1>
+          <p>Sun'iy intellekt moliyaviy maslahatchi</p>
+        </div>
+
+        <div class="chat-container">
+          <div class="chat-messages" id="chatMessages">
+            <div class="chat-message ai">
+              <div class="message-avatar ai-avatar">🤖</div>
+              <div class="message-content">
+                <div class="message-bubble">
+                  <p>Salom! Men sizning <strong>AI Finansist</strong>ingizman! 💼</p>
+                  <p>My Life Planner ma'lumotlaringiz asosida moliyaviy tahlil, maslahat va hisobotlar bera olaman.</p>
+                  <p>Quyidagi savollardan birini so'rang yoki o'zingiz yozing:</p>
+                  <div class="quick-questions">
+                    <button class="quick-q" data-q="Bu oyning umumiy daromadi qancha?">📊 Bu oyning daromadi?</button>
+                    <button class="quick-q" data-q="Qaysi to'lov usuli eng ko'p ishlatiladi?">💳 Eng ko'p to'lov usuli?</button>
+                    <button class="quick-q" data-q="Komissiya xarajatlarini qanday kamaytirish mumkin?">💡 Komissiyani kamaytirish?</button>
+                    <button class="quick-q" data-q="Kelgusi oy uchun daromad prognozi?">🔮 Kelgusi oy prognozi?</button>
+                    <button class="quick-q" data-q="Haftalik hisobot tayyorla">📋 Haftalik hisobot</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="chat-input-area">
+            <div class="typing-indicator" id="typingIndicator" style="display:none">
+              <span></span><span></span><span></span>
+            </div>
+            <div class="chat-input-row">
+              <textarea id="chatInput" placeholder="Moliyaviy savol yozing..." rows="1"></textarea>
+              <button class="send-btn" id="sendBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Toast Notifications -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner">
+      <div class="spinner-ring"></div>
+      <div class="spinner-ring"></div>
+      <div class="spinner-ring"></div>
+    </div>
+    <div class="loading-text">Ma'lumotlar yuklanmoqda...</div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

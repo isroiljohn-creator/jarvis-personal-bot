@@ -212,6 +212,17 @@ async def db_log_transaction(type: str, amount: float, category: str, descriptio
         logger.error(f"db_log_transaction xatosi: {e}")
         return f"❌ Moliya yozishda xatolik: {e}"
 
+async def db_get_transactions_raw() -> list:
+    """Barcha tranzaksiyalarni array sifatida qaytaradi, to'liq AI Finansist aggregatsiyasi uchun."""
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch("SELECT id, type, amount, category, description, payment_method, currency, created_at FROM transactions ORDER BY created_at ASC")
+        return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"db_get_transactions_raw xatosi: {e}")
+        return []
+
 async def db_get_finance_data() -> dict:
     """Barcha tranzaksiyalar va summarini chartlar uchun yig'ib beradi."""
     try:
