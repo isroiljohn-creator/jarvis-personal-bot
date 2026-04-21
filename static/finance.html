@@ -3,1003 +3,849 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Jasmina · Hisobchim</title>
+  <title>Hisobchim</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 
     :root {
-      --bg:       #0C0C12;
-      --bg2:      #13131A;
-      --card:     rgba(255,255,255,0.055);
-      --border:   rgba(255,255,255,0.09);
-      --text:     #F0F0F8;
-      --muted:    rgba(240,240,248,0.45);
-      --subtle:   rgba(240,240,248,0.18);
-      --green:    #30D790;
-      --green-bg: rgba(48,215,144,0.11);
-      --red:      #FF5474;
-      --red-bg:   rgba(255,84,116,0.11);
-      --blue:     #5C9EFF;
-      --blue-bg:  rgba(92,158,255,0.11);
-      --purple:   #A78BFA;
-      --gold:     #FFC048;
-      --r-sm: 12px; --r-md: 18px; --r-lg: 24px; --r-xl: 28px;
-      --safe-t: env(safe-area-inset-top, 12px);
+      --bg:    #0A0A0A;
+      --surf:  #141414;
+      --line:  rgba(255,255,255,0.07);
+      --t1:    #FFFFFF;
+      --t2:    rgba(255,255,255,0.38);
+      --t3:    rgba(255,255,255,0.16);
+      --up:    #1DB954;
+      --dn:    #E5484D;
+      --acc:   #FFFFFF;
+      --safe-t: env(safe-area-inset-top, 14px);
       --safe-b: env(safe-area-inset-bottom, 20px);
+      --r: 14px;
     }
 
-    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Inter', -apple-system, sans-serif; -webkit-font-smoothing: antialiased; overflow: hidden; }
+    html,body{height:100%;background:var(--bg);color:var(--t1);font-family:'Inter',-apple-system,sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
+    #app{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden}
 
-    /* ─── APP SHELL ─── */
-    #app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
+    /* ── HEADER ── */
+    .hd{
+      flex-shrink:0;
+      padding:calc(var(--safe-t) + 14px) 20px 10px;
+      display:flex;align-items:flex-end;justify-content:space-between;
+    }
+    .hd-title{font-size:22px;font-weight:600;letter-spacing:-.5px}
+    .hd-date{font-size:12px;color:var(--t2);margin-top:2px}
+    .hd-btn{
+      width:34px;height:34px;border-radius:50%;
+      background:var(--surf);border:1px solid var(--line);
+      display:flex;align-items:center;justify-content:center;
+      cursor:pointer;color:var(--t2);transition:color .15s;
+    }
+    .hd-btn:active{color:var(--t1)}
+    .hd-btn svg{width:16px;height:16px}
 
-    /* ─── HEADER ─── */
-    .header {
-      flex-shrink: 0;
-      padding: calc(var(--safe-t) + 12px) 18px 12px;
-      display: flex; align-items: center; justify-content: space-between;
-      background: var(--bg);
+    /* ── PERIOD TABS ── */
+    .tabs{
+      flex-shrink:0;
+      display:flex;gap:0;
+      border-bottom:1px solid var(--line);
+      padding:0 20px;
     }
-    .hw h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.4px; }
-    .hw p  { font-size: 12px; color: var(--muted); margin-top: 1px; }
-    .sync-btn {
-      width: 36px; height: 36px; border-radius: 10px;
-      background: var(--card); border: 1px solid var(--border);
-      color: var(--text); font-size: 16px;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer; transition: background 0.15s;
+    .tab{
+      padding:10px 16px 10px;font-size:13px;font-weight:500;
+      color:var(--t2);background:none;border:none;font-family:inherit;
+      cursor:pointer;position:relative;transition:color .15s;
     }
-    .sync-btn:active { background: var(--border); }
-
-    /* ─── PERIOD SELECTOR ─── */
-    .period-bar {
-      flex-shrink: 0;
-      display: flex; gap: 6px;
-      padding: 0 18px 12px;
-    }
-    .prd-btn {
-      flex: 1; padding: 8px 0;
-      border: 1px solid var(--border);
-      border-radius: var(--r-sm);
-      background: var(--card);
-      color: var(--muted);
-      font-size: 13px; font-weight: 600; font-family: inherit;
-      cursor: pointer; transition: all 0.19s;
-    }
-    .prd-btn.on {
-      background: var(--text); color: var(--bg);
-      border-color: var(--text);
+    .tab.on{color:var(--t1)}
+    .tab.on::after{
+      content:'';position:absolute;bottom:-1px;left:16px;right:16px;
+      height:1px;background:var(--t1);
     }
 
-    /* ─── SCROLL AREA ─── */
-    .scroll { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 0 16px calc(var(--safe-b) + 80px); }
-    .scroll::-webkit-scrollbar { display: none; }
+    /* ── SCROLL ── */
+    .scroll{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:0 16px calc(var(--safe-b) + 80px)}
+    .scroll::-webkit-scrollbar{display:none}
 
-    /* ─── PAGE SYSTEM ─── */
-    .page { display: none; }
-    .page.active { display: block; }
+    /* ── PAGES ── */
+    .page{display:none}.page.active{display:block}
 
-    /* ─── BALANCE HERO ─── */
-    .balance-hero {
-      border-radius: var(--r-xl);
-      padding: 22px 20px 18px;
-      margin-bottom: 12px;
-      position: relative; overflow: hidden;
-      background: linear-gradient(135deg, #0F2A1E 0%, #0D1B2E 100%);
-      border: 1px solid rgba(48,215,144,0.13);
+    /* ── BALANCE BLOCK ── */
+    .bal-block{padding:24px 4px 20px}
+    .bal-sup{font-size:11px;font-weight:500;color:var(--t2);letter-spacing:.5px;text-transform:uppercase}
+    .bal-num{font-size:40px;font-weight:300;letter-spacing:-2px;margin:6px 0 4px;line-height:1}
+    .bal-num b{font-weight:600}
+    .bal-sub{font-size:12px;color:var(--t2)}
+
+    .bal-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+    .bal-cell{
+      background:var(--surf);border:1px solid var(--line);border-radius:var(--r);
+      padding:14px;
     }
-    .balance-hero::before {
-      content: '';
-      position: absolute; top: -50px; right: -50px;
-      width: 160px; height: 160px;
-      background: radial-gradient(circle, rgba(48,215,144,0.14) 0%, transparent 70%);
+    .bal-cell-lbl{font-size:10px;font-weight:500;color:var(--t2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+    .bal-cell-lbl svg{width:12px;height:12px}
+    .bal-cell-val{font-size:18px;font-weight:600;letter-spacing:-.5px}
+
+    /* ── DIVIDER ── */
+    .divider{height:1px;background:var(--line);margin:4px 0}
+
+    /* ── SECTION HEAD ── */
+    .sec{display:flex;justify-content:space-between;align-items:center;padding:20px 0 12px}
+    .sec-lbl{font-size:13px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.5px}
+    .sec-btn{font-size:12px;color:var(--t2);background:none;border:none;font-family:inherit;cursor:pointer;padding:0;transition:color .15s}
+    .sec-btn:hover{color:var(--t1)}
+
+    /* ── CHART ── */
+    .chart-box{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:4px}
+    .chart-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+    .chart-ttl{font-size:13px;font-weight:500}
+    .chart-leg{display:flex;gap:14px}
+    .leg{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--t2)}
+    .leg-ln{width:16px;height:2px;border-radius:1px}
+    .chart-h{height:120px}
+
+    /* ── TX ITEMS ── */
+    .tx-list{display:flex;flex-direction:column}
+    .tx{
+      display:flex;align-items:center;gap:12px;
+      padding:13px 0;
+      border-bottom:1px solid var(--line);
     }
-    .bal-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
-    .bal-amount { font-size: 38px; font-weight: 800; letter-spacing: -2px; line-height: 1; }
-    .bal-sub { font-size: 13px; color: var(--muted); margin-top: 5px; }
-    .bal-chips {
-      display: flex; gap: 8px; margin-top: 16px; padding-top: 16px;
-      border-top: 1px solid rgba(255,255,255,0.07);
+    .tx:last-child{border-bottom:none}
+    .tx-ic{
+      width:36px;height:36px;border-radius:10px;
+      background:var(--surf);border:1px solid var(--line);
+      display:flex;align-items:center;justify-content:center;
+      flex-shrink:0;color:var(--t2);
     }
-    .bal-chip {
-      flex: 1; background: rgba(0,0,0,0.25); border-radius: 12px; padding: 10px 12px;
+    .tx-ic svg{width:16px;height:16px}
+    .tx-body{flex:1;min-width:0}
+    .tx-name{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .tx-meta{font-size:11px;color:var(--t2);margin-top:2px}
+    .tx-amt{font-size:14px;font-weight:600;white-space:nowrap}
+
+    /* ── DONUT SECTION ── */
+    .donut-wrap{display:flex;gap:20px;align-items:center;margin-bottom:4px}
+    .donut-cv{position:relative;width:100px;height:100px;flex-shrink:0}
+    .donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+    .donut-cv-n{font-size:13px;font-weight:600;letter-spacing:-.3px}
+    .donut-cv-l{font-size:9px;color:var(--t2);text-transform:uppercase;letter-spacing:.3px}
+    .donut-lg{flex:1;display:flex;flex-direction:column;gap:9px}
+    .d-row{display:flex;align-items:center;gap:9px}
+    .d-bar-bg{flex:1;height:3px;background:var(--line);border-radius:2px;overflow:hidden}
+    .d-bar{height:100%;border-radius:2px}
+    .d-name{font-size:12px;color:var(--t2);width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}
+    .d-pct{font-size:11px;font-weight:600;width:28px;text-align:right;flex-shrink:0}
+
+    /* ── BUDGET BARS ── */
+    .bud-list{display:flex;flex-direction:column}
+    .bud-item{padding:14px 0;border-bottom:1px solid var(--line)}
+    .bud-item:last-child{border-bottom:none}
+    .bud-top{display:flex;align-items:center;gap:11px;margin-bottom:10px}
+    .bud-ic{width:34px;height:34px;border-radius:9px;background:var(--surf);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--t2)}
+    .bud-ic svg{width:15px;height:15px}
+    .bud-info{flex:1}
+    .bud-name{font-size:13px;font-weight:500}
+    .bud-pct{font-size:11px;color:var(--t2);margin-top:1px}
+    .bud-val{font-size:14px;font-weight:600}
+    .bud-bar-bg{height:2px;background:var(--line);border-radius:1px;overflow:hidden}
+    .bud-bar{height:100%;border-radius:1px;transition:width .6s cubic-bezier(.4,0,.2,1)}
+
+    /* ── BOTTOM NAV ── */
+    .bnav{
+      position:fixed;bottom:0;left:0;right:0;
+      display:flex;justify-content:space-around;
+      padding:8px 4px calc(var(--safe-b));
+      background:rgba(10,10,10,0.96);
+      backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+      border-top:1px solid var(--line);z-index:100;
     }
-    .bal-chip-lbl { font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-    .bal-chip-val { font-size: 16px; font-weight: 700; letter-spacing: -0.5px; }
-
-    /* ─── SECTION LABEL ─── */
-    .sec-head { display: flex; justify-content: space-between; align-items: center; margin: 18px 2px 10px; }
-    .sec-title { font-size: 15px; font-weight: 700; }
-    .sec-more { font-size: 12px; font-weight: 600; color: var(--blue); background: none; border: none; font-family: inherit; cursor: pointer; padding: 0; }
-
-    /* ─── MINI CHART CARD ─── */
-    .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 16px; margin-bottom: 12px; }
-    .chart-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
-    .chart-ttl { font-size: 13px; font-weight: 600; }
-    .chart-lgd { display: flex; gap: 10px; }
-    .lgd-item { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 500; color: var(--muted); }
-    .lgd-dot { width: 8px; height: 8px; border-radius: 50%; }
-    .chart-wrap { height: 130px; }
-
-    /* ─── CATEGORY DONUT ─── */
-    .cat-section {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: var(--r-lg); padding: 16px; margin-bottom: 12px;
+    .nb{
+      flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;
+      background:none;border:none;color:var(--t2);font-size:9px;font-weight:500;
+      font-family:inherit;cursor:pointer;padding:4px 4px;letter-spacing:.3px;
+      text-transform:uppercase;transition:color .15s;
     }
-    .donut-row { display: flex; gap: 14px; align-items: center; }
-    .donut-cnv { position: relative; width: 110px; height: 110px; flex-shrink: 0; }
-    .donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
-    .donut-cv { font-size: 14px; font-weight: 800; }
-    .donut-cl { font-size: 9px; font-weight: 600; color: var(--muted); text-transform: uppercase; }
-    .cat-legend { flex: 1; display: flex; flex-direction: column; gap: 7px; overflow: hidden; }
-    .cat-row { display: flex; align-items: center; gap: 8px; }
-    .cat-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
-    .cat-name { font-size: 12px; font-weight: 500; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
-    .cat-pct { font-size: 12px; font-weight: 700; }
+    .nb.on{color:var(--t1)}
+    .nb svg{width:20px;height:20px}
 
-    /* ─── BUDGET BARS ─── */
-    .budget-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
-    .budget-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--r-md); padding: 13px 14px; }
-    .budget-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-    .budget-label-row { display: flex; align-items: center; gap: 8px; }
-    .budget-emoji { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
-    .budget-name { font-size: 13px; font-weight: 600; }
-    .budget-amount { font-size: 13px; font-weight: 700; }
-    .budget-bar-bg { height: 5px; background: rgba(255,255,255,0.07); border-radius: 3px; overflow: hidden; }
-    .budget-bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s cubic-bezier(0.25,1,0.5,1); }
-
-    /* ─── TX LIST ─── */
-    .tx-list { display: flex; flex-direction: column; gap: 7px; }
-    .tx-item {
-      display: flex; align-items: center; gap: 11px;
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: var(--r-md); padding: 12px 13px;
-      transition: background 0.12s;
+    /* ── FAB ── */
+    .fab{
+      position:fixed;right:20px;bottom:calc(var(--safe-b) + 65px);
+      width:50px;height:50px;border-radius:16px;
+      background:var(--t1);border:none;color:var(--bg);
+      font-size:22px;font-weight:300;
+      display:flex;align-items:center;justify-content:center;
+      cursor:pointer;z-index:99;
+      box-shadow:0 4px 20px rgba(255,255,255,0.12);
+      transition:transform .15s,opacity .15s;
     }
-    .tx-item:active { background: rgba(255,255,255,0.08); }
-    .tx-ico {
-      width: 38px; height: 38px; border-radius: 11px;
-      font-size: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    .fab:active{transform:scale(0.9)}
+
+    /* ── MODAL / SHEET ── */
+    .overlay{position:fixed;inset:0;z-index:200;display:flex;align-items:flex-end;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .22s}
+    .overlay.open{opacity:1;pointer-events:all}
+    .sheet{
+      background:#111;border-top:1px solid var(--line);
+      border-radius:20px 20px 0 0;width:100%;
+      padding:14px 20px calc(var(--safe-b) + 16px);
+      transform:translateY(100%);
+      transition:transform .28s cubic-bezier(.32,.72,0,1);
+      max-height:90vh;overflow-y:auto;
     }
-    .tx-texts { flex: 1; min-width: 0; }
-    .tx-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .tx-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
-    .tx-amt { font-size: 14px; font-weight: 700; white-space: nowrap; }
+    .overlay.open .sheet{transform:translateY(0)}
+    .sh-handle{width:32px;height:3px;background:var(--t3);border-radius:2px;margin:0 auto 16px}
+    .sh-head{font-size:15px;font-weight:600;margin-bottom:18px}
 
-    /* ─── INSIGHTS ─── */
-    .insight-card {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: var(--r-md); padding: 14px;
-      display: flex; align-items: flex-start; gap: 12px;
-      margin-bottom: 8px;
+    /* type toggle */
+    .type-row{display:flex;gap:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:20px}
+    .t-btn{flex:1;padding:10px;border:none;background:transparent;color:var(--t2);font-size:13px;font-weight:500;font-family:inherit;cursor:pointer;transition:all .18s;display:flex;align-items:center;justify-content:center;gap:7px}
+    .t-btn svg{width:14px;height:14px}
+    .t-btn.on-in{background:rgba(29,185,84,0.12);color:var(--up)}
+    .t-btn.on-ex{background:rgba(229,72,77,0.12);color:var(--dn)}
+
+    /* amount */
+    .amt-area{text-align:center;padding:4px 0 20px}
+    .amt-n{font-size:44px;font-weight:200;letter-spacing:-2px}
+    .amt-c{font-size:15px;color:var(--t2);font-weight:400}
+
+    /* numpad */
+    .npad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:16px}
+    .nk{
+      padding:14px;background:var(--surf);border:1px solid var(--line);
+      border-radius:10px;color:var(--t1);font-size:19px;font-weight:400;
+      font-family:inherit;cursor:pointer;transition:background .1s;
     }
-    .insight-icon { font-size: 22px; flex-shrink: 0; margin-top: 1px; }
-    .insight-ttl { font-size: 13px; font-weight: 700; margin-bottom: 3px; }
-    .insight-txt { font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .nk:active{background:#222}
+    .nk.del{color:var(--t2);font-size:15px}
 
-    /* ─── BOTTOM NAV ─── */
-    .bottom-nav {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      display: flex; justify-content: space-around;
-      padding: 10px 8px calc(var(--safe-b));
-      background: rgba(12,12,18,0.95);
-      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-      border-top: 1px solid var(--border);
-      z-index: 100;
+    /* cat grid */
+    .cat-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:16px}
+    .c-chip{
+      display:flex;flex-direction:column;align-items:center;gap:5px;
+      background:var(--surf);border:1px solid var(--line);
+      border-radius:10px;padding:10px 4px;
+      font-size:9px;font-weight:500;color:var(--t2);
+      cursor:pointer;transition:all .15s;text-align:center;letter-spacing:.2px;text-transform:uppercase;
     }
-    .nav-b {
-      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
-      background: none; border: none; font-size: 9px; font-weight: 600; font-family: inherit;
-      color: var(--muted); cursor: pointer; padding: 4px 6px; border-radius: 10px;
-      letter-spacing: 0.3px; text-transform: uppercase; transition: color 0.15s;
+    .c-chip svg{width:18px;height:18px}
+    .c-chip.sel{border-color:var(--t1);color:var(--t1);background:rgba(255,255,255,0.07)}
+
+    /* form */
+    .f-lbl{font-size:10px;font-weight:500;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px}
+    .f-grp{margin-bottom:14px}
+    .f-in{
+      width:100%;background:var(--surf);border:1px solid var(--line);
+      border-radius:10px;padding:12px 14px;color:var(--t1);
+      font-size:14px;font-family:'Inter',sans-serif;outline:none;
+      transition:border-color .18s;
     }
-    .nav-b.on { color: var(--text); }
-    .nav-b svg { width: 22px; height: 22px; }
+    .f-in:focus{border-color:rgba(255,255,255,0.3)}
+    .f-in::placeholder{color:var(--t3)}
+    select.f-in{-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.25)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center}
 
-    /* ─── FAB ─── */
-    .fab {
-      position: fixed; right: 18px; bottom: calc(var(--safe-b) + 66px);
-      width: 54px; height: 54px; border-radius: 17px;
-      background: var(--green); border: none; color: #0C0C12;
-      font-size: 26px; font-weight: 300;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer; box-shadow: 0 6px 24px rgba(48,215,144,0.35);
-      z-index: 99; transition: all 0.18s;
+    .s-btn{
+      width:100%;padding:14px;border:none;border-radius:10px;
+      font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;
+      transition:opacity .15s;margin-top:8px;
     }
-    .fab:active { transform: scale(0.91); }
+    .s-btn:active{opacity:.8}
+    .s-in{background:var(--up);color:#0A0A0A}
+    .s-ex{background:var(--dn);color:#fff}
 
-    /* ─── MODAL ─── */
-    .overlay { position: fixed; inset: 0; z-index: 200; display: flex; align-items: flex-end; background: rgba(0,0,0,0.65); backdrop-filter: blur(8px); opacity: 0; pointer-events: none; transition: opacity 0.22s; }
-    .overlay.open { opacity: 1; pointer-events: all; }
-    .sheet { background: #161620; border-radius: 26px 26px 0 0; width: 100%; padding: 16px 18px calc(var(--safe-b) + 20px); transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.32,0.72,0,1); max-height: 92vh; overflow-y: auto; }
-    .overlay.open .sheet { transform: translateY(0); }
-    .sheet-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 18px; }
-    .sheet-title { font-size: 17px; font-weight: 700; text-align: center; margin-bottom: 18px; }
+    /* chat */
+    .chat-msgs{display:flex;flex-direction:column;gap:10px;padding-bottom:80px}
+    .cm{max-width:80%;padding:11px 14px;border-radius:16px;font-size:13px;line-height:1.5}
+    .cm.u{background:var(--surf);border:1px solid var(--line);color:var(--t1);align-self:flex-end;border-bottom-right-radius:4px}
+    .cm.a{background:#1a1a2e;border:1px solid rgba(92,158,255,0.1);color:var(--t1);align-self:flex-start;border-bottom-left-radius:4px}
+    .chat-bar{position:fixed;bottom:calc(var(--safe-b) + 60px);left:16px;right:16px;display:flex;gap:8px;z-index:99;background:var(--bg);padding:8px 0}
+    .ci{flex:1;background:var(--surf);border:1px solid var(--line);border-radius:10px;padding:11px 14px;color:var(--t1);font-size:13px;font-family:inherit;outline:none}
+    .cs{width:44px;height:44px;border-radius:10px;background:var(--surf);border:1px solid var(--line);color:var(--t2);display:flex;align-items:center;justify-content:center;cursor:pointer}
+    .cs svg{width:16px;height:16px}
 
-    /* ─── TYPE PICKER ─── */
-    .type-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 18px; }
-    .type-opt {
-      padding: 12px 10px; border-radius: 14px; border: 1.5px solid var(--border);
-      background: transparent; color: var(--muted); font-size: 14px; font-weight: 600; font-family: inherit;
-      cursor: pointer; transition: all 0.18s; text-align: center;
-    }
-    .type-opt.sel-in  { background: var(--green-bg); color: var(--green); border-color: rgba(48,215,144,0.3); }
-    .type-opt.sel-ex  { background: var(--red-bg);   color: var(--red);   border-color: rgba(255,84,116,0.3); }
+    /* toast */
+    .t-wrap{position:fixed;top:calc(var(--safe-t) + 54px);left:14px;right:14px;z-index:999;pointer-events:none;display:flex;flex-direction:column;gap:7px}
+    .t-item{padding:11px 14px;border-radius:10px;font-size:12px;font-weight:500;display:flex;align-items:center;gap:8px;animation:tIn .25s ease;border:1px solid var(--line)}
+    .t-ok{background:rgba(29,185,84,0.1);color:var(--up);border-color:rgba(29,185,84,0.2)}
+    .t-err{background:rgba(229,72,77,0.1);color:var(--dn);border-color:rgba(229,72,77,0.2)}
+    @keyframes tIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
 
-    /* ─── AMOUNT PAD ─── */
-    .amount-display { text-align: center; padding: 8px 0 16px; }
-    .amt-num { font-size: 46px; font-weight: 800; letter-spacing: -2px; }
-    .amt-curr { font-size: 16px; color: var(--muted); font-weight: 500; }
+    /* skeleton */
+    .sk{background:linear-gradient(90deg,rgba(255,255,255,.03) 25%,rgba(255,255,255,.065) 50%,rgba(255,255,255,.03) 75%);background-size:200%;animation:sk 1.6s infinite;border-radius:8px}
+    @keyframes sk{from{background-position:200%}to{background-position:-200%}}
 
-    .numpad { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; margin-bottom: 14px; }
-    .np-btn { padding: 15px; background: rgba(255,255,255,0.06); border: none; border-radius: 14px; color: var(--text); font-size: 20px; font-weight: 500; font-family: inherit; cursor: pointer; transition: all 0.1s; }
-    .np-btn:active { background: rgba(255,255,255,0.13); transform: scale(0.93); }
-    .np-btn.del { font-size: 16px; color: var(--muted); }
-
-    /* ─── CAT GRID ─── */
-    .cat-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 7px; margin-bottom: 14px; }
-    .cat-chip {
-      display: flex; flex-direction: column; align-items: center; gap: 4px;
-      background: rgba(255,255,255,0.05); border: 1.5px solid transparent;
-      border-radius: 14px; padding: 10px 4px;
-      font-size: 10px; font-weight: 600; color: var(--muted); cursor: pointer;
-      transition: all 0.15s; text-align: center;
-    }
-    .cat-chip .cat-em { font-size: 22px; }
-    .cat-chip.sel { border-color: var(--blue); color: var(--blue); background: var(--blue-bg); }
-
-    /* ─── FORM ─── */
-    .f-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
-    .f-group { margin-bottom: 12px; }
-    .f-inp {
-      width: 100%; background: rgba(255,255,255,0.06); border: 1px solid var(--border);
-      border-radius: var(--r-sm); padding: 13px 14px; color: var(--text);
-      font-size: 15px; font-family: 'Inter', sans-serif; outline: none;
-      transition: border-color 0.18s;
-    }
-    .f-inp:focus { border-color: rgba(255,255,255,0.28); }
-    .f-inp::placeholder { color: var(--subtle); }
-    select.f-inp { -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.3)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; }
-
-    .save-btn { width: 100%; padding: 15px; border: none; border-radius: var(--r-md); font-size: 16px; font-weight: 700; font-family: inherit; cursor: pointer; transition: all 0.18s; margin-top: 6px; }
-    .save-btn:active { transform: scale(0.97); }
-    .save-income  { background: var(--green); color: #0C0C12; }
-    .save-expense { background: var(--red);   color: #fff; }
-
-    /* ─── TOAST ─── */
-    .toast-wrap { position: fixed; top: calc(var(--safe-t) + 55px); left: 14px; right: 14px; z-index: 999; pointer-events: none; display: flex; flex-direction: column; gap: 7px; }
-    .toast { padding: 12px 14px; border-radius: 14px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; animation: tIn .3s cubic-bezier(.34,1.56,.64,1); }
-    .toast.ok  { background: var(--green-bg); border: 1px solid rgba(48,215,144,0.3); color: var(--green); }
-    .toast.err { background: var(--red-bg);   border: 1px solid rgba(255,84,116,0.3);  color: var(--red); }
-    @keyframes tIn { from { opacity:0; transform:translateY(-8px) scale(0.95); } to { opacity:1; transform:none; } }
-
-    /* ─── EMPTY ─── */
-    .empty { display: flex; flex-direction: column; align-items: center; padding: 40px 20px; gap: 8px; }
-    .empty span { font-size: 42px; }
-    .empty h3 { font-size: 16px; font-weight: 700; }
-    .empty p { font-size: 13px; color: var(--muted); text-align: center; line-height: 1.5; }
-
-    /* ─── AI CHAT ─── */
-    .chat-msgs { display: flex; flex-direction: column; gap: 10px; padding-bottom: 80px; }
-    .cmsg { max-width: 82%; padding: 11px 14px; border-radius: 18px; font-size: 13.5px; line-height: 1.5; }
-    .cmsg.user { background: var(--blue); color: #fff; align-self: flex-end; border-bottom-right-radius: 5px; }
-    .cmsg.ai   { background: var(--card); border: 1px solid var(--border); align-self: flex-start; border-bottom-left-radius: 5px; }
-    .chat-bar { position: fixed; bottom: calc(var(--safe-b) + 60px); left: 14px; right: 14px; display: flex; gap: 8px; z-index: 99; background: var(--bg); padding: 8px 0; }
-    .chat-in { flex: 1; background: rgba(255,255,255,0.07); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; color: var(--text); font-size: 14px; font-family: inherit; outline: none; }
-    .chat-send { width: 46px; height: 46px; border-radius: 14px; background: var(--blue); border: none; color: #fff; font-size: 18px; cursor: pointer; flex-shrink: 0; }
-
-    /* Skeleton */
-    .sk { background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0.04) 75%); background-size: 200%; animation: sk 1.5s infinite; border-radius: 10px; }
-    @keyframes sk { from { background-position: 200%; } to { background-position: -200%; } }
+    /* empty */
+    .empty{display:flex;flex-direction:column;align-items:center;padding:40px 20px;gap:8px}
+    .empty svg{width:40px;height:40px;color:var(--t3)}
+    .empty-t{font-size:14px;font-weight:500;color:var(--t2);margin-top:4px}
+    .empty-s{font-size:12px;color:var(--t3);text-align:center}
   </style>
 </head>
 <body>
 <div id="app">
 
-  <!-- HEADER -->
-  <div class="header">
-    <div class="hw">
-      <h1>💳 Hisobchim</h1>
-      <p id="hDate">Yuklanmoqda...</p>
-    </div>
-    <button class="sync-btn" onclick="loadData(true)" title="Yangilash">↻</button>
+<!-- HEADER -->
+<div class="hd">
+  <div>
+    <div class="hd-title">Hisobchim</div>
+    <div class="hd-date" id="hDate"></div>
   </div>
-
-  <!-- PERIOD -->
-  <div class="period-bar">
-    <button class="prd-btn on" onclick="setPrd('daily',this)">Bugun</button>
-    <button class="prd-btn" onclick="setPrd('weekly',this)">Hafta</button>
-    <button class="prd-btn" onclick="setPrd('monthly',this)">Oy</button>
-    <button class="prd-btn" onclick="setPrd('all',this)">Barchasi</button>
-  </div>
-
-  <!-- SCROLL AREA -->
-  <div class="scroll">
-
-    <!-- ══ HOME PAGE ══ -->
-    <div class="page active" id="pg-home">
-
-      <!-- Balance Card -->
-      <div class="balance-hero">
-        <div class="bal-label">Sof balans</div>
-        <div class="bal-amount" id="balNet">–</div>
-        <div class="bal-sub" id="balSub">Yuklanmoqda...</div>
-        <div class="bal-chips">
-          <div class="bal-chip">
-            <div class="bal-chip-lbl">↑ Kirim</div>
-            <div class="bal-chip-val" style="color:var(--green)" id="chipIn">–</div>
-          </div>
-          <div class="bal-chip">
-            <div class="bal-chip-lbl">↓ Chiqim</div>
-            <div class="bal-chip-val" style="color:var(--red)" id="chipEx">–</div>
-          </div>
-          <div class="bal-chip">
-            <div class="bal-chip-lbl">💾 Tejash</div>
-            <div class="bal-chip-val" style="color:var(--blue)" id="chipSave">–</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Trend Chart -->
-      <div class="chart-card">
-        <div class="chart-top">
-          <span class="chart-ttl">Trend</span>
-          <div class="chart-lgd">
-            <div class="lgd-item"><div class="lgd-dot" style="background:var(--green)"></div>Kirim</div>
-            <div class="lgd-item"><div class="lgd-dot" style="background:var(--red)"></div>Chiqim</div>
-          </div>
-        </div>
-        <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
-      </div>
-
-      <!-- Expense Categories -->
-      <div class="sec-head">
-        <span class="sec-title">Xarajat toifalari</span>
-        <button class="sec-more" onclick="nav('cats')">Barchasi →</button>
-      </div>
-
-      <div class="cat-section">
-        <div class="donut-row">
-          <div class="donut-cnv">
-            <canvas id="donutChart" width="110" height="110"></canvas>
-            <div class="donut-center">
-              <div class="donut-cv" id="donutVal">–</div>
-              <div class="donut-cl">Jami</div>
-            </div>
-          </div>
-          <div class="cat-legend" id="catLegend">
-            <div class="sk" style="height:18px;width:100%;"></div>
-            <div class="sk" style="height:18px;width:80%;"></div>
-            <div class="sk" style="height:18px;width:90%;"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Recent TX -->
-      <div class="sec-head">
-        <span class="sec-title">So'nggi harakatlar</span>
-        <button class="sec-more" onclick="nav('txs')">Barchasi →</button>
-      </div>
-      <div class="tx-list" id="recentList">
-        <div class="sk" style="height:62px;"></div>
-        <div class="sk" style="height:62px;"></div>
-        <div class="sk" style="height:62px;"></div>
-      </div>
-
-    </div><!-- /home -->
-
-    <!-- ══ CATEGORIES PAGE ══ -->
-    <div class="page" id="pg-cats">
-      <div class="sec-head" style="margin-top:6px;">
-        <span class="sec-title">Xarajatlar bo'yicha</span>
-      </div>
-      <div class="budget-list" id="budgetList"></div>
-
-      <div class="sec-head">
-        <span class="sec-title">Kirimlar bo'yicha</span>
-      </div>
-      <div class="budget-list" id="incomeCatList"></div>
-    </div>
-
-    <!-- ══ ALL TX PAGE ══ -->
-    <div class="page" id="pg-txs">
-      <div class="sec-head" style="margin-top:6px;">
-        <div style="display:flex;gap:8px;">
-          <button onclick="setTxF('all')" id="tf-all" class="prd-btn on" style="flex:none;padding:6px 14px;font-size:12px;">Bari</button>
-          <button onclick="setTxF('income')" id="tf-income" class="prd-btn" style="flex:none;padding:6px 14px;font-size:12px;">Kirim</button>
-          <button onclick="setTxF('expense')" id="tf-expense" class="prd-btn" style="flex:none;padding:6px 14px;font-size:12px;">Chiqim</button>
-        </div>
-        <span id="txCount" style="font-size:12px;color:var(--muted)"></span>
-      </div>
-      <div class="tx-list" id="allTxList"></div>
-    </div>
-
-    <!-- ══ AI CHAT PAGE ══ -->
-    <div class="page" id="pg-ai">
-      <div class="chat-msgs" id="chatMsgs">
-        <div class="cmsg ai">
-          Salom! 👋 Men sizning shaxsiy AI moliya maslahatchingizman.<br><br>
-          Masalan: <em>"Bu oy kamroq sarflash uchun nima qilsam?"</em> yoki <em>"Qaysi toifada ko'proq sarplayapman?"</em>
-        </div>
-      </div>
-    </div>
-
-  </div><!-- /scroll -->
-
-  <!-- BOTTOM NAV -->
-  <div class="bottom-nav">
-    <button class="nav-b on" onclick="nav('home')" id="nb-home">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Asosiy
-    </button>
-    <button class="nav-b" onclick="nav('cats')" id="nb-cats">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/><path stroke-linecap="round" stroke-linejoin="round" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"/></svg>Toifalar
-    </button>
-    <button class="nav-b" onclick="nav('txs')" id="nb-txs">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>Ro'yxat
-    </button>
-    <button class="nav-b" onclick="nav('ai')" id="nb-ai">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>AI Chat
-    </button>
-  </div>
-
-  <!-- FAB -->
-  <button class="fab" id="fab" onclick="openModal()">+</button>
+  <button class="hd-btn" onclick="loadData()" title="Yangilash">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+  </button>
 </div>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab on" onclick="setPrd('daily',this)">Bugun</button>
+  <button class="tab" onclick="setPrd('weekly',this)">Hafta</button>
+  <button class="tab" onclick="setPrd('monthly',this)">Oy</button>
+  <button class="tab" onclick="setPrd('all',this)">Barchasi</button>
+</div>
+
+<!-- SCROLL -->
+<div class="scroll">
+
+  <!-- HOME PAGE -->
+  <div class="page active" id="pg-home">
+    <div class="bal-block">
+      <div class="bal-sup">Balans</div>
+      <div class="bal-num" id="balNum"><b>—</b></div>
+      <div class="bal-sub" id="balSub">Yuklanmoqda...</div>
+      <div class="bal-row">
+        <div class="bal-cell">
+          <div class="bal-cell-lbl">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+            Kirim
+          </div>
+          <div class="bal-cell-val" style="color:var(--up)" id="chipIn">—</div>
+        </div>
+        <div class="bal-cell">
+          <div class="bal-cell-lbl">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
+            Chiqim
+          </div>
+          <div class="bal-cell-val" style="color:var(--dn)" id="chipEx">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Trend chart -->
+    <div class="chart-box">
+      <div class="chart-head">
+        <span class="chart-ttl">Harakatlar</span>
+        <div class="chart-leg">
+          <div class="leg"><div class="leg-ln" style="background:var(--up)"></div>Kirim</div>
+          <div class="leg"><div class="leg-ln" style="background:var(--dn)"></div>Chiqim</div>
+        </div>
+      </div>
+      <div class="chart-h"><canvas id="trendChart"></canvas></div>
+    </div>
+
+    <!-- Category donut -->
+    <div class="sec"><span class="sec-lbl">Xarajatlar</span><button class="sec-btn" onclick="nav('cats')">Ko'proq</button></div>
+    <div class="donut-wrap">
+      <div class="donut-cv">
+        <canvas id="donutChart" width="100" height="100"></canvas>
+        <div class="donut-center">
+          <div class="donut-cv-n" id="donutN">—</div>
+          <div class="donut-cv-l">Jami</div>
+        </div>
+      </div>
+      <div class="donut-lg" id="donutLg">
+        <div class="sk" style="height:14px;width:100%"></div>
+        <div class="sk" style="height:14px;width:80%"></div>
+        <div class="sk" style="height:14px;width:90%"></div>
+      </div>
+    </div>
+
+    <!-- Recent tx -->
+    <div class="sec" style="margin-top:10px"><span class="sec-lbl">So'nggi</span><button class="sec-btn" onclick="nav('txs')">Barchasi</button></div>
+    <div class="tx-list" id="recentList">
+      <div class="tx"><div class="sk" style="height:36px;width:36px;border-radius:10px;flex-shrink:0"></div><div style="flex:1"><div class="sk" style="height:14px;width:60%;margin-bottom:6px"></div><div class="sk" style="height:10px;width:40%"></div></div></div>
+      <div class="tx"><div class="sk" style="height:36px;width:36px;border-radius:10px;flex-shrink:0"></div><div style="flex:1"><div class="sk" style="height:14px;width:55%;margin-bottom:6px"></div><div class="sk" style="height:10px;width:35%"></div></div></div>
+    </div>
+  </div>
+
+  <!-- CATEGORIES PAGE -->
+  <div class="page" id="pg-cats">
+    <div class="sec" style="margin-top:8px"><span class="sec-lbl">Chiqimlar</span></div>
+    <div class="bud-list" id="budList"></div>
+    <div class="sec"><span class="sec-lbl">Kirimlar</span></div>
+    <div class="bud-list" id="incList"></div>
+  </div>
+
+  <!-- TX PAGE -->
+  <div class="page" id="pg-txs">
+    <div style="display:flex;gap:0;border-bottom:1px solid var(--line);margin:8px 0 0">
+      <button class="tab on" onclick="setTxF('all',this)" style="padding-left:0">Barchasi</button>
+      <button class="tab" onclick="setTxF('income',this)">Kirimlar</button>
+      <button class="tab" onclick="setTxF('expense',this)">Chiqimlar</button>
+    </div>
+    <div class="tx-list" id="allTxList" style="margin-top:4px"></div>
+  </div>
+
+  <!-- AI PAGE -->
+  <div class="page" id="pg-ai">
+    <div class="chat-msgs" id="chatMsgs">
+      <div class="cm a">Salom. Men moliyaviy maslahatchi AI — shaxsiy xarajatlari va daromadlari bo'yicha savol bering.</div>
+    </div>
+  </div>
+
+</div><!-- /scroll -->
+
+<!-- BOTTOM NAV -->
+<div class="bnav">
+  <button class="nb on" onclick="nav('home')" id="nb-home">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline stroke-linecap="round" stroke-linejoin="round" points="9 22 9 12 15 12 15 22"/></svg>
+    Asosiy
+  </button>
+  <button class="nb" onclick="nav('cats')" id="nb-cats">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 2a10 10 0 0110 10M12 2v10l7.07 7.07"/></svg>
+    Toifalar
+  </button>
+  <button class="nb" onclick="nav('txs')" id="nb-txs">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+    Ro'yxat
+  </button>
+  <button class="nb" onclick="nav('ai')" id="nb-ai">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+    AI
+  </button>
+</div>
+
+<!-- FAB -->
+<button class="fab" id="fab" onclick="openModal()">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+</button>
+
+</div><!-- /app -->
 
 <!-- MODAL -->
 <div class="overlay" id="modal" onclick="if(event.target===this)closeModal()">
   <div class="sheet" onclick="event.stopPropagation()">
-    <div class="sheet-handle"></div>
-    <div class="sheet-title" id="sheetTitle">Yangi Operatsiya</div>
+    <div class="sh-handle"></div>
+    <div class="sh-head" id="shHead">Yangi yozuv</div>
 
-    <!-- Type -->
-    <div class="type-pick">
-      <button class="type-opt sel-in" id="tIn"  onclick="setType('income')">↑ Kirim</button>
-      <button class="type-opt"        id="tEx"  onclick="setType('expense')">↓ Chiqim</button>
+    <div class="type-row">
+      <button class="t-btn on-in" id="tIn" onclick="setType('income')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        Kirim
+      </button>
+      <button class="t-btn" id="tEx" onclick="setType('expense')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
+        Chiqim
+      </button>
     </div>
 
-    <!-- Amount -->
-    <div class="amount-display">
-      <span class="amt-num" id="amtDisp">0</span>
-      <span class="amt-curr"> so'm</span>
+    <div class="amt-area">
+      <span class="amt-n" id="amtDisp">0</span>
+      <span class="amt-c"> so'm</span>
     </div>
 
-    <!-- Numpad -->
-    <div class="numpad">
-      <button class="np-btn" onclick="np('1')">1</button>
-      <button class="np-btn" onclick="np('2')">2</button>
-      <button class="np-btn" onclick="np('3')">3</button>
-      <button class="np-btn" onclick="np('4')">4</button>
-      <button class="np-btn" onclick="np('5')">5</button>
-      <button class="np-btn" onclick="np('6')">6</button>
-      <button class="np-btn" onclick="np('7')">7</button>
-      <button class="np-btn" onclick="np('8')">8</button>
-      <button class="np-btn" onclick="np('9')">9</button>
-      <button class="np-btn" onclick="np('000')">000</button>
-      <button class="np-btn" onclick="np('0')">0</button>
-      <button class="np-btn del" onclick="np('del')">⌫</button>
+    <div class="npad">
+      <button class="nk" onclick="np('1')">1</button>
+      <button class="nk" onclick="np('2')">2</button>
+      <button class="nk" onclick="np('3')">3</button>
+      <button class="nk" onclick="np('4')">4</button>
+      <button class="nk" onclick="np('5')">5</button>
+      <button class="nk" onclick="np('6')">6</button>
+      <button class="nk" onclick="np('7')">7</button>
+      <button class="nk" onclick="np('8')">8</button>
+      <button class="nk" onclick="np('9')">9</button>
+      <button class="nk" onclick="np('000')">000</button>
+      <button class="nk" onclick="np('0')">0</button>
+      <button class="nk del" onclick="np('del')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 4H8l-7 8 7 8h13a2 2 0 002-2V6a2 2 0 00-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg>
+      </button>
     </div>
 
-    <!-- Category chips -->
-    <div class="f-group">
-      <div class="f-label">Toifa</div>
-      <div class="cat-grid" id="catChips"></div>
+    <div class="f-grp">
+      <div class="f-lbl">Toifa</div>
+      <div class="cat-grid" id="catGrid"></div>
     </div>
 
-    <!-- Note & Payment -->
-    <div class="f-group">
-      <div class="f-label">Izoh (ixtiyoriy)</div>
-      <input type="text" class="f-inp" id="fnote" placeholder="masalan: GreenApple, Auchan...">
+    <div class="f-grp">
+      <div class="f-lbl">Izoh</div>
+      <input type="text" class="f-in" id="fnote" placeholder="ixtiyoriy...">
     </div>
-    <div class="f-group">
-      <div class="f-label">To'lov usuli</div>
-      <select class="f-inp" id="fpay">
-        <option value="naqd">💵 Naqd</option>
-        <option value="karta">💳 Karta</option>
-        <option value="transfer">📱 O'tkazma</option>
+    <div class="f-grp">
+      <div class="f-lbl">To'lov usuli</div>
+      <select class="f-in" id="fpay">
+        <option value="naqd">Naqd</option>
+        <option value="karta">Karta</option>
+        <option value="transfer">O'tkazma</option>
       </select>
     </div>
 
-    <button class="save-btn save-income" id="saveBtn" onclick="saveTx()">💾 Saqlash</button>
+    <button class="s-btn s-in" id="sBtn" onclick="saveTx()">Saqlash</button>
   </div>
 </div>
 
 <!-- CHAT BAR -->
-<div class="chat-bar" id="chatBar" style="display:none;">
-  <input type="text" class="chat-in" id="chatIn" placeholder="Moliyangiz haqida so'rang...">
-  <button class="chat-send" onclick="sendAi()">➤</button>
+<div class="chat-bar" id="chatBar" style="display:none">
+  <input type="text" class="ci" id="chatIn" placeholder="So'rang...">
+  <button class="cs" onclick="sendAi()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+  </button>
 </div>
 
 <!-- TOAST -->
-<div class="toast-wrap" id="toasts"></div>
+<div class="t-wrap" id="toasts"></div>
 
 <script>
 'use strict';
 
-// ─── CATEGORY CONFIG ─────────────────────────────────────
+// ── SVG ICONS BY CATEGORY ──────────────────────────────────
+const ICONS = {
+  // Expense
+  'Oziq-ovqat':   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M3 6l3 14h12l3-14M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/></svg>`,
+  'Kafe':         `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" d="M18 8h1a4 4 0 010 8h-1"/><path stroke-linecap="round" d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/><line stroke-linecap="round" x1="6" y1="1" x2="6" y2="4"/><line stroke-linecap="round" x1="10" y1="1" x2="10" y2="4"/><line stroke-linecap="round" x1="14" y1="1" x2="14" y2="4"/></svg>`,
+  'Transport':    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="1" y="3" width="15" height="13" rx="2"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>`,
+  'Uy-joy':       `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline stroke-linecap="round" points="9 22 9 12 15 12 15 22"/></svg>`,
+  'Kommunal':     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>`,
+  'Kiyim':        `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M20.38 3.46L16 2a4 4 0 01-8 0L3.62 3.46a2 2 0 00-1.34 2.23l.58 3.57a1 1 0 00.99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 002-2V10h2.15a1 1 0 00.99-.84l.58-3.57a2 2 0 00-1.34-2.23z"/></svg>`,
+  "Sog'liq":      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>`,
+  'Telefon':      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>`,
+  'Internet':     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path stroke-linecap="round" d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>`,
+  "Ko'ngilochar": `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><polygon stroke-linecap="round" stroke-linejoin="round" points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>`,
+  'Sport':        `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 2a10 10 0 00-3.5 19.4M12 2a10 10 0 013.5 19.4M12 2v4M12 22v-4M2 12h4M22 12h-4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>`,
+  "Ta'lim":       `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path stroke-linecap="round" stroke-linejoin="round" d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>`,
+  'Tejamkorlik':  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+  // Income
+  'Maosh':        `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path stroke-linecap="round" d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>`,
+  'Freelance':    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><polyline stroke-linecap="round" stroke-linejoin="round" points="16 18 22 12 16 6"/><polyline stroke-linecap="round" stroke-linejoin="round" points="8 6 2 12 8 18"/></svg>`,
+  'Biznes':       `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path stroke-linecap="round" d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>`,
+  'Investitsiya': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><polyline stroke-linecap="round" points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline stroke-linecap="round" points="17 6 23 6 23 12"/></svg>`,
+  'Hadya':        `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><polyline stroke-linecap="round" stroke-linejoin="round" points="20 12 20 22 4 22 4 12"/><rect stroke-linecap="round" x="2" y="7" width="20" height="5"/><line stroke-linecap="round" x1="12" y1="22" x2="12" y2="7"/><path stroke-linecap="round" d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path stroke-linecap="round" d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></svg>`,
+  'Boshqa':       `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>`,
+};
+const defaultIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>`;
+
 const EXPENSE_CATS = [
-  { id:'Oziq-ovqat',   em:'🛒', label:'Oziq-ovqat',   color:'#FF6B35' },
-  { id:'Kafe',         em:'☕', label:'Kafe/Rest.',    color:'#FF9F1C' },
-  { id:'Transport',    em:'🚌', label:'Transport',     color:'#4D9FFF' },
-  { id:'Uy-joy',       em:'🏠', label:'Uy/Ijara',      color:'#A78BFA' },
-  { id:'Kommunal',     em:'💡', label:'Kommunal',      color:'#06D6A0' },
-  { id:'Kiyim',        em:'👗', label:'Kiyim',         color:'#FF4D6A' },
-  { id:"Sog'liq",      em:'💊', label:"Sog'liq",       color:'#4ECDC4' },
-  { id:'Telefon',      em:'📱', label:'Telefon',       color:'#45B7D1' },
-  { id:'Internet',     em:'🌐', label:'Internet',      color:'#96CEB4' },
-  { id:"Ko'ngilochar", em:'🎬', label:"Ko'ngilochar",  color:'#DDA0DD' },
-  { id:'Sport',        em:'⚽', label:'Sport',         color:'#20B2AA' },
-  { id:'Ta\'lim',      em:'📚', label:"Ta'lim",        color:'#FFD700' },
-  { id:'Hadya',        em:'🎁', label:'Hadya',         color:'#FF69B4' },
-  { id:'Tejamkorlik',  em:'💰', label:'Tejamkorlik',   color:'#30D790' },
-  { id:'Boshqa',       em:'📌', label:'Boshqa',        color:'#94A3B8' },
+  {id:'Oziq-ovqat',label:'Oziq-ovqat',c:'#FF6B35'},
+  {id:'Kafe',label:'Kafe',c:'#FF9A3C'},
+  {id:'Transport',label:'Transport',c:'#4D9FFF'},
+  {id:'Uy-joy',label:'Uy/Ijara',c:'#A78BFA'},
+  {id:'Kommunal',label:'Kommunal',c:'#34D399'},
+  {id:'Kiyim',label:'Kiyim',c:'#F472B6'},
+  {id:"Sog'liq",label:"Sog'liq",c:'#38BDF8'},
+  {id:'Telefon',label:'Telefon',c:'#60A5FA'},
+  {id:'Internet',label:'Internet',c:'#34D399'},
+  {id:"Ko'ngilochar",label:"Ko'ngil.",c:'#C084FC'},
+  {id:'Sport',label:'Sport',c:'#22D3EE'},
+  {id:"Ta'lim",label:"Ta'lim",c:'#FBBF24'},
+  {id:'Tejamkorlik',label:'Tejam.',c:'#1DB954'},
+  {id:'Boshqa',label:'Boshqa',c:'#94A3B8'},
 ];
-
 const INCOME_CATS = [
-  { id:'Maosh',      em:'💵', label:'Maosh',        color:'#30D790' },
-  { id:'Freelance',  em:'💻', label:'Freelance',    color:'#4D9FFF' },
-  { id:"Tadbirkor.", em:'🏢', label:"Biznes",       color:'#A78BFA' },
-  { id:'Hadya',      em:'🎁', label:'Hadya',        color:'#FF6B35' },
-  { id:'Investitsiya',em:'📈', label:'Invest.',     color:'#FFD700' },
-  { id:'Boshqa',     em:'📌', label:'Boshqa',       color:'#94A3B8' },
+  {id:'Maosh',label:'Maosh',c:'#1DB954'},
+  {id:'Freelance',label:'Freelance',c:'#4D9FFF'},
+  {id:'Biznes',label:'Biznes',c:'#A78BFA'},
+  {id:'Investitsiya',label:'Invest.',c:'#FBBF24'},
+  {id:'Hadya',label:'Hadya',c:'#F472B6'},
+  {id:'Boshqa',label:'Boshqa',c:'#94A3B8'},
 ];
-
 const CAT_MAP = {};
-[...EXPENSE_CATS, ...INCOME_CATS].forEach(c => { CAT_MAP[c.id] = c; });
+[...EXPENSE_CATS,...INCOME_CATS].forEach(c=>{CAT_MAP[c.id]=c});
 
-// ─── APP STATE ───────────────────────────────────────────
-const S = {
-  data: null,
-  period: 'daily',
-  page: 'home',
-  txFilter: 'all',
-  amtStr: '',
-  type: 'expense',
-  selCat: 'Oziq-ovqat',
+// ── STATE ──────────────────────────────────────────────────
+const S = { data:null, period:'daily', page:'home', txFilter:'all', amtStr:'', type:'income', selCat:'Maosh' };
+
+// ── HELPERS ───────────────────────────────────────────────
+const fmtS = n => { const a=Math.abs(n||0); if(a>=1e9)return(n/1e9).toFixed(1)+'mrd'; if(a>=1e6)return(n/1e6).toFixed(1)+'mln'; if(a>=1e3)return(n/1e3).toFixed(0)+'K'; return Math.round(n||0)+''; };
+const fmtF = n => Math.abs(n||0).toLocaleString('ru-RU');
+const toast = (ok,msg) => {
+  const e=document.createElement('div');
+  e.className='t-item '+(ok?'t-ok':'t-err');
+  e.textContent=(ok?'✓ ':'✕ ')+msg;
+  document.getElementById('toasts').appendChild(e);
+  setTimeout(()=>e.remove(),3000);
 };
 
-const COLORS = EXPENSE_CATS.map(c => c.color);
-
-// ─── HELPERS ─────────────────────────────────────────────
-const fmtShort = n => {
-  const a = Math.abs(n || 0);
-  if (a >= 1e9) return (n/1e9).toFixed(1) + 'mlrd';
-  if (a >= 1e6) return (n/1e6).toFixed(1) + 'mln';
-  if (a >= 1e3) return (n/1e3).toFixed(0) + 'K';
-  return (n||0).toFixed(0);
-};
-const fmtFull = n => Math.abs(n||0).toLocaleString('ru-RU');
-
-const toast = (type, msg) => {
-  const el = document.createElement('div');
-  el.className = 'toast ' + (type==='ok' ? 'ok' : 'err');
-  el.textContent = (type==='ok' ? '✅ ' : '❌ ') + msg;
-  document.getElementById('toasts').appendChild(el);
-  setTimeout(() => el.remove(), 3500);
-};
-
-// ─── API ─────────────────────────────────────────────────
+// ── API ───────────────────────────────────────────────────
 const api = async (path, opts={}) => {
   try {
-    const headers = opts.headers || {};
-    if (window.Telegram?.WebApp?.initData)
-      headers['X-Telegram-Auth'] = window.Telegram.WebApp.initData;
-    const r = await fetch('/api/finance' + path, {...opts, headers});
+    const h=opts.headers||{};
+    if(window.Telegram?.WebApp?.initData) h['X-Telegram-Auth']=window.Telegram.WebApp.initData;
+    const r=await fetch('/api/finance'+path,{...opts,headers:h});
     return r.ok ? await r.json() : null;
-  } catch(e) { return null; }
+  } catch(e){ return null; }
 };
 
-// ─── LOAD ────────────────────────────────────────────────
-const loadData = async (force=false) => {
-  const d = await api('/data');
-  if (!d) { toast('err', 'Serverga ulanib bo\'lmadi'); return; }
-  S.data = d;
+// ── LOAD ─────────────────────────────────────────────────
+const loadData = async () => {
+  const d=await api('/data');
+  if(!d){ toast(false,'Serverga ulanib bo\'lmadi'); return; }
+  S.data=d;
   render();
 };
 
-// ─── PERIOD FILTER (client-side) ─────────────────────────
-const filterByPeriod = (txns) => {
-  if (!txns) return [];
+// ── FILTER ───────────────────────────────────────────────
+const filterTxns = (txns) => {
+  if(!txns) return [];
   const now = new Date();
-  const today = now.toISOString().split('T')[0];
-  const startOfWeek = (() => { const d = new Date(now); d.setDate(d.getDate() - d.getDay() + 1); return d.toISOString().split('T')[0]; })();
-  const startOfMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+  const toISO = d => d.toISOString().split('T')[0];
+  const today = toISO(now);
+  const weekStart = toISO(new Date(now.setDate(now.getDate()-new Date().getDay()+1)));
+  const monthStart = new Date().toISOString().slice(0,7)+'-01';
 
   return txns.filter(t => {
-    if (S.period === 'all')     return true;
-    if (S.period === 'daily')   return t.date >= today;
-    if (S.period === 'weekly')  return t.date >= startOfWeek;
-    if (S.period === 'monthly') return t.date >= startOfMonth;
+    if(S.period==='all') return true;
+    if(S.period==='daily') return t.date===today;
+    if(S.period==='weekly') return t.date>=weekStart;
+    if(S.period==='monthly') return t.date>=monthStart;
     return true;
   });
 };
 
-// ─── RENDER ──────────────────────────────────────────────
+// ── RENDER ───────────────────────────────────────────────
 const render = () => {
-  if (!S.data) return;
-  const d = S.data;
-  const txns = filterByPeriod(d.transactions || []);
+  if(!S.data) return;
+  const txns = filterTxns(S.data.transactions||[]);
 
-  const now = new Date();
-  document.getElementById('hDate').textContent = now.toLocaleDateString('uz-UZ', { day:'numeric', month:'long' });
+  document.getElementById('hDate').textContent = new Date().toLocaleDateString('uz-UZ',{day:'numeric',month:'long',year:'numeric'});
 
-  // Compute totals from filtered transactions
-  let totalIn = 0, totalEx = 0;
-  const expenseCats = {}, incomeCats = {};
-
+  let inc=0, exp=0;
+  const eCats={}, iCats={};
   txns.forEach(t => {
-    const a = parseFloat(t.amount);
-    const cat = t.category || 'Boshqa';
-    if (t.type === 'income') {
-      totalIn += a;
-      if (!incomeCats[cat]) incomeCats[cat] = 0;
-      incomeCats[cat] += a;
-    } else {
-      totalEx += a;
-      if (!expenseCats[cat]) expenseCats[cat] = 0;
-      expenseCats[cat] += a;
-    }
+    const a=parseFloat(t.amount), cat=t.category||'Boshqa';
+    if(t.type==='income'){ inc+=a; iCats[cat]=(iCats[cat]||0)+a; }
+    else { exp+=a; eCats[cat]=(eCats[cat]||0)+a; }
   });
+  const net=inc-exp;
+  const savePct = inc>0 ? Math.round((inc-exp)/inc*100):0;
 
-  const net = totalIn - totalEx;
-  const savingsRate = totalIn > 0 ? Math.round((totalIn - totalEx) / totalIn * 100) : 0;
+  document.getElementById('balNum').innerHTML = `<b>${net>=0?'':'-'}${fmtF(Math.abs(net))}</b> <span style="font-size:16px;font-weight:300;color:var(--t2)">so'm</span>`;
+  document.getElementById('balNum').style.color = net>=0?'var(--t1)':net<0?'var(--dn)':'var(--t1)';
+  document.getElementById('balSub').textContent = txns.length ? `${savePct}% tejamkorlik · ${txns.length} ta operatsiya` : 'Hali yozuv yo\'q';
+  document.getElementById('chipIn').textContent = fmtS(inc)+' so\'m';
+  document.getElementById('chipEx').textContent = fmtS(exp)+' so\'m';
 
-  // Balance hero
-  document.getElementById('balNet').textContent = (net >= 0 ? '' : '-') + fmtFull(Math.abs(net)) + ' so\'m';
-  document.getElementById('balNet').style.color = net >= 0 ? 'var(--green)' : 'var(--red)';
-  document.getElementById('balSub').textContent = `Tejamkorlik: ${savingsRate}%`;
-  document.getElementById('chipIn').textContent = fmtShort(totalIn) + ' so\'m';
-  document.getElementById('chipEx').textContent = fmtShort(totalEx) + ' so\'m';
-  document.getElementById('chipSave').textContent = savingsRate + '%';
-
-  // Trend chart
-  renderTrend(d.daily || {});
-
-  // Donut
-  renderDonut(expenseCats);
-
-  // Recent tx
+  renderTrend(S.data.daily||{});
+  renderDonut(eCats);
   renderRecent(txns);
-
-  // If on other pages, refresh
-  if (S.page === 'cats') renderCats(expenseCats, incomeCats, totalEx);
-  if (S.page === 'txs')  renderAllTx(txns);
+  if(S.page==='cats') renderCats(eCats,iCats,exp);
+  if(S.page==='txs') renderAllTx(txns);
 };
 
-// ─── TREND CHART ─────────────────────────────────────────
-let charts = {};
-const destroyChart = k => { if(charts[k]) { charts[k].destroy(); delete charts[k]; } };
+// ── CHARTS ───────────────────────────────────────────────
+const CH={};
+const destroyC=k=>{if(CH[k]){CH[k].destroy();delete CH[k];}};
 
 const renderTrend = (daily) => {
-  const keys = Object.keys(daily).slice(-14);
-  const inc = keys.map(k => daily[k].income || 0);
-  const exp = keys.map(k => daily[k].expense || 0);
-
-  destroyChart('trend');
-  const ctx = document.getElementById('trendChart');
-  if (!ctx) return;
-  charts.trend = new Chart(ctx.getContext('2d'), {
-    type: 'bar',
-    data: {
-      labels: keys.map(k => k.slice(0,5)),
-      datasets: [
-        { label:'Kirim',  data:inc, backgroundColor:'rgba(48,215,144,0.65)', borderRadius:5, borderSkipped: false },
-        { label:'Chiqim', data:exp, backgroundColor:'rgba(255,84,116,0.65)',  borderRadius:5, borderSkipped: false },
+  const keys=Object.keys(daily).slice(-14);
+  const inc=keys.map(k=>daily[k].income||0),exp=keys.map(k=>daily[k].expense||0);
+  destroyC('trend');
+  const ctx=document.getElementById('trendChart');
+  if(!ctx)return;
+  CH.trend=new Chart(ctx.getContext('2d'),{
+    type:'line',
+    data:{
+      labels:keys.map(k=>k.slice(0,5)),
+      datasets:[
+        {label:'Kirim',data:inc,borderColor:'var(--up)',backgroundColor:'rgba(29,185,84,0.06)',borderWidth:1.5,tension:.4,fill:true,pointRadius:0},
+        {label:'Chiqim',data:exp,borderColor:'var(--dn)',backgroundColor:'rgba(229,72,77,0.06)',borderWidth:1.5,tension:.4,fill:true,pointRadius:0},
       ]
     },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      interaction:{ mode:'index', intersect:false },
-      plugins: {
-        legend:{ display:false },
-        tooltip:{ backgroundColor:'rgba(16,16,24,0.95)', borderColor:'rgba(255,255,255,0.1)', borderWidth:1, padding:10, callbacks:{ label: c => ` ${c.dataset.label}: ${fmtFull(c.raw)} so'm` } }
-      },
-      scales: {
-        x:{ stacked:false, grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'rgba(255,255,255,0.28)', font:{size:9}} },
-        y:{ grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'rgba(255,255,255,0.28)', font:{size:9}, callback:v=>fmtShort(v)} }
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(20,20,20,.95)',borderColor:'var(--line)',borderWidth:1,titleColor:'rgba(255,255,255,.5)',bodyColor:'#fff',padding:10,callbacks:{label:c=>` ${c.dataset.label}: ${fmtF(c.raw)} so'm`}}},
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'rgba(255,255,255,.25)',font:{size:9}}},
+        y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'rgba(255,255,255,.25)',font:{size:9},callback:v=>fmtS(v)}}
       }
     }
   });
 };
 
-// ─── DONUT CHART ─────────────────────────────────────────
-const renderDonut = (expCats) => {
-  const entries = Object.entries(expCats).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  const total = entries.reduce((s,[,v])=>s+v, 0);
-  const labels = entries.map(([k])=>k);
-  const vals   = entries.map(([,v])=>v);
-  const colors = labels.map(l => CAT_MAP[l]?.color || '#94A3B8');
+const renderDonut = (eCats) => {
+  const entries=Object.entries(eCats).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const total=entries.reduce((s,[,v])=>s+v,0);
+  const labels=entries.map(([k])=>k),vals=entries.map(([,v])=>v),colors=labels.map(l=>CAT_MAP[l]?.c||'#94A3B8');
 
-  destroyChart('donut');
-  const ctx = document.getElementById('donutChart');
-  if (!ctx) return;
-  charts.donut = new Chart(ctx.getContext('2d'), {
-    type: 'doughnut',
-    data: { labels, datasets:[{ data:vals, backgroundColor:colors, borderColor:'#161620', borderWidth:3, hoverOffset:5 }] },
-    options: { responsive:false, cutout:'68%', plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>` ${c.label}: ${fmtFull(c.raw)} so'm`}} } }
+  destroyC('donut');
+  const ctx=document.getElementById('donutChart');
+  if(!ctx)return;
+  CH.donut=new Chart(ctx.getContext('2d'),{
+    type:'doughnut',
+    data:{labels,datasets:[{data:vals,backgroundColor:colors,borderColor:'#0A0A0A',borderWidth:3,hoverOffset:4}]},
+    options:{responsive:false,cutout:'70%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.label}: ${fmtF(c.raw)} so'm`}}}}
   });
+  document.getElementById('donutN').textContent=fmtS(total);
 
-  document.getElementById('donutVal').textContent = fmtShort(total);
-
-  const leg = document.getElementById('catLegend');
-  if (!entries.length) {
-    leg.innerHTML = '<div style="color:var(--muted);font-size:13px;">Chiqim yo\'q</div>';
-    return;
-  }
-  leg.innerHTML = entries.slice(0,4).map(([name, amt]) => {
-    const c = CAT_MAP[name] || {color:'#94A3B8', em:'📌'};
-    const pct = total ? Math.round(amt/total*100) : 0;
-    return `<div class="cat-row">
-      <div class="cat-dot" style="background:${c.color}"></div>
-      <div class="cat-name">${c.em} ${name}</div>
-      <div class="cat-pct" style="color:${c.color}">${pct}%</div>
+  const lg=document.getElementById('donutLg');
+  if(!entries.length){ lg.innerHTML='<span style="font-size:12px;color:var(--t2)">Chiqim yo\'q</span>'; return; }
+  lg.innerHTML=entries.slice(0,4).map(([name,amt])=>{
+    const c=CAT_MAP[name]||{c:'#94A3B8'};
+    const pct=total?Math.round(amt/total*100):0;
+    return `<div class="d-row">
+      <div class="d-name">${name}</div>
+      <div class="d-bar-bg"><div class="d-bar" style="width:${pct}%;background:${c.c}"></div></div>
+      <div class="d-pct" style="color:${c.c}">${pct}%</div>
     </div>`;
   }).join('');
 };
 
-// ─── RECENT TX ───────────────────────────────────────────
-const txHtml = (t) => {
-  const isIn = t.type === 'income';
-  const cat = CAT_MAP[t.category] || { em: isIn ? '💚' : '🔴', color: isIn ? '#30D790' : '#FF5474' };
-  const sign = isIn ? '+' : '-';
-  const col  = isIn ? 'var(--green)' : 'var(--red)';
-  const note = t.description ? ` · ${t.description}` : '';
-  return `<div class="tx-item">
-    <div class="tx-ico" style="background:${cat.color}18">${cat.em}</div>
-    <div class="tx-texts">
-      <div class="tx-name">${t.category || (isIn ? 'Kirim' : 'Chiqim')}</div>
-      <div class="tx-meta">${t.date} ${t.time}${note}</div>
+// ── TX HTML ──────────────────────────────────────────────
+const txHtml = t => {
+  const isIn=t.type==='income';
+  const cat=CAT_MAP[t.category]||{c:isIn?'#1DB954':'#E5484D'};
+  const icon=ICONS[t.category]||defaultIcon;
+  const sign=isIn?'+':'-'; const col=isIn?'var(--up)':'var(--dn)';
+  const note=t.description?` · ${t.description}`:'';
+  return `<div class="tx">
+    <div class="tx-ic" style="color:${cat.c}">${icon}</div>
+    <div class="tx-body">
+      <div class="tx-name">${t.category||'Operatsiya'}</div>
+      <div class="tx-meta">${t.date} ${t.time}${note} · ${t.payment_method||''}</div>
     </div>
-    <div class="tx-amt" style="color:${col}">${sign}${fmtFull(t.amount)}</div>
+    <div class="tx-amt" style="color:${col}">${sign}${fmtF(t.amount)}</div>
   </div>`;
 };
 
 const renderRecent = (txns) => {
-  const el = document.getElementById('recentList');
-  if (!txns.length) {
-    el.innerHTML = `<div class="empty"><span>💸</span><h3>Hozircha bo'sh</h3><p>Birinchi tranzaksiyangizni "+" tugmasi bilan kiriting</p></div>`;
-    return;
-  }
-  el.innerHTML = txns.slice(0, 6).map(txHtml).join('');
+  const el=document.getElementById('recentList');
+  if(!txns.length){ el.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 8v4M12 16h.01"/></svg><div class="empty-t">Yozuv yo'q</div><div class="empty-s">"+" tugmasini bosib birinchi yozuvni kiriting</div></div>`; return; }
+  el.innerHTML=txns.slice(0,6).map(txHtml).join('');
 };
 
-// ─── CATEGORIES PAGE ─────────────────────────────────────
-const renderCats = (expCats, incCats, totalEx) => {
-  const sorted = Object.entries(expCats).sort((a,b)=>b[1]-a[1]);
-  const budgetEl = document.getElementById('budgetList');
-
-  if (!sorted.length) {
-    budgetEl.innerHTML = `<div class="empty"><span>✅</span><h3>Chiqim yo'q</h3></div>`;
-  } else {
-    const maxVal = sorted[0][1];
-    budgetEl.innerHTML = sorted.map(([name, amt]) => {
-      const c = CAT_MAP[name] || { em:'📌', color:'#94A3B8' };
-      const pct = maxVal ? Math.round(amt/maxVal*100) : 0;
-      const ofTotal = totalEx > 0 ? Math.round(amt/totalEx*100) : 0;
-      return `<div class="budget-item">
-        <div class="budget-top">
-          <div class="budget-label-row">
-            <div class="budget-emoji" style="background:${c.color}18">${c.em}</div>
-            <div class="budget-name">${name}</div>
-          </div>
-          <div class="budget-amount" style="color:${c.color}">${fmtFull(amt)} <span style="font-size:11px;color:var(--muted)">(${ofTotal}%)</span></div>
-        </div>
-        <div class="budget-bar-bg">
-          <div class="budget-bar-fill" style="width:${pct}%;background:${c.color}"></div>
-        </div>
-      </div>`;
-    }).join('');
-  }
-
-  const incSorted = Object.entries(incCats).sort((a,b)=>b[1]-a[1]);
-  const incEl = document.getElementById('incomeCatList');
-  if (!incSorted.length) {
-    incEl.innerHTML = `<div class="empty"><span>💰</span><h3>Kirim yo'q</h3></div>`;
-  } else {
-    const maxIn = incSorted[0][1];
-    incEl.innerHTML = incSorted.map(([name, amt]) => {
-      const c = CAT_MAP[name] || { em:'💵', color:'#30D790' };
-      const pct = maxIn ? Math.round(amt/maxIn*100) : 0;
-      return `<div class="budget-item">
-        <div class="budget-top">
-          <div class="budget-label-row">
-            <div class="budget-emoji" style="background:${c.color}18">${c.em}</div>
-            <div class="budget-name">${name}</div>
-          </div>
-          <div class="budget-amount" style="color:var(--green)">${fmtFull(amt)}</div>
-        </div>
-        <div class="budget-bar-bg">
-          <div class="budget-bar-fill" style="width:${pct}%;background:${c.color}"></div>
-        </div>
-      </div>`;
-    }).join('');
-  }
-};
-
-// ─── ALL TX PAGE ─────────────────────────────────────────
-const renderAllTx = (txns) => {
-  let list = txns;
-  if (S.txFilter !== 'all') list = list.filter(t => t.type === S.txFilter);
-  document.getElementById('txCount').textContent = list.length + ' ta';
-
-  const el = document.getElementById('allTxList');
-  if (!list.length) {
-    el.innerHTML = `<div class="empty"><span>📋</span><h3>Ro'yxat bo'sh</h3></div>`;
-    return;
-  }
-  el.innerHTML = list.slice(0,100).map(txHtml).join('');
-};
-
-const setTxF = (f) => {
-  S.txFilter = f;
-  ['all','income','expense'].forEach(k => {
-    const b = document.getElementById('tf-'+k);
-    if (b) b.className = 'prd-btn' + (k===f?' on':'');
-  });
-  if (S.data) renderAllTx(filterByPeriod(S.data.transactions||[]));
-};
-
-// ─── NAVIGATION ──────────────────────────────────────────
-const nav = (page) => {
-  S.page = page;
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-b').forEach(b => b.classList.remove('on'));
-  document.getElementById('pg-' + page).classList.add('active');
-  const nb = document.getElementById('nb-' + page);
-  if (nb) nb.classList.add('on');
-
-  const isAi = page === 'ai';
-  document.getElementById('fab').style.display     = isAi ? 'none' : 'flex';
-  document.getElementById('chatBar').style.display  = isAi ? 'flex' : 'none';
-
-  document.querySelector('.scroll').scrollTo(0, 0);
-
-  // Lazy render
-  if (S.data) {
-    const txns = filterByPeriod(S.data.transactions || []);
-    if (page === 'cats') {
-      let totalEx=0, exp={}, inc={};
-      txns.forEach(t => {
-        const a = parseFloat(t.amount), cat = t.category||'Boshqa';
-        if (t.type==='expense') { totalEx+=a; exp[cat]=(exp[cat]||0)+a; }
-        else { inc[cat]=(inc[cat]||0)+a; }
-      });
-      renderCats(exp, inc, totalEx);
-    }
-    if (page === 'txs') renderAllTx(txns);
-  }
-};
-
-// ─── PERIOD ──────────────────────────────────────────────
-const setPrd = (p, el) => {
-  S.period = p;
-  document.querySelectorAll('.prd-btn').forEach(b => b.classList.remove('on'));
-  el.classList.add('on');
-  if (S.data) render();
-};
-
-// ─── MODAL ───────────────────────────────────────────────
-const openModal = () => {
-  document.getElementById('modal').classList.add('open');
-  S.amtStr = '';
-  document.getElementById('amtDisp').textContent = '0';
-  setType(S.type);
-};
-const closeModal = () => document.getElementById('modal').classList.remove('open');
-
-const setType = (type) => {
-  S.type = type;
-  document.getElementById('tIn').className  = 'type-opt' + (type==='income'  ? ' sel-in' : '');
-  document.getElementById('tEx').className  = 'type-opt' + (type==='expense' ? ' sel-ex' : '');
-  document.getElementById('saveBtn').className = 'save-btn save-' + type;
-  document.getElementById('sheetTitle').textContent = type === 'income' ? '↑ Kirim qo\'shish' : '↓ Chiqim qo\'shish';
-
-  const cats = type === 'income' ? INCOME_CATS : EXPENSE_CATS;
-  const defaultCat = cats[0].id;
-  S.selCat = defaultCat;
-
-  const grid = document.getElementById('catChips');
-  grid.innerHTML = cats.map(c => `
-    <div class="cat-chip ${c.id === S.selCat ? 'sel' : ''}" onclick="selCat('${c.id}', this)">
-      <span class="cat-em">${c.em}</span>${c.label}
+// ── CATS PAGE ────────────────────────────────────────────
+const budHtml = (name, amt, maxVal, totalVal, strColor) => {
+  const cat=CAT_MAP[name]||{c:strColor||'#94A3B8'};
+  const icon=ICONS[name]||defaultIcon;
+  const pct=maxVal?Math.round(amt/maxVal*100):0;
+  const pctOfTotal=totalVal>0?Math.round(amt/totalVal*100):0;
+  return `<div class="bud-item">
+    <div class="bud-top">
+      <div class="bud-ic" style="color:${cat.c}">${icon}</div>
+      <div class="bud-info">
+        <div class="bud-name">${name}</div>
+        <div class="bud-pct">${pctOfTotal}% umumiydan</div>
+      </div>
+      <div class="bud-val">${fmtF(amt)}</div>
     </div>
-  `).join('');
+    <div class="bud-bar-bg"><div class="bud-bar" style="width:${pct}%;background:${cat.c}"></div></div>
+  </div>`;
 };
 
-const selCat = (id, el) => {
-  S.selCat = id;
-  document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('sel'));
-  el.classList.add('sel');
+const renderCats = (eCats, iCats, totalEx) => {
+  const es=Object.entries(eCats).sort((a,b)=>b[1]-a[1]);
+  const is=Object.entries(iCats).sort((a,b)=>b[1]-a[1]);
+  const maxE=es[0]?.[1]||1, maxI=is[0]?.[1]||1;
+  const totalI=is.reduce((s,[,v])=>s+v,0);
+
+  document.getElementById('budList').innerHTML=es.length
+    ? es.map(([n,a])=>budHtml(n,a,maxE,totalEx,'#E5484D')).join('')
+    : `<div class="empty"><div class="empty-t">Chiqim yo'q</div></div>`;
+  document.getElementById('incList').innerHTML=is.length
+    ? is.map(([n,a])=>budHtml(n,a,maxI,totalI,'#1DB954')).join('')
+    : `<div class="empty"><div class="empty-t">Kirim yo'q</div></div>`;
 };
 
-const np = (v) => {
-  if (v === 'del') { S.amtStr = S.amtStr.slice(0,-1); }
-  else {
-    if (S.amtStr.length >= 12) return;
-    if (S.amtStr === '' && v === '0') return;
-    S.amtStr += v;
+// ── ALL TX ────────────────────────────────────────────────
+const renderAllTx = (txns) => {
+  let list=S.txFilter==='all'?txns:txns.filter(t=>t.type===S.txFilter);
+  const el=document.getElementById('allTxList');
+  if(!list.length){ el.innerHTML=`<div class="empty"><div class="empty-t">Ro'yxat bo'sh</div></div>`; return; }
+  el.innerHTML=list.slice(0,100).map(txHtml).join('');
+};
+
+const setTxF = (f, btn) => {
+  S.txFilter=f;
+  btn?.closest('.scroll, #pg-txs')?.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+  btn?.classList.add('on');
+  if(S.data) renderAllTx(filterTxns(S.data.transactions||[]));
+};
+
+// ── NAV ──────────────────────────────────────────────────
+const nav = page => {
+  S.page=page;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
+  document.getElementById('pg-'+page).classList.add('active');
+  document.getElementById('nb-'+page)?.classList.add('on');
+  const isAi=page==='ai';
+  document.getElementById('fab').style.display=isAi?'none':'flex';
+  document.getElementById('chatBar').style.display=isAi?'flex':'none';
+  document.querySelector('.scroll').scrollTo(0,0);
+  if(S.data){
+    const txns=filterTxns(S.data.transactions||[]);
+    if(page==='cats'){ let exp=0,e={},i={}; txns.forEach(t=>{ const a=parseFloat(t.amount),c=t.category||'Boshqa'; if(t.type==='expense'){exp+=a;e[c]=(e[c]||0)+a;}else{i[c]=(i[c]||0)+a;} }); renderCats(e,i,exp); }
+    if(page==='txs') renderAllTx(txns);
   }
-  document.getElementById('amtDisp').textContent = fmtFull(parseInt(S.amtStr || '0'));
 };
 
-// ─── SAVE TX ─────────────────────────────────────────────
+const setPrd = (p, el) => {
+  S.period=p;
+  document.querySelectorAll('.tabs .tab').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  if(S.data) render();
+};
+
+// ── MODAL ────────────────────────────────────────────────
+const openModal=()=>{ document.getElementById('modal').classList.add('open'); S.amtStr=''; document.getElementById('amtDisp').textContent='0'; setType('expense'); };
+const closeModal=()=>document.getElementById('modal').classList.remove('open');
+
+const setType = type => {
+  S.type=type;
+  document.getElementById('tIn').className='t-btn'+(type==='income'?' on-in':'');
+  document.getElementById('tEx').className='t-btn'+(type==='expense'?' on-ex':'');
+  document.getElementById('sBtn').className='s-btn '+(type==='income'?'s-in':'s-ex');
+  document.getElementById('shHead').textContent=type==='income'?'Kirim qo\'shish':'Chiqim qo\'shish';
+
+  const cats=type==='income'?INCOME_CATS:EXPENSE_CATS;
+  S.selCat=cats[0].id;
+  document.getElementById('catGrid').innerHTML=cats.map(c=>`
+    <div class="c-chip${c.id===S.selCat?' sel':''}" onclick="selCat('${c.id}',this)" style="--cc:${c.c}">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">${(ICONS[c.id]||defaultIcon).match(/<svg[^>]*>([\s\S]*)<\/svg>/)?.[1]||''}</svg>
+      ${c.label}
+    </div>`).join('');
+};
+
+const selCat=(id,el)=>{ S.selCat=id; document.querySelectorAll('.c-chip').forEach(c=>c.classList.remove('sel')); el.classList.add('sel'); };
+
+const np = v => {
+  if(v==='del') S.amtStr=S.amtStr.slice(0,-1);
+  else { if(S.amtStr.length>=11)return; if(S.amtStr===''&&v==='0')return; S.amtStr+=v; }
+  document.getElementById('amtDisp').textContent=fmtF(parseInt(S.amtStr||'0'));
+};
+
+// ── SAVE ─────────────────────────────────────────────────
 const saveTx = async () => {
-  const amount = parseInt(S.amtStr || '0');
-  if (!amount) { toast('err', 'Miqdorni kiriting!'); return; }
-
-  const btn = document.getElementById('saveBtn');
-  btn.disabled = true; btn.textContent = 'Saqlanmoqda...';
-
-  const res = await api('/transactions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      type: S.type,
-      amount,
-      category: S.selCat,
-      description: document.getElementById('fnote').value.trim(),
-      payment_method: document.getElementById('fpay').value,
-      currency: 'UZS'
-    })
+  const amount=parseInt(S.amtStr||'0');
+  if(!amount){ toast(false,'Miqdor kiriting'); return; }
+  const btn=document.getElementById('sBtn');
+  btn.disabled=true; btn.textContent='Saqlanmoqda...';
+  const res=await api('/transactions',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({type:S.type,amount,category:S.selCat,description:document.getElementById('fnote').value.trim(),payment_method:document.getElementById('fpay').value,currency:'UZS'})
   });
-
-  btn.disabled = false;
-  btn.textContent = '💾 Saqlash';
-
-  if (res?.ok !== false) {
-    toast('ok', `${S.type==='income' ? 'Kirim' : 'Chiqim'} saqlandi!`);
-    closeModal();
-    S.amtStr = '';
-    document.getElementById('fnote').value = '';
-    await loadData();
-  } else {
-    toast('err', res?.error || 'Xatolik yuz berdi');
-  }
+  btn.disabled=false; btn.textContent='Saqlash';
+  if(res?.ok!==false){ toast(true,'Saqlandi'); closeModal(); S.amtStr=''; document.getElementById('fnote').value=''; await loadData(); }
+  else toast(false,res?.error||'Xatolik');
 };
 
-// ─── AI CHAT ─────────────────────────────────────────────
+// ── AI CHAT ──────────────────────────────────────────────
 const sendAi = async () => {
-  const inp = document.getElementById('chatIn');
-  const msg = inp.value.trim();
-  if (!msg) return;
-  inp.value = '';
-
-  const msgs = document.getElementById('chatMsgs');
-  msgs.innerHTML += `<div class="cmsg user">${msg.replace(/</g,'&lt;')}</div>`;
-  msgs.innerHTML += `<div class="cmsg ai" id="aiT">⏳ Javob tayyorlanmoqda...</div>`;
-  msgs.scrollTop = msgs.scrollHeight;
-
-  const s = S.data?.summary || {};
-  const ctx = s.total_income
-    ? `Foydalanuvchi ma'lumotlari: Kirim=${fmtFull(s.total_income)} so'm, Chiqim=${fmtFull(s.total_expense)} so'm, Balans=${fmtFull(s.total_profit)} so'm, Tejash=${s.savings_rate}%.`
-    : '';
-
-  const res = await api('/ai-analyze', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question: msg, context: ctx })
-  });
-
-  const aiEl = document.getElementById('aiT');
-  if (aiEl) { aiEl.id=''; aiEl.innerHTML = res?.answer || '❌ Xatolik'; }
-  msgs.scrollTop = msgs.scrollHeight;
+  const inp=document.getElementById('chatIn'), msg=inp.value.trim();
+  if(!msg) return; inp.value='';
+  const msgs=document.getElementById('chatMsgs');
+  msgs.innerHTML+=`<div class="cm u">${msg.replace(/</g,'&lt;')}</div>`;
+  msgs.innerHTML+=`<div class="cm a" id="aiT">...</div>`; msgs.scrollTop=msgs.scrollHeight;
+  const s=S.data?.summary||{};
+  const ctx=s.total_income?`Kirim:${fmtF(s.total_income)} so'm, Chiqim:${fmtF(s.total_expense)} so'm, Balans:${fmtF(s.total_profit)} so'm, Tejash:${s.savings_rate}%.`:'';
+  const res=await api('/ai-analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:msg,context:ctx})});
+  const a=document.getElementById('aiT'); if(a){a.id='';a.innerHTML=res?.answer||'Xatolik';}
+  msgs.scrollTop=msgs.scrollHeight;
 };
+document.getElementById('chatIn')?.addEventListener('keydown',e=>{if(e.key==='Enter')sendAi()});
 
-document.getElementById('chatIn')?.addEventListener('keydown', e => { if(e.key==='Enter') sendAi(); });
-
-// ─── INIT ─────────────────────────────────────────────────
-(() => {
-  if (window.Telegram?.WebApp) {
-    window.Telegram.WebApp.expand();
-    window.Telegram.WebApp.setHeaderColor('#0C0C12');
-    window.Telegram.WebApp.setBackgroundColor('#0C0C12');
-  }
-
-  // Init category chips for default 'expense'
-  setType('expense');
+// ── INIT ─────────────────────────────────────────────────
+(()=>{
+  if(window.Telegram?.WebApp){ window.Telegram.WebApp.expand(); window.Telegram.WebApp.setHeaderColor('#0A0A0A'); window.Telegram.WebApp.setBackgroundColor('#0A0A0A'); }
+  document.getElementById('hDate').textContent=new Date().toLocaleDateString('uz-UZ',{day:'numeric',month:'long',year:'numeric'});
   loadData();
 })();
 </script>
