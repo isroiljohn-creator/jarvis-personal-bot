@@ -252,6 +252,28 @@ async def get_finance_data(force: bool = False):
         weekly[w_str]["profit"] = weekly[w_str]["income"] - weekly[w_str]["expense"]
         monthly[m_str]["days"] = len(daily)
 
+    income_cat = {}
+    for t in txns:
+        if t['type'] == 'income':
+            cat = t.get('category', 'Tushum')
+            if cat not in income_cat: income_cat[cat] = 0
+            income_cat[cat] += float(t['amount'])
+
+    # Build real transaction list (most recent first)
+    transactions = []
+    for t in reversed(txns):
+        transactions.append({
+            "id": t.get('id'),
+            "type": t['type'],
+            "amount": float(t['amount']),
+            "category": t.get('category', ''),
+            "description": t.get('description', ''),
+            "payment_method": t.get('payment_method', 'naqd'),
+            "currency": t.get('currency', 'UZS'),
+            "date": t['created_at'].strftime("%Y-%m-%d"),
+            "time": t['created_at'].strftime("%H:%M"),
+        })
+
     active_days = len(daily)
     
     top_sources = sorted([{"name": k, "amount": v} for k, v in sources.items()], key=lambda x: x["amount"], reverse=True)
@@ -261,10 +283,9 @@ async def get_finance_data(force: bool = False):
         "total_expense": total_expense,
         "total_profit": total_income - total_expense,
         "avg_daily_income": total_income / max(active_days, 1),
-        "profit_margin": round((total_income - total_expense) / total_income * 100, 2) if total_income > 0 else 0,
+        "savings_rate": round((total_income - total_expense) / total_income * 100, 1) if total_income > 0 else 0,
         "top_sources": top_sources[:3],
         "active_days": active_days,
-        "commission_rate": 3.0
     }
     
     return {
@@ -272,11 +293,11 @@ async def get_finance_data(force: bool = False):
         "daily": daily,
         "monthly": monthly,
         "weekly": weekly,
-        "source_totals": sources,
+        "income_categories": income_cat,
         "expense_categories": expenses_cat,
+        "transactions": transactions,
         "last_updated": datetime.now().isoformat(),
         "has_real_data": len(txns) > 0,
-        "sheet_name": "PostgreSQL: transactions"
     }
 
 @app.post("/api/finance/ai-analyze")

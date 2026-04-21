@@ -3,1581 +3,1004 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Jasmina · Moliya</title>
+  <title>Jasmina · Hisobchim</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    /* ─── RESET & ROOT ─────────────────────── */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
     :root {
-      --bg: #0A0A0F;
-      --bg2: #111116;
-      --card: rgba(255,255,255,0.05);
-      --card-border: rgba(255,255,255,0.08);
-      --text: #FFFFFF;
-      --text2: rgba(255,255,255,0.55);
-      --text3: rgba(255,255,255,0.3);
-      --green: #00E5A0;
-      --green-dim: rgba(0,229,160,0.12);
-      --red: #FF4D6A;
-      --red-dim: rgba(255,77,106,0.12);
-      --blue: #4D9FFF;
-      --blue-dim: rgba(77,159,255,0.12);
-      --gold: #FFB830;
-      --gold-dim: rgba(255,184,48,0.12);
-      --purple: #A78BFA;
-      --purple-dim: rgba(167,139,250,0.12);
-      --radius-sm: 12px;
-      --radius-md: 18px;
-      --radius-lg: 24px;
-      --radius-xl: 32px;
-      --safe-top: env(safe-area-inset-top, 0px);
-      --safe-bottom: env(safe-area-inset-bottom, 20px);
+      --bg:       #0C0C12;
+      --bg2:      #13131A;
+      --card:     rgba(255,255,255,0.055);
+      --border:   rgba(255,255,255,0.09);
+      --text:     #F0F0F8;
+      --muted:    rgba(240,240,248,0.45);
+      --subtle:   rgba(240,240,248,0.18);
+      --green:    #30D790;
+      --green-bg: rgba(48,215,144,0.11);
+      --red:      #FF5474;
+      --red-bg:   rgba(255,84,116,0.11);
+      --blue:     #5C9EFF;
+      --blue-bg:  rgba(92,158,255,0.11);
+      --purple:   #A78BFA;
+      --gold:     #FFC048;
+      --r-sm: 12px; --r-md: 18px; --r-lg: 24px; --r-xl: 28px;
+      --safe-t: env(safe-area-inset-top, 12px);
+      --safe-b: env(safe-area-inset-bottom, 20px);
     }
 
-    html, body {
-      height: 100%;
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Inter', -apple-system, sans-serif;
-      -webkit-font-smoothing: antialiased;
-      overflow: hidden;
-    }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Inter', -apple-system, sans-serif; -webkit-font-smoothing: antialiased; overflow: hidden; }
 
-    /* ─── MAIN LAYOUT ─────────────────────── */
-    #app {
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      height: 100dvh;
-      overflow: hidden;
-    }
+    /* ─── APP SHELL ─── */
+    #app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
 
-    /* ─── HEADER ─────────────────────────── */
+    /* ─── HEADER ─── */
     .header {
       flex-shrink: 0;
-      padding: calc(var(--safe-top) + 16px) 20px 14px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      padding: calc(var(--safe-t) + 12px) 18px 12px;
+      display: flex; align-items: center; justify-content: space-between;
       background: var(--bg);
-      position: relative;
-      z-index: 10;
     }
-    .header-left h1 {
-      font-size: 22px;
-      font-weight: 700;
-      letter-spacing: -0.5px;
-    }
-    .header-left p {
-      font-size: 12px;
-      color: var(--text2);
-      margin-top: 1px;
-    }
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .header-badge {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      background: var(--green-dim);
-      border: 1px solid rgba(0,229,160,0.2);
-      border-radius: 20px;
-      padding: 5px 10px;
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--green);
-    }
-    .header-badge .dot {
-      width: 6px; height: 6px;
-      background: var(--green);
-      border-radius: 50%;
-      animation: pulse 2s infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
-    }
-
-    /* ─── SCROLL AREA ─────────────────────── */
-    .scroll-area {
-      flex: 1;
-      overflow-y: auto;
-      overflow-x: hidden;
-      -webkit-overflow-scrolling: touch;
-      padding: 0 16px calc(var(--safe-bottom) + 80px);
-    }
-    .scroll-area::-webkit-scrollbar { display: none; }
-
-    /* ─── PERIOD TABS ─────────────────────── */
-    .period-tabs {
-      display: flex;
-      gap: 6px;
-      margin: 4px 0 18px;
-      background: rgba(255,255,255,0.04);
-      border-radius: var(--radius-sm);
-      padding: 4px;
-    }
-    .period-tab {
-      flex: 1;
-      padding: 8px;
-      border: none;
-      background: transparent;
-      color: var(--text2);
-      font-size: 13px;
-      font-weight: 600;
-      font-family: 'Inter', sans-serif;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .period-tab.active {
-      background: white;
-      color: #0A0A0F;
-    }
-
-    /* ─── BALANCE CARD ─────────────────────── */
-    .balance-card {
-      background: linear-gradient(135deg, #0D2A1F 0%, #0A1628 100%);
-      border: 1px solid rgba(0,229,160,0.15);
-      border-radius: var(--radius-xl);
-      padding: 24px;
-      margin-bottom: 14px;
-      position: relative;
-      overflow: hidden;
-    }
-    .balance-card::before {
-      content: '';
-      position: absolute;
-      top: -60px; right: -60px;
-      width: 180px; height: 180px;
-      background: radial-gradient(circle, rgba(0,229,160,0.15) 0%, transparent 70%);
-      pointer-events: none;
-    }
-    .balance-label {
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--text2);
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      margin-bottom: 8px;
-    }
-    .balance-amount {
-      font-size: 36px;
-      font-weight: 800;
-      letter-spacing: -2px;
-      color: white;
-      line-height: 1;
-      margin-bottom: 4px;
-    }
-    .balance-amount .currency {
-      font-size: 18px;
-      font-weight: 600;
-      color: var(--text2);
-      margin-left: 4px;
-    }
-    .balance-trend {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--green);
-      margin-top: 6px;
-    }
-    .balance-stats {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-top: 18px;
-      padding-top: 18px;
-      border-top: 1px solid rgba(255,255,255,0.07);
-    }
-    .balance-stat-item { }
-    .balance-stat-label {
-      font-size: 10px;
-      font-weight: 500;
-      color: var(--text3);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 3px;
-    }
-    .balance-stat-value {
-      font-size: 15px;
-      font-weight: 700;
-      letter-spacing: -0.5px;
-    }
-    .income-color { color: var(--green); }
-    .expense-color { color: var(--red); }
-
-    /* ─── CHART CARD ─────────────────────── */
-    .chart-card {
-      background: var(--card);
-      border: 1px solid var(--card-border);
-      border-radius: var(--radius-lg);
-      padding: 18px 16px;
-      margin-bottom: 14px;
-    }
-    .chart-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-    }
-    .chart-title {
-      font-size: 14px;
-      font-weight: 600;
-    }
-    .chart-legend {
-      display: flex;
-      gap: 12px;
-    }
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      font-size: 11px;
-      font-weight: 500;
-      color: var(--text2);
-    }
-    .legend-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-    }
-    .chart-wrap {
-      height: 160px;
-      position: relative;
-    }
-
-    /* ─── KPI GRID ─────────────────────── */
-    .kpi-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-bottom: 14px;
-    }
-    .kpi-card {
-      background: var(--card);
-      border: 1px solid var(--card-border);
-      border-radius: var(--radius-md);
-      padding: 16px 14px;
-      transition: transform 0.15s;
-    }
-    .kpi-card:active { transform: scale(0.96); }
-    .kpi-icon {
-      width: 34px; height: 34px;
-      border-radius: 10px;
+    .hw h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.4px; }
+    .hw p  { font-size: 12px; color: var(--muted); margin-top: 1px; }
+    .sync-btn {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: var(--card); border: 1px solid var(--border);
+      color: var(--text); font-size: 16px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 16px;
-      margin-bottom: 10px;
+      cursor: pointer; transition: background 0.15s;
     }
-    .kpi-value {
-      font-size: 17px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-      margin-bottom: 3px;
-    }
-    .kpi-label {
-      font-size: 11px;
-      font-weight: 500;
-      color: var(--text2);
-    }
+    .sync-btn:active { background: var(--border); }
 
-    /* ─── TRANSACTIONS ─────────────────── */
-    .section-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
-    }
-    .section-title {
-      font-size: 15px;
-      font-weight: 700;
-    }
-    .section-action {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--blue);
-      background: none;
-      border: none;
-      cursor: pointer;
-      font-family: inherit;
-      padding: 0;
-    }
-
-    .tx-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
-    .tx-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      background: var(--card);
-      border: 1px solid var(--card-border);
-      border-radius: var(--radius-md);
-      padding: 13px 14px;
-      transition: background 0.15s;
-    }
-    .tx-item:active { background: rgba(255,255,255,0.08); }
-    .tx-icon {
-      width: 38px; height: 38px;
-      border-radius: 11px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 17px;
+    /* ─── PERIOD SELECTOR ─── */
+    .period-bar {
       flex-shrink: 0;
+      display: flex; gap: 6px;
+      padding: 0 18px 12px;
     }
-    .tx-info { flex: 1; min-width: 0; }
-    .tx-name {
-      font-size: 14px;
-      font-weight: 600;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .tx-meta {
-      font-size: 11px;
-      font-weight: 500;
-      color: var(--text2);
-      margin-top: 2px;
-    }
-    .tx-amount {
-      font-size: 14px;
-      font-weight: 700;
-      letter-spacing: -0.3px;
-      white-space: nowrap;
-    }
-
-    /* ─── DONUT SECTION ─────────────────── */
-    .donut-section {
-      display: grid;
-      grid-template-columns: 140px 1fr;
-      gap: 16px;
-      align-items: center;
+    .prd-btn {
+      flex: 1; padding: 8px 0;
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
       background: var(--card);
-      border: 1px solid var(--card-border);
-      border-radius: var(--radius-lg);
-      padding: 18px 16px;
-      margin-bottom: 14px;
+      color: var(--muted);
+      font-size: 13px; font-weight: 600; font-family: inherit;
+      cursor: pointer; transition: all 0.19s;
     }
-    .donut-wrap {
-      position: relative;
-      width: 120px; height: 120px;
-    }
-    .donut-center {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      pointer-events: none;
-    }
-    .donut-center-val {
-      font-size: 14px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-    }
-    .donut-center-label {
-      font-size: 9px;
-      font-weight: 600;
-      color: var(--text2);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .donut-legend { display: flex; flex-direction: column; gap: 8px; }
-    .donut-legend-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .donut-legend-dot {
-      width: 9px; height: 9px;
-      border-radius: 3px;
-      flex-shrink: 0;
-    }
-    .donut-legend-name {
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--text2);
-      flex: 1;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .donut-legend-val {
-      font-size: 12px;
-      font-weight: 700;
+    .prd-btn.on {
+      background: var(--text); color: var(--bg);
+      border-color: var(--text);
     }
 
-    /* ─── BOTTOM NAV ─────────────────────── */
-    .bottom-nav {
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
-      padding: 10px 20px calc(var(--safe-bottom) + 4px);
-      background: rgba(10,10,15,0.92);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border-top: 1px solid rgba(255,255,255,0.06);
-      display: flex;
-      justify-content: space-around;
-      z-index: 100;
-    }
-    .nav-btn {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 3px;
-      background: none;
-      border: none;
-      color: var(--text2);
-      font-size: 9px;
-      font-weight: 600;
-      font-family: inherit;
-      cursor: pointer;
-      padding: 4px 10px;
-      border-radius: 12px;
-      transition: all 0.15s;
-      min-width: 56px;
-      letter-spacing: 0.3px;
-      text-transform: uppercase;
-    }
-    .nav-btn.active { color: var(--text); }
-    .nav-btn svg { width: 22px; height: 22px; }
-    .nav-btn.active svg path, .nav-btn.active svg rect, .nav-btn.active svg circle {
-      stroke: white;
-    }
+    /* ─── SCROLL AREA ─── */
+    .scroll { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 0 16px calc(var(--safe-b) + 80px); }
+    .scroll::-webkit-scrollbar { display: none; }
 
-    /* ─── PAGES ─────────────────────── */
+    /* ─── PAGE SYSTEM ─── */
     .page { display: none; }
     .page.active { display: block; }
 
-    /* ─── ADD TX MODAL ─────────────────── */
-    .modal-overlay {
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.7);
-      backdrop-filter: blur(10px);
-      z-index: 200;
-      display: flex;
-      align-items: flex-end;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.25s;
+    /* ─── BALANCE HERO ─── */
+    .balance-hero {
+      border-radius: var(--r-xl);
+      padding: 22px 20px 18px;
+      margin-bottom: 12px;
+      position: relative; overflow: hidden;
+      background: linear-gradient(135deg, #0F2A1E 0%, #0D1B2E 100%);
+      border: 1px solid rgba(48,215,144,0.13);
     }
-    .modal-overlay.open {
-      opacity: 1;
-      pointer-events: all;
+    .balance-hero::before {
+      content: '';
+      position: absolute; top: -50px; right: -50px;
+      width: 160px; height: 160px;
+      background: radial-gradient(circle, rgba(48,215,144,0.14) 0%, transparent 70%);
     }
-    .modal-sheet {
-      width: 100%;
-      background: #161620;
-      border-radius: 28px 28px 0 0;
-      padding: 20px 20px calc(var(--safe-bottom) + 24px);
-      transform: translateY(100%);
-      transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+    .bal-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+    .bal-amount { font-size: 38px; font-weight: 800; letter-spacing: -2px; line-height: 1; }
+    .bal-sub { font-size: 13px; color: var(--muted); margin-top: 5px; }
+    .bal-chips {
+      display: flex; gap: 8px; margin-top: 16px; padding-top: 16px;
+      border-top: 1px solid rgba(255,255,255,0.07);
     }
-    .modal-overlay.open .modal-sheet {
-      transform: translateY(0);
+    .bal-chip {
+      flex: 1; background: rgba(0,0,0,0.25); border-radius: 12px; padding: 10px 12px;
     }
-    .modal-handle {
-      width: 36px; height: 4px;
-      background: rgba(255,255,255,0.15);
-      border-radius: 2px;
-      margin: 0 auto 20px;
-    }
-    .modal-title {
-      font-size: 18px;
-      font-weight: 700;
-      margin-bottom: 20px;
-      text-align: center;
-    }
+    .bal-chip-lbl { font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .bal-chip-val { font-size: 16px; font-weight: 700; letter-spacing: -0.5px; }
 
-    /* Type Toggle */
-    .type-toggle {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      background: rgba(255,255,255,0.05);
-      border-radius: 14px;
-      padding: 4px;
-      gap: 4px;
-      margin-bottom: 18px;
-    }
-    .type-btn {
-      padding: 10px;
-      border: none;
-      border-radius: 10px;
-      font-size: 14px;
-      font-weight: 600;
-      font-family: inherit;
-      cursor: pointer;
-      transition: all 0.2s;
-      background: transparent;
-      color: var(--text2);
-    }
-    .type-btn.active-income {
-      background: var(--green-dim);
-      color: var(--green);
-      border: 1px solid rgba(0,229,160,0.25);
-    }
-    .type-btn.active-expense {
-      background: var(--red-dim);
-      color: var(--red);
-      border: 1px solid rgba(255,77,106,0.25);
-    }
+    /* ─── SECTION LABEL ─── */
+    .sec-head { display: flex; justify-content: space-between; align-items: center; margin: 18px 2px 10px; }
+    .sec-title { font-size: 15px; font-weight: 700; }
+    .sec-more { font-size: 12px; font-weight: 600; color: var(--blue); background: none; border: none; font-family: inherit; cursor: pointer; padding: 0; }
 
-    /* Amount Input */
-    .amount-display {
-      display: flex;
-      align-items: baseline;
-      justify-content: center;
-      gap: 8px;
-      padding: 12px 0 20px;
-    }
-    .amount-num {
-      font-size: 48px;
-      font-weight: 800;
-      letter-spacing: -2px;
-      color: white;
-      min-width: 100px;
-      text-align: center;
-    }
-    .amount-unit {
-      font-size: 18px;
-      font-weight: 600;
-      color: var(--text2);
-    }
+    /* ─── MINI CHART CARD ─── */
+    .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 16px; margin-bottom: 12px; }
+    .chart-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
+    .chart-ttl { font-size: 13px; font-weight: 600; }
+    .chart-lgd { display: flex; gap: 10px; }
+    .lgd-item { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 500; color: var(--muted); }
+    .lgd-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .chart-wrap { height: 130px; }
 
-    /* Form Inputs */
-    .input-group { margin-bottom: 14px; }
-    .input-label {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--text2);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 6px;
+    /* ─── CATEGORY DONUT ─── */
+    .cat-section {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--r-lg); padding: 16px; margin-bottom: 12px;
     }
-    .input-field {
-      width: 100%;
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: var(--radius-sm);
-      padding: 13px 14px;
-      color: white;
-      font-size: 15px;
-      font-family: 'Inter', sans-serif;
-      font-weight: 500;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    .input-field:focus { border-color: rgba(255,255,255,0.3); }
-    .input-field::placeholder { color: var(--text3); }
-    select.input-field {
-      appearance: none;
-      -webkit-appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.4)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 14px center;
-    }
+    .donut-row { display: flex; gap: 14px; align-items: center; }
+    .donut-cnv { position: relative; width: 110px; height: 110px; flex-shrink: 0; }
+    .donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+    .donut-cv { font-size: 14px; font-weight: 800; }
+    .donut-cl { font-size: 9px; font-weight: 600; color: var(--muted); text-transform: uppercase; }
+    .cat-legend { flex: 1; display: flex; flex-direction: column; gap: 7px; overflow: hidden; }
+    .cat-row { display: flex; align-items: center; gap: 8px; }
+    .cat-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+    .cat-name { font-size: 12px; font-weight: 500; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+    .cat-pct { font-size: 12px; font-weight: 700; }
 
-    .save-btn {
-      width: 100%;
-      padding: 16px;
-      border: none;
-      border-radius: var(--radius-md);
-      font-size: 16px;
-      font-weight: 700;
-      font-family: inherit;
-      cursor: pointer;
-      margin-top: 8px;
-      transition: all 0.2s;
-    }
-    .save-btn:active { transform: scale(0.97); }
-    .save-btn.income { background: var(--green); color: #0A0A0F; }
-    .save-btn.expense { background: var(--red); color: white; }
+    /* ─── BUDGET BARS ─── */
+    .budget-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+    .budget-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--r-md); padding: 13px 14px; }
+    .budget-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .budget-label-row { display: flex; align-items: center; gap: 8px; }
+    .budget-emoji { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+    .budget-name { font-size: 13px; font-weight: 600; }
+    .budget-amount { font-size: 13px; font-weight: 700; }
+    .budget-bar-bg { height: 5px; background: rgba(255,255,255,0.07); border-radius: 3px; overflow: hidden; }
+    .budget-bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s cubic-bezier(0.25,1,0.5,1); }
 
-    /* ─── FAB ─────────────────────── */
+    /* ─── TX LIST ─── */
+    .tx-list { display: flex; flex-direction: column; gap: 7px; }
+    .tx-item {
+      display: flex; align-items: center; gap: 11px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--r-md); padding: 12px 13px;
+      transition: background 0.12s;
+    }
+    .tx-item:active { background: rgba(255,255,255,0.08); }
+    .tx-ico {
+      width: 38px; height: 38px; border-radius: 11px;
+      font-size: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .tx-texts { flex: 1; min-width: 0; }
+    .tx-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tx-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .tx-amt { font-size: 14px; font-weight: 700; white-space: nowrap; }
+
+    /* ─── INSIGHTS ─── */
+    .insight-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--r-md); padding: 14px;
+      display: flex; align-items: flex-start; gap: 12px;
+      margin-bottom: 8px;
+    }
+    .insight-icon { font-size: 22px; flex-shrink: 0; margin-top: 1px; }
+    .insight-ttl { font-size: 13px; font-weight: 700; margin-bottom: 3px; }
+    .insight-txt { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+    /* ─── BOTTOM NAV ─── */
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      display: flex; justify-content: space-around;
+      padding: 10px 8px calc(var(--safe-b));
+      background: rgba(12,12,18,0.95);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid var(--border);
+      z-index: 100;
+    }
+    .nav-b {
+      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+      background: none; border: none; font-size: 9px; font-weight: 600; font-family: inherit;
+      color: var(--muted); cursor: pointer; padding: 4px 6px; border-radius: 10px;
+      letter-spacing: 0.3px; text-transform: uppercase; transition: color 0.15s;
+    }
+    .nav-b.on { color: var(--text); }
+    .nav-b svg { width: 22px; height: 22px; }
+
+    /* ─── FAB ─── */
     .fab {
-      position: fixed;
-      bottom: calc(var(--safe-bottom) + 68px);
-      right: 20px;
-      width: 52px; height: 52px;
-      border-radius: 16px;
-      background: linear-gradient(135deg, #00E5A0, #00B8FF);
-      border: none;
-      color: #0A0A0F;
-      font-size: 24px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 8px 24px rgba(0,229,160,0.35);
-      z-index: 99;
-      transition: all 0.2s;
+      position: fixed; right: 18px; bottom: calc(var(--safe-b) + 66px);
+      width: 54px; height: 54px; border-radius: 17px;
+      background: var(--green); border: none; color: #0C0C12;
+      font-size: 26px; font-weight: 300;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; box-shadow: 0 6px 24px rgba(48,215,144,0.35);
+      z-index: 99; transition: all 0.18s;
     }
-    .fab:active { transform: scale(0.92); }
+    .fab:active { transform: scale(0.91); }
 
-    /* ─── AI CHAT PAGE ─────────────────── */
-    .chat-messages {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      padding-bottom: 80px;
-    }
-    .chat-msg {
-      max-width: 80%;
-      padding: 12px 14px;
-      border-radius: 18px;
-      font-size: 14px;
-      font-weight: 400;
-      line-height: 1.5;
-    }
-    .chat-msg.user {
-      background: var(--blue);
-      color: white;
-      align-self: flex-end;
-      border-bottom-right-radius: 5px;
-    }
-    .chat-msg.ai {
-      background: var(--card);
-      border: 1px solid var(--card-border);
-      color: var(--text);
-      align-self: flex-start;
-      border-bottom-left-radius: 5px;
-    }
-    .chat-input-bar {
-      position: fixed;
-      bottom: calc(var(--safe-bottom) + 62px);
-      left: 16px; right: 16px;
-      display: flex;
-      gap: 8px;
-      z-index: 99;
-      background: var(--bg);
-      padding: 8px 0;
-    }
-    .chat-input {
-      flex: 1;
-      background: rgba(255,255,255,0.07);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 14px;
-      padding: 12px 14px;
-      color: white;
-      font-size: 15px;
-      font-family: inherit;
-      outline: none;
-    }
-    .chat-send {
-      width: 46px; height: 46px;
-      border-radius: 14px;
-      background: var(--blue);
-      border: none;
-      color: white;
-      font-size: 20px;
-      cursor: pointer;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
+    /* ─── MODAL ─── */
+    .overlay { position: fixed; inset: 0; z-index: 200; display: flex; align-items: flex-end; background: rgba(0,0,0,0.65); backdrop-filter: blur(8px); opacity: 0; pointer-events: none; transition: opacity 0.22s; }
+    .overlay.open { opacity: 1; pointer-events: all; }
+    .sheet { background: #161620; border-radius: 26px 26px 0 0; width: 100%; padding: 16px 18px calc(var(--safe-b) + 20px); transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.32,0.72,0,1); max-height: 92vh; overflow-y: auto; }
+    .overlay.open .sheet { transform: translateY(0); }
+    .sheet-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 18px; }
+    .sheet-title { font-size: 17px; font-weight: 700; text-align: center; margin-bottom: 18px; }
 
-    /* ─── LOADING & EMPTY STATES ─── */
-    .skeleton {
-      background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
-      background-size: 200% 100%;
-      animation: shimmer 1.6s infinite;
-      border-radius: 10px;
+    /* ─── TYPE PICKER ─── */
+    .type-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 18px; }
+    .type-opt {
+      padding: 12px 10px; border-radius: 14px; border: 1.5px solid var(--border);
+      background: transparent; color: var(--muted); font-size: 14px; font-weight: 600; font-family: inherit;
+      cursor: pointer; transition: all 0.18s; text-align: center;
     }
-    @keyframes shimmer {
-      0% { background-position: 200% center; }
-      100% { background-position: -200% center; }
-    }
-    .empty-state {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 48px 20px;
-      gap: 10px;
-      color: var(--text2);
-    }
-    .empty-state .emoji { font-size: 44px; margin-bottom: 4px; }
-    .empty-state h3 { font-size: 16px; font-weight: 600; color: var(--text); }
-    .empty-state p { font-size: 13px; text-align: center; line-height: 1.5; }
+    .type-opt.sel-in  { background: var(--green-bg); color: var(--green); border-color: rgba(48,215,144,0.3); }
+    .type-opt.sel-ex  { background: var(--red-bg);   color: var(--red);   border-color: rgba(255,84,116,0.3); }
 
-    /* ─── NUMPAD ─────────────────────── */
-    .numpad {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      margin-bottom: 16px;
-    }
-    .numpad-btn {
-      padding: 16px;
-      background: rgba(255,255,255,0.06);
-      border: none;
-      border-radius: 14px;
-      color: white;
-      font-size: 20px;
-      font-weight: 500;
-      font-family: inherit;
-      cursor: pointer;
-      transition: all 0.1s;
-    }
-    .numpad-btn:active { background: rgba(255,255,255,0.12); transform: scale(0.94); }
-    .numpad-btn.del { color: var(--text2); font-size: 18px; }
-    .numpad-btn.zero { grid-column: span 1; }
+    /* ─── AMOUNT PAD ─── */
+    .amount-display { text-align: center; padding: 8px 0 16px; }
+    .amt-num { font-size: 46px; font-weight: 800; letter-spacing: -2px; }
+    .amt-curr { font-size: 16px; color: var(--muted); font-weight: 500; }
 
-    /* ─── TOAST ─────────────────────── */
-    .toast-container {
-      position: fixed;
-      top: calc(var(--safe-top) + 60px);
-      left: 16px; right: 16px;
-      z-index: 999;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      pointer-events: none;
-    }
-    .toast {
-      padding: 13px 16px;
-      border-radius: 14px;
-      font-size: 13px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      animation: toastIn 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards;
-      pointer-events: all;
-    }
-    .toast.success { background: var(--green-dim); border: 1px solid rgba(0,229,160,0.3); color: var(--green); }
-    .toast.error { background: var(--red-dim); border: 1px solid rgba(255,77,106,0.3); color: var(--red); }
-    .toast.info { background: var(--blue-dim); border: 1px solid rgba(77,159,255,0.3); color: var(--blue); }
-    @keyframes toastIn {
-      from { opacity: 0; transform: translateY(-10px) scale(0.96); }
-      to { opacity: 1; transform: translateY(0) scale(1); }
-    }
+    .numpad { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; margin-bottom: 14px; }
+    .np-btn { padding: 15px; background: rgba(255,255,255,0.06); border: none; border-radius: 14px; color: var(--text); font-size: 20px; font-weight: 500; font-family: inherit; cursor: pointer; transition: all 0.1s; }
+    .np-btn:active { background: rgba(255,255,255,0.13); transform: scale(0.93); }
+    .np-btn.del { font-size: 16px; color: var(--muted); }
 
-    /* ─── ANALYTICS PAGE ─────────────── */
-    .stat-row {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      margin-bottom: 14px;
+    /* ─── CAT GRID ─── */
+    .cat-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 7px; margin-bottom: 14px; }
+    .cat-chip {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      background: rgba(255,255,255,0.05); border: 1.5px solid transparent;
+      border-radius: 14px; padding: 10px 4px;
+      font-size: 10px; font-weight: 600; color: var(--muted); cursor: pointer;
+      transition: all 0.15s; text-align: center;
     }
-    .stat-box {
-      background: var(--card);
-      border: 1px solid var(--card-border);
-      border-radius: var(--radius-md);
-      padding: 14px 12px;
-      text-align: center;
+    .cat-chip .cat-em { font-size: 22px; }
+    .cat-chip.sel { border-color: var(--blue); color: var(--blue); background: var(--blue-bg); }
+
+    /* ─── FORM ─── */
+    .f-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .f-group { margin-bottom: 12px; }
+    .f-inp {
+      width: 100%; background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+      border-radius: var(--r-sm); padding: 13px 14px; color: var(--text);
+      font-size: 15px; font-family: 'Inter', sans-serif; outline: none;
+      transition: border-color 0.18s;
     }
-    .stat-box-val {
-      font-size: 16px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-      margin-bottom: 4px;
-    }
-    .stat-box-label {
-      font-size: 10px;
-      font-weight: 500;
-      color: var(--text2);
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-    }
+    .f-inp:focus { border-color: rgba(255,255,255,0.28); }
+    .f-inp::placeholder { color: var(--subtle); }
+    select.f-inp { -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.3)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; }
+
+    .save-btn { width: 100%; padding: 15px; border: none; border-radius: var(--r-md); font-size: 16px; font-weight: 700; font-family: inherit; cursor: pointer; transition: all 0.18s; margin-top: 6px; }
+    .save-btn:active { transform: scale(0.97); }
+    .save-income  { background: var(--green); color: #0C0C12; }
+    .save-expense { background: var(--red);   color: #fff; }
+
+    /* ─── TOAST ─── */
+    .toast-wrap { position: fixed; top: calc(var(--safe-t) + 55px); left: 14px; right: 14px; z-index: 999; pointer-events: none; display: flex; flex-direction: column; gap: 7px; }
+    .toast { padding: 12px 14px; border-radius: 14px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; animation: tIn .3s cubic-bezier(.34,1.56,.64,1); }
+    .toast.ok  { background: var(--green-bg); border: 1px solid rgba(48,215,144,0.3); color: var(--green); }
+    .toast.err { background: var(--red-bg);   border: 1px solid rgba(255,84,116,0.3);  color: var(--red); }
+    @keyframes tIn { from { opacity:0; transform:translateY(-8px) scale(0.95); } to { opacity:1; transform:none; } }
+
+    /* ─── EMPTY ─── */
+    .empty { display: flex; flex-direction: column; align-items: center; padding: 40px 20px; gap: 8px; }
+    .empty span { font-size: 42px; }
+    .empty h3 { font-size: 16px; font-weight: 700; }
+    .empty p { font-size: 13px; color: var(--muted); text-align: center; line-height: 1.5; }
+
+    /* ─── AI CHAT ─── */
+    .chat-msgs { display: flex; flex-direction: column; gap: 10px; padding-bottom: 80px; }
+    .cmsg { max-width: 82%; padding: 11px 14px; border-radius: 18px; font-size: 13.5px; line-height: 1.5; }
+    .cmsg.user { background: var(--blue); color: #fff; align-self: flex-end; border-bottom-right-radius: 5px; }
+    .cmsg.ai   { background: var(--card); border: 1px solid var(--border); align-self: flex-start; border-bottom-left-radius: 5px; }
+    .chat-bar { position: fixed; bottom: calc(var(--safe-b) + 60px); left: 14px; right: 14px; display: flex; gap: 8px; z-index: 99; background: var(--bg); padding: 8px 0; }
+    .chat-in { flex: 1; background: rgba(255,255,255,0.07); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; color: var(--text); font-size: 14px; font-family: inherit; outline: none; }
+    .chat-send { width: 46px; height: 46px; border-radius: 14px; background: var(--blue); border: none; color: #fff; font-size: 18px; cursor: pointer; flex-shrink: 0; }
+
+    /* Skeleton */
+    .sk { background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0.04) 75%); background-size: 200%; animation: sk 1.5s infinite; border-radius: 10px; }
+    @keyframes sk { from { background-position: 200%; } to { background-position: -200%; } }
   </style>
 </head>
 <body>
 <div id="app">
-  <!-- ─── HEADER ─── -->
+
+  <!-- HEADER -->
   <div class="header">
-    <div class="header-left">
-      <h1>💳 Moliya</h1>
-      <p id="headerDate">Yuklanmoqda...</p>
+    <div class="hw">
+      <h1>💳 Hisobchim</h1>
+      <p id="hDate">Yuklanmoqda...</p>
     </div>
-    <div class="header-right">
-      <div class="header-badge">
-        <div class="dot"></div>
-        <span id="dbStatus">Live</span>
-      </div>
-    </div>
+    <button class="sync-btn" onclick="loadData(true)" title="Yangilash">↻</button>
   </div>
 
-  <!-- ─── PERIOD TABS ─── -->
-  <div style="padding: 0 16px">
-    <div class="period-tabs">
-      <button class="period-tab active" onclick="setPeriod('daily', this)">Kunlik</button>
-      <button class="period-tab" onclick="setPeriod('weekly', this)">Haftalik</button>
-      <button class="period-tab" onclick="setPeriod('monthly', this)">Oylik</button>
-    </div>
+  <!-- PERIOD -->
+  <div class="period-bar">
+    <button class="prd-btn on" onclick="setPrd('daily',this)">Bugun</button>
+    <button class="prd-btn" onclick="setPrd('weekly',this)">Hafta</button>
+    <button class="prd-btn" onclick="setPrd('monthly',this)">Oy</button>
+    <button class="prd-btn" onclick="setPrd('all',this)">Barchasi</button>
   </div>
 
-  <!-- ─── SCROLL AREA ─── -->
-  <div class="scroll-area" id="scrollArea">
-    <!-- Dashboard Page -->
-    <div class="page active" id="page-home">
+  <!-- SCROLL AREA -->
+  <div class="scroll">
+
+    <!-- ══ HOME PAGE ══ -->
+    <div class="page active" id="pg-home">
 
       <!-- Balance Card -->
-      <div class="balance-card" id="balanceCard">
-        <div class="balance-label">Sof balansingiz</div>
-        <div class="balance-amount">
-          <span id="balanceNet">–</span>
-          <span class="currency">so'm</span>
-        </div>
-        <div class="balance-stats">
-          <div class="balance-stat-item">
-            <div class="balance-stat-label">↑ Tushum</div>
-            <div class="balance-stat-value income-color" id="statIncome">–</div>
+      <div class="balance-hero">
+        <div class="bal-label">Sof balans</div>
+        <div class="bal-amount" id="balNet">–</div>
+        <div class="bal-sub" id="balSub">Yuklanmoqda...</div>
+        <div class="bal-chips">
+          <div class="bal-chip">
+            <div class="bal-chip-lbl">↑ Kirim</div>
+            <div class="bal-chip-val" style="color:var(--green)" id="chipIn">–</div>
           </div>
-          <div class="balance-stat-item">
-            <div class="balance-stat-label">↓ Chiqim</div>
-            <div class="balance-stat-value expense-color" id="statExpense">–</div>
+          <div class="bal-chip">
+            <div class="bal-chip-lbl">↓ Chiqim</div>
+            <div class="bal-chip-val" style="color:var(--red)" id="chipEx">–</div>
+          </div>
+          <div class="bal-chip">
+            <div class="bal-chip-lbl">💾 Tejash</div>
+            <div class="bal-chip-val" style="color:var(--blue)" id="chipSave">–</div>
           </div>
         </div>
       </div>
 
-      <!-- Chart Card -->
+      <!-- Trend Chart -->
       <div class="chart-card">
-        <div class="chart-header">
-          <span class="chart-title">Tushum & Chiqim</span>
-          <div class="chart-legend">
-            <div class="legend-item">
-              <div class="legend-dot" style="background:#00E5A0"></div>
-              Tushum
-            </div>
-            <div class="legend-item">
-              <div class="legend-dot" style="background:#FF4D6A"></div>
-              Chiqim
-            </div>
+        <div class="chart-top">
+          <span class="chart-ttl">Trend</span>
+          <div class="chart-lgd">
+            <div class="lgd-item"><div class="lgd-dot" style="background:var(--green)"></div>Kirim</div>
+            <div class="lgd-item"><div class="lgd-dot" style="background:var(--red)"></div>Chiqim</div>
           </div>
         </div>
-        <div class="chart-wrap">
-          <canvas id="mainChart"></canvas>
-        </div>
+        <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
       </div>
 
-      <!-- KPI Grid -->
-      <div class="kpi-grid">
-        <div class="kpi-card">
-          <div class="kpi-icon" style="background:var(--green-dim)">📈</div>
-          <div class="kpi-value income-color" id="kpiMargin">–</div>
-          <div class="kpi-label">Foyda Marginali</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-icon" style="background:var(--blue-dim)">📅</div>
-          <div class="kpi-value" style="color:var(--blue)" id="kpiDays">–</div>
-          <div class="kpi-label">Faol Kunlar</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-icon" style="background:var(--gold-dim)">⚡</div>
-          <div class="kpi-value" style="color:var(--gold)" id="kpiAvg">–</div>
-          <div class="kpi-label">Kunlik O'rtacha</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-icon" style="background:var(--purple-dim)">🏆</div>
-          <div class="kpi-value" style="color:var(--purple)" id="kpiTop">–</div>
-          <div class="kpi-label">Top Manba</div>
-        </div>
+      <!-- Expense Categories -->
+      <div class="sec-head">
+        <span class="sec-title">Xarajat toifalari</span>
+        <button class="sec-more" onclick="nav('cats')">Barchasi →</button>
       </div>
 
-      <!-- Payment Sources Donut -->
-      <div class="donut-section">
-        <div class="donut-wrap">
-          <canvas id="donutChart" width="120" height="120"></canvas>
-          <div class="donut-center">
-            <div class="donut-center-val" id="donutTotal">–</div>
-            <div class="donut-center-label">Jami</div>
+      <div class="cat-section">
+        <div class="donut-row">
+          <div class="donut-cnv">
+            <canvas id="donutChart" width="110" height="110"></canvas>
+            <div class="donut-center">
+              <div class="donut-cv" id="donutVal">–</div>
+              <div class="donut-cl">Jami</div>
+            </div>
+          </div>
+          <div class="cat-legend" id="catLegend">
+            <div class="sk" style="height:18px;width:100%;"></div>
+            <div class="sk" style="height:18px;width:80%;"></div>
+            <div class="sk" style="height:18px;width:90%;"></div>
           </div>
         </div>
-        <div class="donut-legend" id="donutLegend">
-          <div class="skeleton" style="height:20px; width:100%; border-radius:6px;"></div>
-          <div class="skeleton" style="height:20px; width:80%; border-radius:6px;"></div>
-          <div class="skeleton" style="height:20px; width:90%; border-radius:6px;"></div>
-        </div>
       </div>
 
-      <!-- Recent Transactions -->
-      <div class="section-header">
-        <span class="section-title">So'nggi Operatsiyalar</span>
-        <button class="section-action" onclick="navigate('tx')">Barchasi →</button>
+      <!-- Recent TX -->
+      <div class="sec-head">
+        <span class="sec-title">So'nggi harakatlar</span>
+        <button class="sec-more" onclick="nav('txs')">Barchasi →</button>
       </div>
-      <div class="tx-list" id="recentTxList">
-        <div style="height:48px;" class="skeleton"></div>
-        <div style="height:48px;" class="skeleton"></div>
-        <div style="height:48px;" class="skeleton"></div>
+      <div class="tx-list" id="recentList">
+        <div class="sk" style="height:62px;"></div>
+        <div class="sk" style="height:62px;"></div>
+        <div class="sk" style="height:62px;"></div>
       </div>
+
+    </div><!-- /home -->
+
+    <!-- ══ CATEGORIES PAGE ══ -->
+    <div class="page" id="pg-cats">
+      <div class="sec-head" style="margin-top:6px;">
+        <span class="sec-title">Xarajatlar bo'yicha</span>
+      </div>
+      <div class="budget-list" id="budgetList"></div>
+
+      <div class="sec-head">
+        <span class="sec-title">Kirimlar bo'yicha</span>
+      </div>
+      <div class="budget-list" id="incomeCatList"></div>
     </div>
 
-    <!-- Analytics Page -->
-    <div class="page" id="page-analytics">
-      <div class="stat-row" id="analyticsStats">
-        <div class="stat-box skeleton" style="height:80px;"></div>
-        <div class="stat-box skeleton" style="height:80px;"></div>
-        <div class="stat-box skeleton" style="height:80px;"></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-header">
-          <span class="chart-title" id="analyticsChartTitle">Oylik Dinamika</span>
+    <!-- ══ ALL TX PAGE ══ -->
+    <div class="page" id="pg-txs">
+      <div class="sec-head" style="margin-top:6px;">
+        <div style="display:flex;gap:8px;">
+          <button onclick="setTxF('all')" id="tf-all" class="prd-btn on" style="flex:none;padding:6px 14px;font-size:12px;">Bari</button>
+          <button onclick="setTxF('income')" id="tf-income" class="prd-btn" style="flex:none;padding:6px 14px;font-size:12px;">Kirim</button>
+          <button onclick="setTxF('expense')" id="tf-expense" class="prd-btn" style="flex:none;padding:6px 14px;font-size:12px;">Chiqim</button>
         </div>
-        <div class="chart-wrap" style="height:200px;">
-          <canvas id="analyticsChart"></canvas>
-        </div>
-      </div>
-      <div class="section-header">
-        <span class="section-title">Chiqim Toifalari</span>
-      </div>
-      <div class="tx-list" id="expenseCatList"></div>
-    </div>
-
-    <!-- All Transactions Page -->
-    <div class="page" id="page-tx">
-      <div class="section-header" style="margin-bottom:8px;">
-        <span class="section-title">Barcha Operatsiyalar</span>
-        <div style="display:flex;gap:6px;">
-          <button onclick="filterTx('all')" class="section-action" id="f-all" style="color:var(--text)">Bari</button>
-          <button onclick="filterTx('income')" class="section-action" id="f-income">Tushum</button>
-          <button onclick="filterTx('expense')" class="section-action" id="f-expense">Chiqim</button>
-        </div>
+        <span id="txCount" style="font-size:12px;color:var(--muted)"></span>
       </div>
       <div class="tx-list" id="allTxList"></div>
     </div>
 
-    <!-- AI Chat Page -->
-    <div class="page" id="page-ai">
-      <div class="chat-messages" id="chatMessages">
-        <div class="chat-msg ai">
-          Salom! Men sizning AI Moliya Maslahatchingizman 🤖<br>
-          Moliyangiz haqida xohlagan savolni yozing, javob beraman!
+    <!-- ══ AI CHAT PAGE ══ -->
+    <div class="page" id="pg-ai">
+      <div class="chat-msgs" id="chatMsgs">
+        <div class="cmsg ai">
+          Salom! 👋 Men sizning shaxsiy AI moliya maslahatchingizman.<br><br>
+          Masalan: <em>"Bu oy kamroq sarflash uchun nima qilsam?"</em> yoki <em>"Qaysi toifada ko'proq sarplayapman?"</em>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- ─── BOTTOM NAV ─── -->
+  </div><!-- /scroll -->
+
+  <!-- BOTTOM NAV -->
   <div class="bottom-nav">
-    <button class="nav-btn active" onclick="navigate('home')" id="nav-home">
-      <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-        <polyline points="9 22 9 12 15 12 15 22"/>
-      </svg>
-      Asosiy
+    <button class="nav-b on" onclick="nav('home')" id="nb-home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Asosiy
     </button>
-    <button class="nav-btn" onclick="navigate('analytics')" id="nav-analytics">
-      <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2">
-        <line x1="18" y1="20" x2="18" y2="10"/>
-        <line x1="12" y1="20" x2="12" y2="4"/>
-        <line x1="6" y1="20" x2="6" y2="14"/>
-      </svg>
-      Tahlil
+    <button class="nav-b" onclick="nav('cats')" id="nb-cats">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/><path stroke-linecap="round" stroke-linejoin="round" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"/></svg>Toifalar
     </button>
-    <button class="nav-btn" onclick="navigate('tx')" id="nav-tx">
-      <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-      </svg>
-      Ro'yxat
+    <button class="nav-b" onclick="nav('txs')" id="nb-txs">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>Ro'yxat
     </button>
-    <button class="nav-btn" onclick="navigate('ai')" id="nav-ai">
-      <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-      </svg>
-      AI Chat
+    <button class="nav-b" onclick="nav('ai')" id="nb-ai">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>AI Chat
     </button>
   </div>
 
-  <!-- ─── FAB (Add Transaction) ─── -->
-  <button class="fab" onclick="openModal()" id="fab">+</button>
+  <!-- FAB -->
+  <button class="fab" id="fab" onclick="openModal()">+</button>
 </div>
 
-<!-- ─── MODAL ─── -->
-<div class="modal-overlay" id="modal" onclick="e => e.target===this && closeModal()">
-  <div class="modal-sheet" onclick="event.stopPropagation()">
-    <div class="modal-handle"></div>
-    <div class="modal-title">Yangi Operatsiya</div>
+<!-- MODAL -->
+<div class="overlay" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="sheetTitle">Yangi Operatsiya</div>
 
-    <!-- Type Toggle -->
-    <div class="type-toggle">
-      <button class="type-btn active-income" id="typeIncome" onclick="setType('income')">↑ Tushum</button>
-      <button class="type-btn" id="typeExpense" onclick="setType('expense')">↓ Chiqim</button>
+    <!-- Type -->
+    <div class="type-pick">
+      <button class="type-opt sel-in" id="tIn"  onclick="setType('income')">↑ Kirim</button>
+      <button class="type-opt"        id="tEx"  onclick="setType('expense')">↓ Chiqim</button>
     </div>
 
-    <!-- Amount Display -->
+    <!-- Amount -->
     <div class="amount-display">
-      <div class="amount-num" id="amountDisplay">0</div>
-      <div class="amount-unit">so'm</div>
+      <span class="amt-num" id="amtDisp">0</span>
+      <span class="amt-curr"> so'm</span>
     </div>
 
     <!-- Numpad -->
     <div class="numpad">
-      <button class="numpad-btn" onclick="numpad('1')">1</button>
-      <button class="numpad-btn" onclick="numpad('2')">2</button>
-      <button class="numpad-btn" onclick="numpad('3')">3</button>
-      <button class="numpad-btn" onclick="numpad('4')">4</button>
-      <button class="numpad-btn" onclick="numpad('5')">5</button>
-      <button class="numpad-btn" onclick="numpad('6')">6</button>
-      <button class="numpad-btn" onclick="numpad('7')">7</button>
-      <button class="numpad-btn" onclick="numpad('8')">8</button>
-      <button class="numpad-btn" onclick="numpad('9')">9</button>
-      <button class="numpad-btn" onclick="numpad('000')">000</button>
-      <button class="numpad-btn" onclick="numpad('0')">0</button>
-      <button class="numpad-btn del" onclick="numpad('del')">⌫</button>
+      <button class="np-btn" onclick="np('1')">1</button>
+      <button class="np-btn" onclick="np('2')">2</button>
+      <button class="np-btn" onclick="np('3')">3</button>
+      <button class="np-btn" onclick="np('4')">4</button>
+      <button class="np-btn" onclick="np('5')">5</button>
+      <button class="np-btn" onclick="np('6')">6</button>
+      <button class="np-btn" onclick="np('7')">7</button>
+      <button class="np-btn" onclick="np('8')">8</button>
+      <button class="np-btn" onclick="np('9')">9</button>
+      <button class="np-btn" onclick="np('000')">000</button>
+      <button class="np-btn" onclick="np('0')">0</button>
+      <button class="np-btn del" onclick="np('del')">⌫</button>
     </div>
 
-    <!-- Details -->
-    <div class="input-group">
-      <div class="input-label">Toifa</div>
-      <select class="input-field" id="txCategory">
-        <option value="Maosh">💰 Maosh / Ish haqi</option>
-        <option value="Freelance">💻 Freelance / Loyiha</option>
-        <option value="Biznes">🏢 Biznes Daromad</option>
-        <option value="Oziq-ovqat">🛒 Oziq-ovqat</option>
-        <option value="Transport">🚗 Transport</option>
-        <option value="Kommunal">🏠 Kommunal to'lovlar</option>
-        <option value="Ko'ngilochar">🎮 Ko'ngilochar</option>
-        <option value="Kiyim">👗 Kiyim-kechak</option>
-        <option value="Sog'liq">🏥 Sog'liq / Dori</option>
-        <option value="Boshqa">📌 Boshqa</option>
-      </select>
+    <!-- Category chips -->
+    <div class="f-group">
+      <div class="f-label">Toifa</div>
+      <div class="cat-grid" id="catChips"></div>
     </div>
 
-    <div class="input-group">
-      <div class="input-label">To'lov usuli</div>
-      <select class="input-field" id="txPayment">
-        <option value="naqd">💵 Naqd pul</option>
+    <!-- Note & Payment -->
+    <div class="f-group">
+      <div class="f-label">Izoh (ixtiyoriy)</div>
+      <input type="text" class="f-inp" id="fnote" placeholder="masalan: GreenApple, Auchan...">
+    </div>
+    <div class="f-group">
+      <div class="f-label">To'lov usuli</div>
+      <select class="f-inp" id="fpay">
+        <option value="naqd">💵 Naqd</option>
         <option value="karta">💳 Karta</option>
-        <option value="transfer">📱 O'tkazma (Payme/Click)</option>
+        <option value="transfer">📱 O'tkazma</option>
       </select>
     </div>
 
-    <div class="input-group">
-      <div class="input-label">Izoh (ixtiyoriy)</div>
-      <input type="text" class="input-field" id="txNote" placeholder="Masalan: Auchan, GreenApple...">
-    </div>
-
-    <button class="save-btn income" id="saveBtn" onclick="saveTx()">Saqlash</button>
+    <button class="save-btn save-income" id="saveBtn" onclick="saveTx()">💾 Saqlash</button>
   </div>
 </div>
 
-<!-- Toast Container -->
-<div class="toast-container" id="toasts"></div>
-
-<!-- AI Chat Input -->
-<div class="chat-input-bar" id="chatBar" style="display:none;">
-  <input type="text" class="chat-input" id="chatInput" placeholder="Moliyangiz haqida so'rang...">
+<!-- CHAT BAR -->
+<div class="chat-bar" id="chatBar" style="display:none;">
+  <input type="text" class="chat-in" id="chatIn" placeholder="Moliyangiz haqida so'rang...">
   <button class="chat-send" onclick="sendAi()">➤</button>
 </div>
 
+<!-- TOAST -->
+<div class="toast-wrap" id="toasts"></div>
+
 <script>
-// ─── STATE ───────────────────────────────────────────────
+'use strict';
+
+// ─── CATEGORY CONFIG ─────────────────────────────────────
+const EXPENSE_CATS = [
+  { id:'Oziq-ovqat',   em:'🛒', label:'Oziq-ovqat',   color:'#FF6B35' },
+  { id:'Kafe',         em:'☕', label:'Kafe/Rest.',    color:'#FF9F1C' },
+  { id:'Transport',    em:'🚌', label:'Transport',     color:'#4D9FFF' },
+  { id:'Uy-joy',       em:'🏠', label:'Uy/Ijara',      color:'#A78BFA' },
+  { id:'Kommunal',     em:'💡', label:'Kommunal',      color:'#06D6A0' },
+  { id:'Kiyim',        em:'👗', label:'Kiyim',         color:'#FF4D6A' },
+  { id:"Sog'liq",      em:'💊', label:"Sog'liq",       color:'#4ECDC4' },
+  { id:'Telefon',      em:'📱', label:'Telefon',       color:'#45B7D1' },
+  { id:'Internet',     em:'🌐', label:'Internet',      color:'#96CEB4' },
+  { id:"Ko'ngilochar", em:'🎬', label:"Ko'ngilochar",  color:'#DDA0DD' },
+  { id:'Sport',        em:'⚽', label:'Sport',         color:'#20B2AA' },
+  { id:'Ta\'lim',      em:'📚', label:"Ta'lim",        color:'#FFD700' },
+  { id:'Hadya',        em:'🎁', label:'Hadya',         color:'#FF69B4' },
+  { id:'Tejamkorlik',  em:'💰', label:'Tejamkorlik',   color:'#30D790' },
+  { id:'Boshqa',       em:'📌', label:'Boshqa',        color:'#94A3B8' },
+];
+
+const INCOME_CATS = [
+  { id:'Maosh',      em:'💵', label:'Maosh',        color:'#30D790' },
+  { id:'Freelance',  em:'💻', label:'Freelance',    color:'#4D9FFF' },
+  { id:"Tadbirkor.", em:'🏢', label:"Biznes",       color:'#A78BFA' },
+  { id:'Hadya',      em:'🎁', label:'Hadya',        color:'#FF6B35' },
+  { id:'Investitsiya',em:'📈', label:'Invest.',     color:'#FFD700' },
+  { id:'Boshqa',     em:'📌', label:'Boshqa',       color:'#94A3B8' },
+];
+
+const CAT_MAP = {};
+[...EXPENSE_CATS, ...INCOME_CATS].forEach(c => { CAT_MAP[c.id] = c; });
+
+// ─── APP STATE ───────────────────────────────────────────
 const S = {
   data: null,
   period: 'daily',
   page: 'home',
   txFilter: 'all',
-  amountStr: '',
-  txType: 'income',
+  amtStr: '',
+  type: 'expense',
+  selCat: 'Oziq-ovqat',
 };
 
-const COLORS = ['#00E5A0','#FF4D6A','#4D9FFF','#FFB830','#A78BFA','#FF6B6B','#06D6A0','#118AB2'];
+const COLORS = EXPENSE_CATS.map(c => c.color);
 
-// ─── FORMAT ──────────────────────────────────────────────
-const fmt = n => {
-  const abs = Math.abs(n || 0);
-  if (abs >= 1e9) return (n/1e9).toFixed(1) + ' mlrd';
-  if (abs >= 1e6) return (n/1e6).toFixed(1) + ' mln';
-  if (abs >= 1e3) return (n/1e3).toFixed(0) + ' K';
+// ─── HELPERS ─────────────────────────────────────────────
+const fmtShort = n => {
+  const a = Math.abs(n || 0);
+  if (a >= 1e9) return (n/1e9).toFixed(1) + 'mlrd';
+  if (a >= 1e6) return (n/1e6).toFixed(1) + 'mln';
+  if (a >= 1e3) return (n/1e3).toFixed(0) + 'K';
   return (n||0).toFixed(0);
 };
 const fmtFull = n => Math.abs(n||0).toLocaleString('ru-RU');
 
-// ─── TOAST ───────────────────────────────────────────────
-const toast = (type, msg, ms=3000) => {
-  const icons = {success:'✅', error:'❌', info:'ℹ️'};
+const toast = (type, msg) => {
   const el = document.createElement('div');
-  el.className = `toast ${type}`;
-  el.innerHTML = `${icons[type] || ''} ${msg}`;
+  el.className = 'toast ' + (type==='ok' ? 'ok' : 'err');
+  el.textContent = (type==='ok' ? '✅ ' : '❌ ') + msg;
   document.getElementById('toasts').appendChild(el);
-  setTimeout(() => el.remove(), ms);
+  setTimeout(() => el.remove(), 3500);
 };
 
 // ─── API ─────────────────────────────────────────────────
-const api = async (endpoint, opts={}) => {
+const api = async (path, opts={}) => {
   try {
     const headers = opts.headers || {};
     if (window.Telegram?.WebApp?.initData)
       headers['X-Telegram-Auth'] = window.Telegram.WebApp.initData;
-    const r = await fetch('/api/finance' + endpoint, {...opts, headers});
-    if (!r.ok) throw new Error(r.status);
-    return await r.json();
-  } catch(e) {
-    console.error('[API]', endpoint, e);
-    return null;
-  }
+    const r = await fetch('/api/finance' + path, {...opts, headers});
+    return r.ok ? await r.json() : null;
+  } catch(e) { return null; }
 };
 
-// ─── LOAD DATA ───────────────────────────────────────────
-const loadData = async () => {
-  const data = await api('/data');
-  if (!data) {
-    toast('error', 'Server bilan aloqa yo\'zlandi');
-    return;
-  }
-  S.data = data;
+// ─── LOAD ────────────────────────────────────────────────
+const loadData = async (force=false) => {
+  const d = await api('/data');
+  if (!d) { toast('err', 'Serverga ulanib bo\'lmadi'); return; }
+  S.data = d;
   render();
+};
+
+// ─── PERIOD FILTER (client-side) ─────────────────────────
+const filterByPeriod = (txns) => {
+  if (!txns) return [];
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  const startOfWeek = (() => { const d = new Date(now); d.setDate(d.getDate() - d.getDay() + 1); return d.toISOString().split('T')[0]; })();
+  const startOfMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+
+  return txns.filter(t => {
+    if (S.period === 'all')     return true;
+    if (S.period === 'daily')   return t.date >= today;
+    if (S.period === 'weekly')  return t.date >= startOfWeek;
+    if (S.period === 'monthly') return t.date >= startOfMonth;
+    return true;
+  });
 };
 
 // ─── RENDER ──────────────────────────────────────────────
 const render = () => {
   if (!S.data) return;
   const d = S.data;
-  const s = d.summary;
+  const txns = filterByPeriod(d.transactions || []);
 
-  // Period data select
-  const pData = S.period === 'daily' ? d.daily
-              : S.period === 'weekly' ? d.weekly
-              : d.monthly;
-
-  const entries = Object.entries(pData || {});
-  const labels = entries.map(([k]) => k).slice(-14);
-  const incArr = labels.map(k => pData[k]?.income || 0);
-  const expArr = labels.map(k => pData[k]?.expense || 0);
-
-  // Current period totals (last entry or summary)
-  let curIncome = s.total_income;
-  let curExpense = s.total_expense;
-  if (entries.length > 0) {
-    const last = entries[entries.length - 1][1];
-    if (S.period !== 'monthly') {
-      curIncome = last.income || 0;
-      curExpense = last.expense || 0;
-    }
-  }
-  const curNet = curIncome - curExpense;
-
-  // Header date
   const now = new Date();
-  document.getElementById('headerDate').textContent =
-    now.toLocaleDateString('uz-UZ', {day:'numeric', month:'long', year:'numeric'});
-  document.getElementById('dbStatus').textContent = d.has_real_data ? 'Live · DB' : 'Demo';
+  document.getElementById('hDate').textContent = now.toLocaleDateString('uz-UZ', { day:'numeric', month:'long' });
 
-  // Balance card
-  animateNum('balanceNet', curNet, fmtFull);
-  document.getElementById('statIncome').textContent = fmt(curIncome) + ' so\'m';
-  document.getElementById('statExpense').textContent = fmt(curExpense) + ' so\'m';
+  // Compute totals from filtered transactions
+  let totalIn = 0, totalEx = 0;
+  const expenseCats = {}, incomeCats = {};
 
-  // KPIs
-  document.getElementById('kpiMargin').textContent = (s.profit_margin || 0) + '%';
-  document.getElementById('kpiDays').textContent = s.active_days || 0;
-  document.getElementById('kpiAvg').textContent = fmt(s.avg_daily_income);
-  document.getElementById('kpiTop').textContent = s.top_sources?.[0]?.name || '–';
+  txns.forEach(t => {
+    const a = parseFloat(t.amount);
+    const cat = t.category || 'Boshqa';
+    if (t.type === 'income') {
+      totalIn += a;
+      if (!incomeCats[cat]) incomeCats[cat] = 0;
+      incomeCats[cat] += a;
+    } else {
+      totalEx += a;
+      if (!expenseCats[cat]) expenseCats[cat] = 0;
+      expenseCats[cat] += a;
+    }
+  });
 
-  // Main chart
-  renderMainChart(labels, incArr, expArr);
+  const net = totalIn - totalEx;
+  const savingsRate = totalIn > 0 ? Math.round((totalIn - totalEx) / totalIn * 100) : 0;
+
+  // Balance hero
+  document.getElementById('balNet').textContent = (net >= 0 ? '' : '-') + fmtFull(Math.abs(net)) + ' so\'m';
+  document.getElementById('balNet').style.color = net >= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('balSub').textContent = `Tejamkorlik: ${savingsRate}%`;
+  document.getElementById('chipIn').textContent = fmtShort(totalIn) + ' so\'m';
+  document.getElementById('chipEx').textContent = fmtShort(totalEx) + ' so\'m';
+  document.getElementById('chipSave').textContent = savingsRate + '%';
+
+  // Trend chart
+  renderTrend(d.daily || {});
 
   // Donut
-  renderDonut(d.source_totals || {});
+  renderDonut(expenseCats);
 
-  // Recent transactions
-  renderRecentTx(d);
+  // Recent tx
+  renderRecent(txns);
 
-  // If analytics page is open, refresh it
-  if (S.page === 'analytics') renderAnalytics();
-  if (S.page === 'tx') renderAllTx(d);
+  // If on other pages, refresh
+  if (S.page === 'cats') renderCats(expenseCats, incomeCats, totalEx);
+  if (S.page === 'txs')  renderAllTx(txns);
 };
 
-// ─── CHARTS ──────────────────────────────────────────────
+// ─── TREND CHART ─────────────────────────────────────────
 let charts = {};
 const destroyChart = k => { if(charts[k]) { charts[k].destroy(); delete charts[k]; } };
 
-const chartDefaults = () => ({
-  responsive: true,
-  maintainAspectRatio: false,
-  interaction: { mode:'index', intersect:false },
-  plugins: {
-    legend: { display: false },
-    tooltip: {
-      backgroundColor: 'rgba(17,17,22,0.95)',
-      borderColor: 'rgba(255,255,255,0.1)',
-      borderWidth: 1,
-      titleColor: '#fff',
-      bodyColor: 'rgba(255,255,255,0.6)',
-      padding: 10,
-      callbacks: { label: c => ` ${c.dataset.label}: ${fmtFull(c.raw)} so'm` }
-    }
-  },
-  scales: {
-    x: { grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'rgba(255,255,255,0.3)', font:{size:10} } },
-    y: { grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'rgba(255,255,255,0.3)', font:{size:10}, callback: v => fmt(v) } }
-  }
-});
+const renderTrend = (daily) => {
+  const keys = Object.keys(daily).slice(-14);
+  const inc = keys.map(k => daily[k].income || 0);
+  const exp = keys.map(k => daily[k].expense || 0);
 
-const renderMainChart = (labels, inc, exp) => {
-  destroyChart('main');
-  const ctx = document.getElementById('mainChart');
+  destroyChart('trend');
+  const ctx = document.getElementById('trendChart');
   if (!ctx) return;
-  charts.main = new Chart(ctx.getContext('2d'), {
-    type: 'line',
+  charts.trend = new Chart(ctx.getContext('2d'), {
+    type: 'bar',
     data: {
-      labels,
+      labels: keys.map(k => k.slice(0,5)),
       datasets: [
-        { label:'Tushum', data:inc, borderColor:'#00E5A0', backgroundColor:'rgba(0,229,160,0.08)', borderWidth:2, tension:0.4, fill:true, pointRadius:2.5, pointBackgroundColor:'#00E5A0' },
-        { label:'Chiqim', data:exp, borderColor:'#FF4D6A', backgroundColor:'rgba(255,77,106,0.06)', borderWidth:2, tension:0.4, fill:true, pointRadius:2.5, pointBackgroundColor:'#FF4D6A' },
+        { label:'Kirim',  data:inc, backgroundColor:'rgba(48,215,144,0.65)', borderRadius:5, borderSkipped: false },
+        { label:'Chiqim', data:exp, backgroundColor:'rgba(255,84,116,0.65)',  borderRadius:5, borderSkipped: false },
       ]
     },
-    options: chartDefaults()
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins: {
+        legend:{ display:false },
+        tooltip:{ backgroundColor:'rgba(16,16,24,0.95)', borderColor:'rgba(255,255,255,0.1)', borderWidth:1, padding:10, callbacks:{ label: c => ` ${c.dataset.label}: ${fmtFull(c.raw)} so'm` } }
+      },
+      scales: {
+        x:{ stacked:false, grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'rgba(255,255,255,0.28)', font:{size:9}} },
+        y:{ grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'rgba(255,255,255,0.28)', font:{size:9}, callback:v=>fmtShort(v)} }
+      }
+    }
   });
 };
 
-const renderDonut = (sources) => {
-  const keys = Object.keys(sources);
-  const vals = keys.map(k => sources[k]);
-  const total = vals.reduce((a,b)=>a+b, 0);
+// ─── DONUT CHART ─────────────────────────────────────────
+const renderDonut = (expCats) => {
+  const entries = Object.entries(expCats).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const total = entries.reduce((s,[,v])=>s+v, 0);
+  const labels = entries.map(([k])=>k);
+  const vals   = entries.map(([,v])=>v);
+  const colors = labels.map(l => CAT_MAP[l]?.color || '#94A3B8');
 
   destroyChart('donut');
   const ctx = document.getElementById('donutChart');
   if (!ctx) return;
   charts.donut = new Chart(ctx.getContext('2d'), {
     type: 'doughnut',
-    data: {
-      labels: keys,
-      datasets: [{ data: vals, backgroundColor: COLORS, borderColor:'#0A0A0F', borderWidth: 3, hoverOffset: 6 }]
-    },
-    options: {
-      responsive: false,
-      cutout: '68%',
-      plugins: { legend:{display:false}, tooltip:{ callbacks:{ label:c=>` ${c.label}: ${fmt(c.raw)} so'm` } } }
-    }
+    data: { labels, datasets:[{ data:vals, backgroundColor:colors, borderColor:'#161620', borderWidth:3, hoverOffset:5 }] },
+    options: { responsive:false, cutout:'68%', plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>` ${c.label}: ${fmtFull(c.raw)} so'm`}} } }
   });
-  document.getElementById('donutTotal').textContent = fmt(total);
 
-  // Legend
-  const leg = document.getElementById('donutLegend');
-  leg.innerHTML = keys.slice(0,4).map((k,i)=>`
-    <div class="donut-legend-item">
-      <div class="donut-legend-dot" style="background:${COLORS[i%COLORS.length]}"></div>
-      <div class="donut-legend-name">${k}</div>
-      <div class="donut-legend-val" style="color:${COLORS[i%COLORS.length]}">${fmt(sources[k])}</div>
-    </div>
-  `).join('');
-  if(!keys.length) leg.innerHTML = '<div style="color:var(--text2);font-size:13px;">Tranzaksiya yo\'q</div>';
-};
+  document.getElementById('donutVal').textContent = fmtShort(total);
 
-const renderRecentTx = (d) => {
-  const txns = buildTxList(d).slice(0, 8);
-  const el = document.getElementById('recentTxList');
-  if (!txns.length) {
-    el.innerHTML = `<div class="empty-state"><div class="emoji">💸</div><h3>Operatsiya yo'q</h3><p>Bot orqali birinchi tranzaksiyangizni yozing!</p></div>`;
+  const leg = document.getElementById('catLegend');
+  if (!entries.length) {
+    leg.innerHTML = '<div style="color:var(--muted);font-size:13px;">Chiqim yo\'q</div>';
     return;
   }
-  el.innerHTML = txns.map(txHtml).join('');
-};
-
-const renderAllTx = (d) => {
-  let txns = buildTxList(d);
-  if (S.txFilter !== 'all') txns = txns.filter(t => t.type === S.txFilter);
-  const el = document.getElementById('allTxList');
-  if (!txns.length) {
-    el.innerHTML = `<div class="empty-state"><div class="emoji">📋</div><h3>Hech narsa topilmadi</h3></div>`;
-    return;
-  }
-  el.innerHTML = txns.slice(0, 100).map(txHtml).join('');
-};
-
-const buildTxList = (d) => {
-  // Build from daily data - most recent first
-  const daily = d.daily || {};
-  const items = [];
-  Object.entries(daily).reverse().forEach(([date, v]) => {
-    if (v.income > 0) items.push({ date, type:'income', amount:v.income, category:'Tushum', pm:'–' });
-    if (v.expense > 0) items.push({ date, type:'expense', amount:v.expense, category:'Chiqim', pm:'–' });
-  });
-  return items;
-};
-
-const txHtml = (tx) => {
-  const isInc = tx.type === 'income';
-  const icon = isInc ? '💚' : '🔴';
-  const bg = isInc ? 'var(--green-dim)' : 'var(--red-dim)';
-  const col = isInc ? 'var(--green)' : 'var(--red)';
-  const sign = isInc ? '+' : '-';
-  return `
-    <div class="tx-item">
-      <div class="tx-icon" style="background:${bg}">${icon}</div>
-      <div class="tx-info">
-        <div class="tx-name">${tx.category || (isInc ? 'Tushum' : 'Chiqim')}</div>
-        <div class="tx-meta">${tx.date}${tx.pm !== '–' ? ' · ' + tx.pm : ''}</div>
-      </div>
-      <div class="tx-amount" style="color:${col}">${sign}${fmtFull(tx.amount)}</div>
-    </div>
-  `;
-};
-
-const renderAnalytics = () => {
-  if (!S.data) return;
-  const d = S.data;
-  const s = d.summary;
-
-  // Stats row
-  document.getElementById('analyticsStats').innerHTML = `
-    <div class="stat-box">
-      <div class="stat-box-val income-color">${fmt(s.total_income)}</div>
-      <div class="stat-box-label">Jami Tushum</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-box-val expense-color">${fmt(s.total_expense)}</div>
-      <div class="stat-box-label">Jami Chiqim</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-box-val" style="color:var(--blue)">${s.profit_margin}%</div>
-      <div class="stat-box-label">Margin</div>
-    </div>
-  `;
-
-  // Bar chart — monthly
-  const monthly = d.monthly || {};
-  const mKeys = Object.keys(monthly).slice(-6);
-  const mInc = mKeys.map(k => monthly[k].income);
-  const mExp = mKeys.map(k => monthly[k].expense);
-  document.getElementById('analyticsChartTitle').textContent = 'Oylik Taqqoslama';
-
-  destroyChart('analytics');
-  const ctx = document.getElementById('analyticsChart');
-  if (!ctx) return;
-  charts.analytics = new Chart(ctx.getContext('2d'), {
-    type: 'bar',
-    data: {
-      labels: mKeys.map(k => k.split(' ')[0]),
-      datasets: [
-        { label:'Tushum', data:mInc, backgroundColor:'rgba(0,229,160,0.75)', borderRadius:6 },
-        { label:'Chiqim', data:mExp, backgroundColor:'rgba(255,77,106,0.75)', borderRadius:6 },
-      ]
-    },
-    options: { ...chartDefaults(), plugins: { ...chartDefaults().plugins, legend:{ display:true, labels:{color:'rgba(255,255,255,0.5)', font:{size:11}, boxWidth:10, padding:12 } } } }
-  });
-
-  // Expense categories
-  const expCats = d.expense_categories || {};
-  const sorted = Object.entries(expCats).sort((a,b) => b[1]-a[1]);
-  const total = sorted.reduce((a,[,v])=>a+v, 0);
-  document.getElementById('expenseCatList').innerHTML = sorted.slice(0,8).map(([name, amt], i) => {
+  leg.innerHTML = entries.slice(0,4).map(([name, amt]) => {
+    const c = CAT_MAP[name] || {color:'#94A3B8', em:'📌'};
     const pct = total ? Math.round(amt/total*100) : 0;
-    const c = COLORS[i % COLORS.length];
-    return `
-      <div class="tx-item">
-        <div class="tx-icon" style="background:${c}20; color:${c}; font-size:13px; font-weight:700;">
-          ${pct}%
-        </div>
-        <div class="tx-info">
-          <div class="tx-name">${name}</div>
-          <div class="tx-meta" style="position:relative; overflow:hidden; height:4px; background:rgba(255,255,255,0.06); border-radius:2px; margin-top:6px;">
-            <div style="position:absolute;inset:0;width:${pct}%;background:${c};border-radius:2px;"></div>
+    return `<div class="cat-row">
+      <div class="cat-dot" style="background:${c.color}"></div>
+      <div class="cat-name">${c.em} ${name}</div>
+      <div class="cat-pct" style="color:${c.color}">${pct}%</div>
+    </div>`;
+  }).join('');
+};
+
+// ─── RECENT TX ───────────────────────────────────────────
+const txHtml = (t) => {
+  const isIn = t.type === 'income';
+  const cat = CAT_MAP[t.category] || { em: isIn ? '💚' : '🔴', color: isIn ? '#30D790' : '#FF5474' };
+  const sign = isIn ? '+' : '-';
+  const col  = isIn ? 'var(--green)' : 'var(--red)';
+  const note = t.description ? ` · ${t.description}` : '';
+  return `<div class="tx-item">
+    <div class="tx-ico" style="background:${cat.color}18">${cat.em}</div>
+    <div class="tx-texts">
+      <div class="tx-name">${t.category || (isIn ? 'Kirim' : 'Chiqim')}</div>
+      <div class="tx-meta">${t.date} ${t.time}${note}</div>
+    </div>
+    <div class="tx-amt" style="color:${col}">${sign}${fmtFull(t.amount)}</div>
+  </div>`;
+};
+
+const renderRecent = (txns) => {
+  const el = document.getElementById('recentList');
+  if (!txns.length) {
+    el.innerHTML = `<div class="empty"><span>💸</span><h3>Hozircha bo'sh</h3><p>Birinchi tranzaksiyangizni "+" tugmasi bilan kiriting</p></div>`;
+    return;
+  }
+  el.innerHTML = txns.slice(0, 6).map(txHtml).join('');
+};
+
+// ─── CATEGORIES PAGE ─────────────────────────────────────
+const renderCats = (expCats, incCats, totalEx) => {
+  const sorted = Object.entries(expCats).sort((a,b)=>b[1]-a[1]);
+  const budgetEl = document.getElementById('budgetList');
+
+  if (!sorted.length) {
+    budgetEl.innerHTML = `<div class="empty"><span>✅</span><h3>Chiqim yo'q</h3></div>`;
+  } else {
+    const maxVal = sorted[0][1];
+    budgetEl.innerHTML = sorted.map(([name, amt]) => {
+      const c = CAT_MAP[name] || { em:'📌', color:'#94A3B8' };
+      const pct = maxVal ? Math.round(amt/maxVal*100) : 0;
+      const ofTotal = totalEx > 0 ? Math.round(amt/totalEx*100) : 0;
+      return `<div class="budget-item">
+        <div class="budget-top">
+          <div class="budget-label-row">
+            <div class="budget-emoji" style="background:${c.color}18">${c.em}</div>
+            <div class="budget-name">${name}</div>
           </div>
+          <div class="budget-amount" style="color:${c.color}">${fmtFull(amt)} <span style="font-size:11px;color:var(--muted)">(${ofTotal}%)</span></div>
         </div>
-        <div class="tx-amount expense-color">-${fmtFull(amt)}</div>
-      </div>
-    `;
-  }).join('') || '<div class="empty-state" style="padding:32px 0;"><div class="emoji">✅</div><p>Chiqimlar yozilmagan</p></div>';
+        <div class="budget-bar-bg">
+          <div class="budget-bar-fill" style="width:${pct}%;background:${c.color}"></div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  const incSorted = Object.entries(incCats).sort((a,b)=>b[1]-a[1]);
+  const incEl = document.getElementById('incomeCatList');
+  if (!incSorted.length) {
+    incEl.innerHTML = `<div class="empty"><span>💰</span><h3>Kirim yo'q</h3></div>`;
+  } else {
+    const maxIn = incSorted[0][1];
+    incEl.innerHTML = incSorted.map(([name, amt]) => {
+      const c = CAT_MAP[name] || { em:'💵', color:'#30D790' };
+      const pct = maxIn ? Math.round(amt/maxIn*100) : 0;
+      return `<div class="budget-item">
+        <div class="budget-top">
+          <div class="budget-label-row">
+            <div class="budget-emoji" style="background:${c.color}18">${c.em}</div>
+            <div class="budget-name">${name}</div>
+          </div>
+          <div class="budget-amount" style="color:var(--green)">${fmtFull(amt)}</div>
+        </div>
+        <div class="budget-bar-bg">
+          <div class="budget-bar-fill" style="width:${pct}%;background:${c.color}"></div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+};
+
+// ─── ALL TX PAGE ─────────────────────────────────────────
+const renderAllTx = (txns) => {
+  let list = txns;
+  if (S.txFilter !== 'all') list = list.filter(t => t.type === S.txFilter);
+  document.getElementById('txCount').textContent = list.length + ' ta';
+
+  const el = document.getElementById('allTxList');
+  if (!list.length) {
+    el.innerHTML = `<div class="empty"><span>📋</span><h3>Ro'yxat bo'sh</h3></div>`;
+    return;
+  }
+  el.innerHTML = list.slice(0,100).map(txHtml).join('');
+};
+
+const setTxF = (f) => {
+  S.txFilter = f;
+  ['all','income','expense'].forEach(k => {
+    const b = document.getElementById('tf-'+k);
+    if (b) b.className = 'prd-btn' + (k===f?' on':'');
+  });
+  if (S.data) renderAllTx(filterByPeriod(S.data.transactions||[]));
 };
 
 // ─── NAVIGATION ──────────────────────────────────────────
-const navigate = (page) => {
+const nav = (page) => {
   S.page = page;
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b => {
-    b.classList.remove('active');
-    b.querySelectorAll('path, line, polyline, rect, circle').forEach(el => el.setAttribute('stroke','rgba(255,255,255,0.5)'));
-  });
+  document.querySelectorAll('.nav-b').forEach(b => b.classList.remove('on'));
+  document.getElementById('pg-' + page).classList.add('active');
+  const nb = document.getElementById('nb-' + page);
+  if (nb) nb.classList.add('on');
 
-  document.getElementById('page-' + page).classList.add('active');
-  const nb = document.getElementById('nav-' + page);
-  if (nb) {
-    nb.classList.add('active');
-    nb.querySelectorAll('path, line, polyline, rect, circle').forEach(el => el.setAttribute('stroke','white'));
+  const isAi = page === 'ai';
+  document.getElementById('fab').style.display     = isAi ? 'none' : 'flex';
+  document.getElementById('chatBar').style.display  = isAi ? 'flex' : 'none';
+
+  document.querySelector('.scroll').scrollTo(0, 0);
+
+  // Lazy render
+  if (S.data) {
+    const txns = filterByPeriod(S.data.transactions || []);
+    if (page === 'cats') {
+      let totalEx=0, exp={}, inc={};
+      txns.forEach(t => {
+        const a = parseFloat(t.amount), cat = t.category||'Boshqa';
+        if (t.type==='expense') { totalEx+=a; exp[cat]=(exp[cat]||0)+a; }
+        else { inc[cat]=(inc[cat]||0)+a; }
+      });
+      renderCats(exp, inc, totalEx);
+    }
+    if (page === 'txs') renderAllTx(txns);
   }
-
-  document.getElementById('fab').style.display = page === 'ai' ? 'none' : 'flex';
-  document.getElementById('chatBar').style.display = page === 'ai' ? 'flex' : 'none';
-
-  document.getElementById('scrollArea').scrollTo(0, 0);
-
-  if (page === 'analytics') renderAnalytics();
-  if (page === 'tx') renderAllTx(S.data || {});
 };
 
 // ─── PERIOD ──────────────────────────────────────────────
-const setPeriod = (p, el) => {
+const setPrd = (p, el) => {
   S.period = p;
-  document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
-  render();
-};
-
-// ─── TX FILTER ───────────────────────────────────────────
-const filterTx = (f) => {
-  S.txFilter = f;
-  ['all','income','expense'].forEach(k => {
-    document.getElementById('f-'+k).style.color = k === f ? 'var(--text)' : 'var(--blue)';
-  });
-  renderAllTx(S.data || {});
+  document.querySelectorAll('.prd-btn').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+  if (S.data) render();
 };
 
 // ─── MODAL ───────────────────────────────────────────────
 const openModal = () => {
   document.getElementById('modal').classList.add('open');
-  S.amountStr = '';
-  document.getElementById('amountDisplay').textContent = '0';
+  S.amtStr = '';
+  document.getElementById('amtDisp').textContent = '0';
+  setType(S.type);
 };
 const closeModal = () => document.getElementById('modal').classList.remove('open');
 
-document.getElementById('modal').addEventListener('click', e => {
-  if (e.target === document.getElementById('modal')) closeModal();
-});
-
 const setType = (type) => {
-  S.txType = type;
-  document.getElementById('typeIncome').className = 'type-btn' + (type==='income' ? ' active-income' : '');
-  document.getElementById('typeExpense').className = 'type-btn' + (type==='expense' ? ' active-expense' : '');
+  S.type = type;
+  document.getElementById('tIn').className  = 'type-opt' + (type==='income'  ? ' sel-in' : '');
+  document.getElementById('tEx').className  = 'type-opt' + (type==='expense' ? ' sel-ex' : '');
+  document.getElementById('saveBtn').className = 'save-btn save-' + type;
+  document.getElementById('sheetTitle').textContent = type === 'income' ? '↑ Kirim qo\'shish' : '↓ Chiqim qo\'shish';
 
-  const sb = document.getElementById('saveBtn');
-  sb.className = 'save-btn ' + type;
+  const cats = type === 'income' ? INCOME_CATS : EXPENSE_CATS;
+  const defaultCat = cats[0].id;
+  S.selCat = defaultCat;
 
-  // Show relevant categories
-  const catSel = document.getElementById('txCategory');
-  const incomeOpts = ['Maosh','Freelance','Biznes'];
-  const expenseOpts = ['Oziq-ovqat','Transport','Kommunal','Ko\'ngilochar','Kiyim','Sog\'liq','Boshqa'];
-  Array.from(catSel.options).forEach(o => {
-    const name = o.value;
-    const isInc = incomeOpts.includes(name);
-    const isExp = expenseOpts.includes(name);
-    o.hidden = type === 'income' ? isExp : isInc;
-  });
-  // Select first visible
-  const first = Array.from(catSel.options).find(o => !o.hidden);
-  if (first) catSel.value = first.value;
+  const grid = document.getElementById('catChips');
+  grid.innerHTML = cats.map(c => `
+    <div class="cat-chip ${c.id === S.selCat ? 'sel' : ''}" onclick="selCat('${c.id}', this)">
+      <span class="cat-em">${c.em}</span>${c.label}
+    </div>
+  `).join('');
 };
 
-// Numpad
-const numpad = (val) => {
-  if (val === 'del') {
-    S.amountStr = S.amountStr.slice(0, -1);
-  } else {
-    if (S.amountStr.length >= 12) return;
-    if (S.amountStr === '' && val === '0') return;
-    S.amountStr += val;
+const selCat = (id, el) => {
+  S.selCat = id;
+  document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('sel'));
+  el.classList.add('sel');
+};
+
+const np = (v) => {
+  if (v === 'del') { S.amtStr = S.amtStr.slice(0,-1); }
+  else {
+    if (S.amtStr.length >= 12) return;
+    if (S.amtStr === '' && v === '0') return;
+    S.amtStr += v;
   }
-  const num = parseInt(S.amountStr || '0');
-  document.getElementById('amountDisplay').textContent = fmtFull(num);
-};
-
-// Animate
-const animateNum = (id, to, formatter) => {
-  const el = document.getElementById(id);
-  if (!el) return;
-  const start = performance.now();
-  const dur = 700;
-  (function tick(now) {
-    const p = Math.min((now - start) / dur, 1);
-    const ease = 1 - Math.pow(1 - p, 3);
-    el.textContent = formatter(Math.round(to * ease));
-    if (p < 1) requestAnimationFrame(tick);
-  })(start);
+  document.getElementById('amtDisp').textContent = fmtFull(parseInt(S.amtStr || '0'));
 };
 
 // ─── SAVE TX ─────────────────────────────────────────────
 const saveTx = async () => {
-  const amount = parseInt(S.amountStr || '0');
-  if (!amount) { toast('error', 'Miqdor kiriting!'); return; }
-
-  const category = document.getElementById('txCategory').value;
-  const payment  = document.getElementById('txPayment').value;
-  const note     = document.getElementById('txNote').value;
+  const amount = parseInt(S.amtStr || '0');
+  if (!amount) { toast('err', 'Miqdorni kiriting!'); return; }
 
   const btn = document.getElementById('saveBtn');
-  btn.disabled = true;
-  btn.textContent = 'Saqlanmoqda...';
+  btn.disabled = true; btn.textContent = 'Saqlanmoqda...';
 
   const res = await api('/transactions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      type: S.txType,
+      type: S.type,
       amount,
-      category,
-      payment_method: payment,
-      description: note,
+      category: S.selCat,
+      description: document.getElementById('fnote').value.trim(),
+      payment_method: document.getElementById('fpay').value,
       currency: 'UZS'
     })
   });
 
   btn.disabled = false;
-  btn.textContent = 'Saqlash';
+  btn.textContent = '💾 Saqlash';
 
   if (res?.ok !== false) {
-    toast('success', `${S.txType === 'income' ? '↑ Tushum' : '↓ Chiqim'} saqlandi!`);
+    toast('ok', `${S.type==='income' ? 'Kirim' : 'Chiqim'} saqlandi!`);
     closeModal();
-    S.amountStr = '';
-    document.getElementById('txNote').value = '';
+    S.amtStr = '';
+    document.getElementById('fnote').value = '';
     await loadData();
   } else {
-    toast('error', 'Saqlashda xatolik');
+    toast('err', res?.error || 'Xatolik yuz berdi');
   }
 };
 
 // ─── AI CHAT ─────────────────────────────────────────────
 const sendAi = async () => {
-  const inp = document.getElementById('chatInput');
+  const inp = document.getElementById('chatIn');
   const msg = inp.value.trim();
   if (!msg) return;
   inp.value = '';
 
-  const msgs = document.getElementById('chatMessages');
-  msgs.innerHTML += `<div class="chat-msg user">${msg.replace(/</g,'&lt;')}</div>`;
-  msgs.innerHTML += `<div class="chat-msg ai" id="aiTyping">⏳ Javob tayyorlanmoqda...</div>`;
+  const msgs = document.getElementById('chatMsgs');
+  msgs.innerHTML += `<div class="cmsg user">${msg.replace(/</g,'&lt;')}</div>`;
+  msgs.innerHTML += `<div class="cmsg ai" id="aiT">⏳ Javob tayyorlanmoqda...</div>`;
   msgs.scrollTop = msgs.scrollHeight;
 
-  const data = S.data?.summary;
-  const context = data
-    ? `Foydalanuvchi moliyasi: Tushum=${fmtFull(data.total_income)} so'm, Chiqim=${fmtFull(data.total_expense)} so'm, Foyda=${fmtFull(data.total_profit)} so'm, Margin=${data.profit_margin}%.`
+  const s = S.data?.summary || {};
+  const ctx = s.total_income
+    ? `Foydalanuvchi ma'lumotlari: Kirim=${fmtFull(s.total_income)} so'm, Chiqim=${fmtFull(s.total_expense)} so'm, Balans=${fmtFull(s.total_profit)} so'm, Tejash=${s.savings_rate}%.`
     : '';
 
   const res = await api('/ai-analyze', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question: msg, context })
+    body: JSON.stringify({ question: msg, context: ctx })
   });
 
-  const typing = document.getElementById('aiTyping');
-  if (typing) {
-    typing.id = '';
-    typing.innerHTML = res?.answer || '❌ Xatolik yuz berdi';
-  }
+  const aiEl = document.getElementById('aiT');
+  if (aiEl) { aiEl.id=''; aiEl.innerHTML = res?.answer || '❌ Xatolik'; }
   msgs.scrollTop = msgs.scrollHeight;
 };
 
-// Enter key for chat
-document.getElementById('chatInput')?.addEventListener('keydown', e => {
-  if (e.key === 'Enter') sendAi();
-});
+document.getElementById('chatIn')?.addEventListener('keydown', e => { if(e.key==='Enter') sendAi(); });
 
 // ─── INIT ─────────────────────────────────────────────────
-(async () => {
+(() => {
   if (window.Telegram?.WebApp) {
     window.Telegram.WebApp.expand();
-    window.Telegram.WebApp.setHeaderColor('#0A0A0F');
-    window.Telegram.WebApp.setBackgroundColor('#0A0A0F');
+    window.Telegram.WebApp.setHeaderColor('#0C0C12');
+    window.Telegram.WebApp.setBackgroundColor('#0C0C12');
   }
 
-  // Date in header
-  const now = new Date();
-  document.getElementById('headerDate').textContent =
-    now.toLocaleDateString('uz-UZ', {day:'numeric', month:'long', year:'numeric'});
-
-  // Initial nav state
-  const home = document.getElementById('nav-home');
-  if (home) home.querySelectorAll('path, polyline').forEach(el => el.setAttribute('stroke','white'));
-
-  await loadData();
+  // Init category chips for default 'expense'
+  setType('expense');
+  loadData();
 })();
 </script>
 </body>
