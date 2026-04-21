@@ -245,9 +245,12 @@ def build_system_prompt(history: list | None = None, query: str = "") -> str:
     now = datetime.now()
     parts.append(f"[HOZIRGI VAQT]: {now.strftime('%Y-%m-%d %H:%M, %A')} | ISO: {now.isoformat()[:19]}Z\n")
 
-    mem = search_memory(query) if query else format_memory_for_prompt()
-    if mem:
-        parts.append(mem + "\n")
+    try:
+        mem = search_memory(query) if query else format_memory_for_prompt(load_memory())
+        if mem:
+            parts.append(mem + "\n")
+    except Exception as e:
+        logger.error(f"Memory parse xatosi: {e}")
 
     parts.append(SYSTEM_PROMPT)
 
@@ -398,8 +401,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         if userbot: userbot.auto_reply = False
         await query.edit_message_text("⏸ *Auto-javob o'chirildi.*", parse_mode="Markdown")
     elif query.data == "memory":
-        mem = format_memory_for_prompt()
-        await query.edit_message_text(mem if mem else "🧠 Xotira bo'sh.")
+        mem = format_memory_for_prompt(load_memory())
+        if not mem: return
+        await query.edit_message_text(f"🧠 *Joriy Xotira:*\n\n{mem}", parse_mode="Markdown")
     elif query.data == "status":
         ub_status = "✅ Ulangan" if (userbot and userbot.connected) else "❌ Ulanmagan"
         auto = "✅" if (userbot and userbot.auto_reply) else "⏸"
