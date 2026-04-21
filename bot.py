@@ -138,13 +138,18 @@ async def execute_tool(name: str, args: dict) -> str:
             
         elif name == "log_finance":
             import database
+            currency = args.get("currency", "UZS")
+            amount = float(args.get("amount", 0))
+            if currency == "USD":
+                amount = amount * 12950
+                currency = "UZS"
             return await database.db_log_transaction(
                 args.get("type", "expense"),
-                float(args.get("amount", 0)),
+                amount,
                 args.get("category", "Boshqa"),
                 args.get("description", ""),
                 args.get("payment_method", "naqd"),
-                args.get("currency", "UZS")
+                currency
             )
         elif name == "get_finance_summary":
             import database
@@ -540,11 +545,21 @@ async def viral_news_job(context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         logger.error(f"Viral news yuborishda xato: {e}")
 
+async def send_brief_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text("Ma'lumotlar yig'ilmoqda (Brifing)... Kuting.")
+    await morning_briefing_job(context)
+    
+async def send_news_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text("Viral yangiliklar tahlil qilinmoqda (Internet)... Kuting.")
+    await viral_news_job(context)
+
 def main() -> None:
     app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", start))
     app.add_handler(CommandHandler("clear", clear_history))
+    app.add_handler(CommandHandler("brief", send_brief_cmd))
+    app.add_handler(CommandHandler("news", send_news_cmd))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(MessageHandler(filters.VOICE, handle_voice))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
