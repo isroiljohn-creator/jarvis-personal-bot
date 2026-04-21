@@ -199,7 +199,8 @@ async def save_transaction(request: Request):
 
 @app.get("/api/finance/clear")
 async def db_clear_tmp():
-    from database import pool
+    from database import get_pool
+    pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute("TRUNCATE TABLE transactions RESTART IDENTITY;")
     return {"message": "cleared!"}
