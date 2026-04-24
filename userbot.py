@@ -83,13 +83,13 @@ class UserBot:
                         f"Agar savol noaniq bo'lsa, qisqa va iltifotli javob ber."
                     )
                     reply = await self.ai_callback(msg_text, [], system)
-                    await event.reply(reply)
+                    await event.reply(reply, parse_mode="md")
                     logger.info(f"✅ Javob: {reply[:50]}")
 
                     if self.notify_callback:
                         await self.notify_callback(
-                            f"💬 *{sender_name}* yozdi:\n{msg_text}\n\n"
-                            f"🤖 *Jarvis javob berdi:*\n{reply}"
+                            f"💬 **{sender_name}** yozdi:\n{msg_text}\n\n"
+                            f"🤖 **Jarvis javob berdi:**\n{reply}"
                         )
             except Exception as e:
                 logger.error(f"Auto-reply xatosi: {e}")
@@ -158,7 +158,8 @@ class UserBot:
                         elif hasattr(msg.sender, "title"):
                             sender = msg.sender.title or "Noma'lum"
                     text = msg.text or "[Media/Stiker]"
-                    output.append(f"{sender}: {text}")
+                    date_str = msg.date.strftime("%Y-%m-%d %H:%M") if msg.date else "Noma'lum vaqt"
+                    output.append(f"[{date_str}] {sender}: {text}")
                     count += 1
                 if unread > 20:
                     output.append(f"... (yana {unread - 20} ta xabar o'qilmadi)")
@@ -168,7 +169,7 @@ class UserBot:
 
     async def send_message(self, chat_id: int, text: str) -> None:
         """Xabar yuborish (chat_id bo'yicha)."""
-        await self.client.send_message(chat_id, text)
+        await self.client.send_message(chat_id, text, parse_mode="md")
         logger.info(f"📤 Xabar → {chat_id}")
 
     # ─────────────────── Kontakt qidirish ───────────────────

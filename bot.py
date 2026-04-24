@@ -368,9 +368,10 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def _send_reply(update: Update, text: str) -> None:
-    try: await update.message.reply_text(text, parse_mode="Markdown")
+    safe_text = text.replace("**", "*")
+    try: await update.message.reply_text(safe_text, parse_mode="Markdown")
     except Exception:
-        try: await update.message.reply_text(text)
+        try: await update.message.reply_text(safe_text)
         except Exception as e: await update.message.reply_text(f"❌ Xato: {e}")
 
 
@@ -454,7 +455,7 @@ async def post_init(application: Application) -> None:
             async def notify_owner(text: str):
                 try:
                     owner = application.bot_data.get("owner_chat_id")
-                    if owner: await application.bot.send_message(owner, text, parse_mode="Markdown")
+                    if owner: await application.bot.send_message(owner, text.replace("**", "*"), parse_mode="Markdown")
                 except: pass
             
             userbot.set_notify(notify_owner)
@@ -490,12 +491,12 @@ async def daily_digest_job(context: ContextTypes.DEFAULT_TYPE) -> None:
         except: pass
         return
 
-    prompt = "Quyida foydalanuvchining bugungi barcha muhim chatlaridan yig'ilgan xabarlar ro'yxati berilgan. Bularni o'qib eng muhim, ahamiyatli qismlarini (priority boyicha) asosiy planga chiqarib, eng oxirida muhimlik darajasida o'zbekcha chiroyli hisobot qilib (Digest) ber:\n\n" + text_data
+    prompt = "Quyida foydalanuvchining bugungi barcha muhim chatlaridan yig'ilgan xabarlar ro'yxati berilgan. Har bir xabar oldida uning sanasi [YIL-OY-KUN SOAT:MINUT] formatida ko'rsatilgan. Bularni o'qib eng muhimlarini (priority boyicha) asosiy planga chiqar. DIQQAT: Xabarlar sanasiga qara! Eski xabarlarda 'ertaga' deyilgan bo'lsa u kun o'tib ketgan bo'lishi mumkin. Eng oxirida o'zbekcha chiroyli hisobot qilib (Digest) ber:\n\n" + text_data
     
     try:
         sys_prompt = build_system_prompt([])
         response = await ai.process_message("Menga bugungi chatlar tahlilini ber!\n\n" + prompt, sys_prompt, execute_tool)
-        report = f"📊 *Kunlik Kechki Telegram Tahlili (20:00)*\n\n{response}"
+        report = f"📊 **Kunlik Kechki Telegram Tahlili (20:00)**\n\n{response}"
         # @abdullayev_ii ga yuborish
         await userbot.send_message("@abdullayev_ii", report)
     except Exception as e:
@@ -507,12 +508,12 @@ async def morning_briefing_job(context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     text_data = await userbot.get_daily_digest_messages(limit_dialogs=15)
     
-    prompt = "Bugun ertalabki brifing (Ertalab soat 08:00). Menga motivatsion ohangda qisqacha bugungi rejam, havo harorati (o'zing biladigan eng so'nggi ma'lumotdan) va oxirgi chatlardagi muhim xabarlarni aytib ber:\n\n" + (text_data or "Hech qanday yangi xabar yo'q.")
+    prompt = "Bugun ertalabki brifing (Ertalab soat 08:00). Menga motivatsion ohangda qisqacha bugungi rejam, havo harorati (o'zing biladigan eng so'nggi ma'lumotdan) va oxirgi chatlardagi muhim xabarlarni aytib ber. DIQQAT: Chatlardagi xabarlar qachon yozilganiga (sanasiga) qattiq e'tibor ber! Eski xabardagi 'ertaga' so'zi bugunga to'g'ri kelmasligi mumkin:\n\n" + (text_data or "Hech qanday yangi xabar yo'q.")
     
     try:
         sys_prompt = build_system_prompt([])
         response = await ai.process_message("Menga bugungi ertalabki brifingni tayyorla!\n\n" + prompt, sys_prompt, execute_tool)
-        report = f"🌅 *Jasminadan Ertalabki Brifing (08:00)*\n\n{response}"
+        report = f"🌅 **Jasminadan Ertalabki Brifing (08:00)**\n\n{response}"
         await userbot.send_message("@abdullayev_ii", report)
         
         # Ovozli qilib ham yuborish
@@ -544,7 +545,7 @@ async def viral_news_job(context: ContextTypes.DEFAULT_TYPE) -> None:
         
         sys_prompt = build_system_prompt([])
         response = await ai.process_message(prompt, sys_prompt, execute_tool)
-        report = f"🔥 *TOP 5 Viral Yangiliklar!*\n\n{response}"
+        report = f"🔥 **TOP 5 Viral Yangiliklar!**\n\n{response}"
         
         if userbot:
             await userbot.send_message("@abdullayev_ii", report)
@@ -566,10 +567,10 @@ async def instagram_ideas_job(context: ContextTypes.DEFAULT_TYPE) -> None:
         
         if "❌" in data:
             # Xatolikni to'g'ridan-to'g'ri userga yetkazamiz (o'ylab topmasligi uchun)
-            report = f"⚠️ *Instagram bilan muammo:*\n\n{data}\n\n*Izoh:* Bepul proxylar ishlamadi yoki IP bloklangan. Jonli videolarni olish uchun Pullik Proxy ulanishi shart."
+            report = f"⚠️ **Instagram bilan muammo:**\n\n{data}\n\n**Izoh:** Bepul proxylar ishlamadi yoki IP bloklangan. Jonli videolarni olish uchun Pullik Proxy ulanishi shart."
             try:
                 if context.job and context.job.chat_id:
-                    await context.bot.send_message(context.job.chat_id, report, parse_mode="Markdown")
+                    await context.bot.send_message(context.job.chat_id, report.replace("**", "*"), parse_mode="Markdown")
                 elif userbot:
                     await userbot.send_message("@abdullayev_ii", report)
             except:
@@ -586,17 +587,17 @@ async def instagram_ideas_job(context: ContextTypes.DEFAULT_TYPE) -> None:
         
         sys_prompt = build_system_prompt([])
         response = await ai.process_message(prompt, sys_prompt, execute_tool)
-        report = f"📱 *Instagram G'oyalar (Nisha: #biznes)*\n\n{response}"
+        report = f"📱 **Instagram G'oyalar (Nisha: #biznes)**\n\n{response}"
         
         try:
             if context.job and context.job.chat_id:
-                await context.bot.send_message(context.job.chat_id, report, parse_mode="Markdown")
+                await context.bot.send_message(context.job.chat_id, report.replace("**", "*"), parse_mode="Markdown")
             elif userbot:
                 await userbot.send_message("@abdullayev_ii", report)
         except Exception as e:
             logger.error(f"Markdown parse xatosi: {e}")
             if context.job and context.job.chat_id:
-                await context.bot.send_message(context.job.chat_id, report)
+                await context.bot.send_message(context.job.chat_id, report.replace("**", "*"))
     except Exception as e:
         logger.error(f"Instagram ideas yuborishda xato: {e}")
         try:
