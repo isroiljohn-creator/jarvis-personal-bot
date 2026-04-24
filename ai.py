@@ -235,6 +235,18 @@ Har doim bu toolni telefon bilan bog'liq so'rovlarda chaqir!""",
         },
     },
     {
+        "name": "insta_get_niche_trends",
+        "description": "Instagramdan biron heshteg (masalan biznes, moliya) bo'yicha so'nggi eng mashhur (top) postlarni matnini, layk va izohlarini o'qib keladi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "hashtag": {"type": "STRING", "description": "Qidirilayotgan heshteg (# siz, masalan: biznes)"},
+                "limit": {"type": "INTEGER", "description": "Nechta post (default: 3)"},
+            },
+            "required": ["hashtag"],
+        },
+    },
+    {
         "name": "gmail_read_unread",
         "description": "Gmail dan so'nggi o'qilmagan xatlarni o'qib keladi.",
         "parameters": {

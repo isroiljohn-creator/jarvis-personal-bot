@@ -80,7 +80,28 @@ class CloudHub:
 
         try:
             from instagrapi import Client
+            import requests
             cl = Client()
+            
+            # PROXY ROTATOR (User "proxyni hal qil" degani uchun)
+            # Railway IP si bloklangani uchun bepul proxy ishlatamiz.
+            # Agar foydalanuvchi PROXY_URL kiritgan bo'lsa, uni ishlatamiz.
+            proxy_env = os.environ.get("PROXY_URL")
+            if proxy_env:
+                cl.set_proxy(proxy_env)
+                logger.info(f"🔒 Custom Proxy o'rnatildi: {proxy_env}")
+            else:
+                logger.info("🔄 Bepul proxy qidirilmoqda...")
+                try:
+                    res = requests.get("https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=5000&country=all&ssl=all&anonymity=all", timeout=10)
+                    proxies = res.text.strip().split("\n")
+                    if proxies:
+                        proxy_url = f"http://{proxies[0].strip()}"
+                        cl.set_proxy(proxy_url)
+                        logger.info(f"✅ Bepul proxy o'rnatildi: {proxy_url}")
+                except Exception as e:
+                    logger.warning(f"Bepul proxy olishda xato: {e}")
+
             await asyncio.to_thread(cl.login, INSTA_USERNAME, INSTA_PASSWORD)
             self._insta = cl
             logger.info("✅ Instagram ulandi.")
@@ -229,6 +250,40 @@ class CloudHub:
             return f"✅ Instagram ({username}) ga xabar yuborildi."
         except Exception as e:
             return f"❌ Instagram xatosi: {e}"
+
+    async def insta_get_niche_trends(self, hashtag: str, limit: int = 3) -> str:
+        """Belgilangan hashtag bo'yicha eng zo'r postlarni topib analiz uchun beradi."""
+        cl = await self._init_instagram()
+        if not cl:
+            return "❌ Instagram ulanmagan yoki avtorizatsiya rad etildi."
+            
+        try:
+            def fetch_top_medias():
+                # instagrapi hashtag_medias_top qaytaradi eng mashhur postlarni
+                medias = cl.hashtag_medias_top(hashtag, amount=limit)
+                results = []
+                for m in medias:
+                    # m.caption_text, m.like_count, m.comment_count
+                    caption = m.caption_text or ""
+                    likes = m.like_count
+                    comments = m.comment_count
+                    url = f"https://www.instagram.com/p/{m.code}/"
+                    
+                    results.append({
+                        "url": url,
+                        "likes": likes,
+                        "comments": comments,
+                        "caption": caption[:1000] # Matn uzun bo'lsa qisqartiramiz
+                    })
+                return results
+                
+            data = await asyncio.to_thread(fetch_top_medias)
+            if not data:
+                return f"#{hashtag} bo'yicha hech qanday post topilmadi."
+                
+            return f"#{hashtag} bo'yicha top {limit} postlar:\n\n" + str(data)
+        except Exception as e:
+            return f"❌ Instagram qidiruvida xato: {e}"
 
     # ─────────────────── GMAIL (IMAP / SMTP) ───────────────────
 

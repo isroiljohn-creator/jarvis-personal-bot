@@ -116,6 +116,8 @@ async def execute_tool(name: str, args: dict) -> str:
         # INSTAGRAM
         elif name == "insta_send_dm":
             return await cloud.insta_send_dm(args.get("username", ""), args.get("message", ""))
+        elif name == "insta_get_niche_trends":
+            return await cloud.insta_get_niche_trends(args.get("hashtag", ""), args.get("limit", 3))
             
         # GMAIL
         elif name == "gmail_read_unread":
@@ -557,6 +559,56 @@ async def send_news_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await update.message.reply_text("Viral yangiliklar tahlil qilinmoqda (Internet)... Kuting.")
     await viral_news_job(context)
 
+async def instagram_ideas_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.info("⏱ Instagram Niche Ideas jarayoni boshlandi...")
+    try:
+        data = await cloud.insta_get_niche_trends("biznes", limit=3)
+        
+        if "❌" in data:
+            # Xatolikni to'g'ridan-to'g'ri userga yetkazamiz (o'ylab topmasligi uchun)
+            report = f"⚠️ *Instagram bilan muammo:*\n\n{data}\n\n*Izoh:* Bepul proxylar ishlamadi yoki IP bloklangan. Jonli videolarni olish uchun Pullik Proxy ulanishi shart."
+            try:
+                if context.job and context.job.chat_id:
+                    await context.bot.send_message(context.job.chat_id, report, parse_mode="Markdown")
+                elif userbot:
+                    await userbot.send_message("@abdullayev_ii", report)
+            except:
+                if context.job and context.job.chat_id:
+                    await context.bot.send_message(context.job.chat_id, report)
+            return
+
+        prompt = (
+            "Sen Instagramdan '#biznes' heshtegi bo'yicha so'nggi eng zo'r postlar va ularning ssenariylarini (caption), layk va kommentlarini olding.\n"
+            "Ularni analiz qilib, virallik sirlarini (nima uchun ommalashganini) top va xo'jayinga o'zbek tilida 3 ta aniq va tayyor KONTENT PLAN (ssenariy, hook, body, call-to-action) tuzib ber.\n"
+            "MUHIM: Har bir g'oya uchun, ilhom olgan original videoning havolasini (URL) albatta ilova qilib jo'nat!\n\n"
+            f"{data}"
+        )
+        
+        sys_prompt = build_system_prompt([])
+        response = await ai.process_message(prompt, sys_prompt, execute_tool)
+        report = f"📱 *Instagram G'oyalar (Nisha: #biznes)*\n\n{response}"
+        
+        try:
+            if context.job and context.job.chat_id:
+                await context.bot.send_message(context.job.chat_id, report, parse_mode="Markdown")
+            elif userbot:
+                await userbot.send_message("@abdullayev_ii", report)
+        except Exception as e:
+            logger.error(f"Markdown parse xatosi: {e}")
+            if context.job and context.job.chat_id:
+                await context.bot.send_message(context.job.chat_id, report)
+    except Exception as e:
+        logger.error(f"Instagram ideas yuborishda xato: {e}")
+        try:
+            if context.job and context.job.chat_id:
+                await context.bot.send_message(context.job.chat_id, f"Kechirasiz, xatolik yuz berdi: {e}")
+        except:
+            pass
+
+async def send_insta_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text("Instagram g'oyalari qidirilmoqda... Bu biroz vaqt olishi mumkin, kuting.")
+    context.job = context.job_queue.run_once(instagram_ideas_job, 1, chat_id=update.message.chat_id)
+
 def main() -> None:
     app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
     app.add_handler(CommandHandler("start", start))
@@ -564,6 +616,7 @@ def main() -> None:
     app.add_handler(CommandHandler("clear", clear_history))
     app.add_handler(CommandHandler("brief", send_brief_cmd))
     app.add_handler(CommandHandler("news", send_news_cmd))
+    app.add_handler(CommandHandler("insta", send_insta_cmd))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(MessageHandler(filters.VOICE, handle_voice))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
@@ -576,10 +629,13 @@ def main() -> None:
     app.job_queue.run_daily(morning_briefing_job, time=datetime.time(hour=8, minute=0, tzinfo=tz))
     # Ertalabki Viral yangiliklar
     app.job_queue.run_daily(viral_news_job, time=datetime.time(hour=8, minute=5, tzinfo=tz))
+    # Instagram g'oyalar (Ertalab 10:00 da)
+    app.job_queue.run_daily(instagram_ideas_job, time=datetime.time(hour=10, minute=0, tzinfo=tz))
 
     # Test uchun (Bugun)
     app.job_queue.run_daily(morning_briefing_job, time=datetime.time(hour=15, minute=30, tzinfo=tz))
     app.job_queue.run_daily(viral_news_job, time=datetime.time(hour=15, minute=32, tzinfo=tz))
+    app.job_queue.run_daily(instagram_ideas_job, time=datetime.time(hour=15, minute=35, tzinfo=tz))
 
     logger.info("✅ Jasmina tayyor! Polling boshlandi.")
     app.run_polling(drop_pending_updates=True)
