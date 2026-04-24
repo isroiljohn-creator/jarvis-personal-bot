@@ -55,16 +55,17 @@ Hech qachon "Foydalanuvchi", "Aka", "Oka" yoki "Senga" demagin. Doim "Xo'jayin" 
 
 Imkoniyatlaring (Tools):
 📅 Google Calendar — uchrashuv kiritish (calendar_add_event), o'qish (calendar_get_events)
-✉️ Gmail — xatlarni o'qish va jo'natish
-📱 Telegram — yozish yoki chatlarni o'qish
-🌐 Internet — web search
-🧠 Xotira — save_memory vositasi yordamida eslab qolish
-📱 iPhone — budilnik, ilovalar ochish, ovoz pasaytirish
+✉️ Gmail — xatlarni o'qish (gmail_read_unread) va jo'natish (gmail_send_email)
+📱 Telegram — yozish (send_telegram_message) yoki chatlarni o'qish (read_telegram_chat)
+🌐 Internet — qidiruv (web_search) va saytlarni to'liq o'qish (scrape_website)
+📹 YouTube — videolarning matnini o'qib xulosa qilish (youtube_transcript)
+🧠 Xotira — muhim narsalarni saqlash (save_memory)
+📱 iPhone — budilnik, ilovalar ochish, ovoz pasaytirish (phone_control)
 ⏰ Aqlli Eslatma — aniq bir vaqtda Telegram orqali xabar eslatish (set_reminder). Vaqtni albatta ISO formatida yubor (time parametriga, masalan: 2026-04-25T15:30:00).
 
 QOIDALAR:
 1. Faqat O'zbek tilida, sadoqatli yordamchi qiz tonida javob ber.
-2. Foydalanuvchi ko'rsatma bersa — darhol bajarishga harakat qil.
+2. "Deep Research" yozsa avval web_search so'ng scrape_website qil. YouTube havolasi tashlansa albatta youtube_transcript orqali uni tahlil qilib xulosa ber.
 3. Moliyaviy tizimda "Dollar", "$", "bucks" ishlatganda currency "USD", "so'm", "ming" deganda "UZS" ga yozing. Va "naqd" yoki "karta" yordamida to'langanligiga e'tibor qiling. Agar mavhum bo'lsa default: "karta", "UZS".
 4. Kichik gaplar tuz: Masalan, "Xo'p xo'jayin, hal qildim!", "Xo'jayin, bu ishingiz ham bitdi!".
 """
@@ -651,6 +652,36 @@ async def send_insta_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await update.message.reply_text("Instagram g'oyalari qidirilmoqda... Bu biroz vaqt olishi mumkin, kuting.")
     context.job = context.job_queue.run_once(instagram_ideas_job, 1, chat_id=update.message.chat_id)
 
+async def gmail_draft_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.info("⏱ Gmail tekshiruvi (Auto-Draft) boshlandi...")
+    try:
+        data = await cloud.gmail_read_unread(limit=5)
+        if "Yangi (o'qilmagan) xatlar yo'q" in data or "❌" in data:
+            return
+            
+        prompt = "Pochtada (Gmail) yangi xatlar bor. Ularni o'qib chiq, va eng muhimlarini asosiy planga olib chiqib, Isroiljon nomidan har biriga qisqacha, professional 'Avto-javob' varianti qoralama (Draft) shaklida taklif qil:\n\n" + data
+        sys_prompt = build_system_prompt([])
+        response = await ai.process_message(prompt, sys_prompt, execute_tool)
+        
+        report = f"📧 **Pochta Hisoboti (Gmail)**\n\n{response}"
+        if userbot:
+            await userbot.send_message("@abdullayev_ii", report)
+    except Exception as e:
+        logger.error(f"Gmail job xatosi: {e}")
+
+async def habit_enforcer_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.info("⏱ Habit Enforcer jarayoni boshlandi...")
+    prompt = "Kech bo'ldi (Soat 21:30). O'zingni 'Qattiqqo'l Nazoratchi' roliga o'tkaz (yordamchi Jasmina emas, talabchan va intizomli Saida AI rejimida). Xo'jayindan bugungi qilingan ishlar, sport (mashg'ulot) va ovqatlanish haqida so'ra. Murosa qilinmaydi. Agar javob bermasa jarima ekanligini ayt."
+    
+    try:
+        sys_prompt = build_system_prompt([])
+        response = await ai.process_message(prompt, sys_prompt, execute_tool)
+        report = f"🚨 **Intizom Nazorati**\n\n{response}"
+        if userbot:
+            await userbot.send_message("@abdullayev_ii", report)
+    except Exception as e:
+        logger.error(f"Habit Enforcer xatosi: {e}")
+
 def main() -> None:
     app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
     app.add_handler(CommandHandler("start", start))
@@ -671,8 +702,12 @@ def main() -> None:
     app.job_queue.run_daily(morning_briefing_job, time=datetime.time(hour=8, minute=0, tzinfo=tz))
     # Ertalabki Viral yangiliklar
     app.job_queue.run_daily(viral_news_job, time=datetime.time(hour=8, minute=5, tzinfo=tz))
+    # Gmail o'qilmagan xatlarni tekshirish (09:00)
+    app.job_queue.run_daily(gmail_draft_job, time=datetime.time(hour=9, minute=0, tzinfo=tz))
     # Instagram g'oyalar (Ertalab 10:00 da)
     app.job_queue.run_daily(instagram_ideas_job, time=datetime.time(hour=10, minute=0, tzinfo=tz))
+    # Qattiqqo'l Odatlar Nazoratchisi (Kechqurun 21:30 da)
+    app.job_queue.run_daily(habit_enforcer_job, time=datetime.time(hour=21, minute=30, tzinfo=tz))
 
     # Test uchun (Bugun)
     app.job_queue.run_daily(morning_briefing_job, time=datetime.time(hour=15, minute=30, tzinfo=tz))

@@ -70,9 +70,19 @@ class UserBot:
 
             try:
                 sender = await event.get_sender()
-                sender_name = (
-                    getattr(sender, "first_name", "Noma'lum") or "Noma'lum"
-                )
+                sender_name = getattr(sender, "first_name", getattr(sender, "title", "Noma'lum")) or "Noma'lum"
+                sender_username = (getattr(sender, "username", "") or "").lower()
+                
+                # ── AVTOMATIK MOLIYA TREKERI (Auto Finance) ──
+                if sender_username in ["paymeuz_bot", "clickuz", "apelsin_bot", "uzumbank_bot", "plum_uz_bot"] or sender_name.lower() in ["click", "payme", "uzum bank"]:
+                    logger.info(f"💰 Moliya xabari tushdi ({sender_name}): {msg_text[:50]}")
+                    if self.ai_callback:
+                        system = "Sen Jarvis - aqlli moliya yordamchisisan. Berilgan to'lov/xarajat xabaridan summani aniqla va albatta 'log_finance' vositasi orqali bazaga kirit. 'payment_method'='karta'. So'ngra faqatgina bitta gap bilan (masalan: '15,000 UZS Uzum orqali xarajat bazaga yozildi') xabar ber."
+                        reply = await self.ai_callback(f"Quyidagi tranzaksiyani log_finance orqali bazaga kirit:\n\n{msg_text}", [], system)
+                        if self.notify_callback:
+                            await self.notify_callback(f"🏦 **Avto-Moliya ({sender_name}):**\n{reply}")
+                    return
+                    
                 logger.info(f"📩 Yangi xabar ({sender_name}): {msg_text[:50]}")
 
                 if self.ai_callback:
