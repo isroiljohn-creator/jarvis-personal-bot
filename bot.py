@@ -46,6 +46,8 @@ VOICE_REPLY = os.environ.get("VOICE_REPLY", "true").lower() == "true"
 ai = GeminiAI(GEMINI_API_KEY)
 userbot: UserBot | None = None
 cloud = CloudHub()
+GLOBAL_JOB_QUEUE = None
+GLOBAL_BOT = None
 
 SYSTEM_PROMPT = """Sen — Jasminasan. Foydalanuvchi Isroiljonning shaxsiy yordamchisisan.
 Sening vazifang u ishlarini hal qilish. O'zbek tilida (muloyim, qiz bola tonida) juda hurmat bilan, sadaqat va emotsiya bilan gaplashasan.
@@ -58,6 +60,7 @@ Imkoniyatlaring (Tools):
 🌐 Internet — web search
 🧠 Xotira — save_memory vositasi yordamida eslab qolish
 📱 iPhone — budilnik, ilovalar ochish, ovoz pasaytirish
+⏰ Aqlli Eslatma — aniq bir vaqtda Telegram orqali xabar eslatish (set_reminder). Vaqtni albatta ISO formatida yubor (time parametriga, masalan: 2026-04-25T15:30:00).
 
 QOIDALAR:
 1. Faqat O'zbek tilida, sadoqatli yordamchi qiz tonida javob ber.
@@ -137,6 +140,31 @@ async def execute_tool(name: str, args: dict) -> str:
                 return "Qidiruv tizimi ishlamadi."
         elif name == "save_memory":
             return update_memory(args.get("category", "notes"), args.get("key", ""), args.get("value", ""))
+        elif name == "set_reminder":
+            time_str = args.get("time", "")
+            message = args.get("message", "")
+            try:
+                import datetime
+                import pytz
+                dt = datetime.datetime.fromisoformat(time_str)
+                if dt.tzinfo is None:
+                    dt = pytz.timezone("Asia/Tashkent").localize(dt)
+                
+                now = datetime.datetime.now(dt.tzinfo)
+                if dt <= now:
+                    return f"❌ Berilgan vaqt o'tib ketgan ({dt.strftime('%Y-%m-%d %H:%M')}). Iltimos, kelajakdagi vaqtni kiriting."
+                
+                if GLOBAL_JOB_QUEUE:
+                    GLOBAL_JOB_QUEUE.run_once(
+                        reminder_job_callback,
+                        when=dt,
+                        data={"text": message}
+                    )
+                    return f"✅ Eslatma saqlandi! {dt.strftime('%Y-%m-%d %H:%M')} da xabar yuboriladi."
+                else:
+                    return "❌ JobQueue mavjud emas."
+            except Exception as e:
+                return f"❌ Vaqt formati noto'g'ri (ISO kutilyapti, masalan 2026-04-24T15:30:00): {e}"
             
         elif name == "log_finance":
             import database
@@ -268,6 +296,17 @@ def build_system_prompt(history: list | None = None, query: str = "") -> str:
 
 
 # ───────────────────── MESSAGE HANDLERS ─────────────────────
+
+async def reminder_job_callback(context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not context.job: return
+    text = context.job.data.get("text", "Eslatma!")
+    try:
+        if userbot:
+            await userbot.send_message("@abdullayev_ii", f"🔔 **Eslatma:**\n\n{text}")
+        elif GLOBAL_BOT and OWNER_ID:
+            await GLOBAL_BOT.send_message(OWNER_ID, f"🔔 *Eslatma:*\n\n{text}".replace("**", "*"), parse_mode="Markdown")
+    except Exception as e:
+        logger.error(f"Reminder yuborishda xato: {e}")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await check_auth(update):
@@ -425,7 +464,9 @@ async def clear_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def post_init(application: Application) -> None:
-    global userbot
+    global userbot, GLOBAL_JOB_QUEUE, GLOBAL_BOT
+    GLOBAL_JOB_QUEUE = application.job_queue
+    GLOBAL_BOT = application.bot
 
     # ── PostgreSQL DB jadvallarini yaratish ──
     try:
