@@ -447,6 +447,7 @@ async def execute_tool(name: str, args: dict) -> str:
                 "reminder": f"🔔 Eslatma qo'yildi: {payload} | Vaqti: {time}",
                 "call":     f"📞 Qo'ng'iroq qilinadi: {payload}",
                 "message":  f"💬 SMS yuboriladi: {payload}",
+                "wifi":     f"🛜 Wi-Fi boshqaruvi: {payload or 'off'}",
             }
             return action_labels.get(action, f"✅ Telefon buyrug'i yuborildi: {action}")
         else:

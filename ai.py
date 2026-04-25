@@ -37,13 +37,14 @@ QOIDALAR:
 - "eslatma", "reminder", "unutma" → action='reminder'
 - "telefon o'chir/yoq" → action='focus'
 - "volum", "ovoz balandligi" → action='volume'
+- "wifi", "internet", "wi-fi" → action='wifi'
 Har doim bu toolni telefon bilan bog'liq so'rovlarda chaqir!""",
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "action": {
                     "type": "STRING",
-                    "description": "Amal turi: 'alarm'|'timer'|'music'|'app'|'dnd'|'reminder'|'focus'|'volume'"
+                    "description": "Amal turi: 'alarm'|'timer'|'music'|'app'|'dnd'|'reminder'|'focus'|'volume'|'wifi'"
                 },
                 "payload": {
                     "type": "STRING",
