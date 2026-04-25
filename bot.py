@@ -499,10 +499,11 @@ async def _tool_read_chat(contact: str, limit: int = 5) -> str:
 
 def build_system_prompt(history: list | None = None, query: str = "") -> str:
     from datetime import datetime
+    import pytz
     parts = []
     
     # ISO vaqt formatini ham berish muhim, cunki Calendar API ISO ga asoslanadi.
-    now = datetime.now()
+    now = datetime.now(pytz.timezone("Asia/Tashkent"))
     parts.append(f"[HOZIRGI VAQT]: {now.strftime('%Y-%m-%d %H:%M, %A')} | ISO: {now.isoformat()[:19]}Z\n")
 
     try:
@@ -571,7 +572,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     if PLAN_COLLECTION_MODE:
         import datetime
-        now = datetime.datetime.now()
+        now = datetime.datetime.now(pytz.timezone("Asia/Tashkent"))
         target_date = now.strftime("%Y-%m-%d")
         if now.hour >= 18:
             target_date = (now + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
@@ -807,7 +808,7 @@ async def morning_briefing_job(context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.info("☀️ Ertalabki brifing + reja...")
     import database
     import datetime
-    today = datetime.date.today().strftime("%Y-%m-%d")
+    today = datetime.datetime.now(pytz.timezone("Asia/Tashkent")).date().strftime("%Y-%m-%d")
 
     tasks = await database.db_get_plan(today)
     if tasks:
@@ -962,7 +963,7 @@ async def life_coach_job(context: ContextTypes.DEFAULT_TYPE) -> None:
     import database
     import datetime
 
-    today = datetime.date.today().strftime("%Y-%m-%d")
+    today = datetime.datetime.now(pytz.timezone("Asia/Tashkent")).date().strftime("%Y-%m-%d")
 
     health = _ctx.get("last_health")
     h_block = health["summary"] if health else "iOS Health ma'lumoti kelmadi"
@@ -1036,7 +1037,7 @@ async def midday_check_job(context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.info("🕛 Yarim kun tekshiruvi...")
     import database
     import datetime
-    today = datetime.date.today().strftime("%Y-%m-%d")
+    today = datetime.datetime.now(pytz.timezone("Asia/Tashkent")).date().strftime("%Y-%m-%d")
     plan  = await database.db_get_plan_summary(today)
 
     if plan["total"] == 0:
@@ -1086,8 +1087,8 @@ async def cmd_plan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     import database
     import datetime
     args = context.args
-    today = datetime.date.today().strftime("%Y-%m-%d")
-    tomorrow = (datetime.date.today() + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+    today = datetime.datetime.now(pytz.timezone("Asia/Tashkent")).date().strftime("%Y-%m-%d")
+    tomorrow = (datetime.datetime.now(pytz.timezone("Asia/Tashkent")).date() + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
 
     if not args:
         tasks = await database.db_get_plan(today)
@@ -1114,7 +1115,7 @@ async def cmd_done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global PLAN_COLLECTION_MODE
     import database
     import datetime
-    today = datetime.date.today().strftime("%Y-%m-%d")
+    today = datetime.datetime.now(pytz.timezone("Asia/Tashkent")).date().strftime("%Y-%m-%d")
     if PLAN_COLLECTION_MODE:
         PLAN_COLLECTION_MODE = False
         await update.message.reply_text("Reja qabul qilindi.")
