@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from typing import Optional
 from collections import deque
 from datetime import datetime
-import logging, os
+import logging, os, asyncio
 
 logger = logging.getLogger("jarvis.api")
 
@@ -30,6 +30,75 @@ class PhoneCommand(BaseModel):
     type: str
     payload: Optional[str] = ""
     time: Optional[str] = ""
+
+class HealthData(BaseModel):
+    """iOS Sog'liq (Health) dasturidan kelgan ma'lumotlar."""
+    steps: Optional[int] = None            # Qadam soni
+    distance_km: Optional[float] = None   # Masofa (km)
+    calories_active: Optional[float] = None  # Aktiv kaloriya
+    calories_resting: Optional[float] = None # Dam olish kaloriyasi
+    heart_rate_avg: Optional[float] = None   # O'rtacha yurak urishi
+    heart_rate_min: Optional[float] = None
+    heart_rate_max: Optional[float] = None
+    hrv: Optional[float] = None            # Yurak urishi o'zgaruvchanligi
+    sleep_hours: Optional[float] = None    # Uyqu soatlari
+    sleep_deep_hours: Optional[float] = None  # Chuqur uyqu
+    sleep_rem_hours: Optional[float] = None   # REM uyqu
+    stand_hours: Optional[int] = None      # Turgan soatlar (Activity)
+    exercise_minutes: Optional[int] = None # Mashq daqiqalari
+    blood_oxygen: Optional[float] = None   # Qon kislorodi (%)
+    respiratory_rate: Optional[float] = None  # Nafas olish tezligi
+    noise_avg_db: Optional[float] = None   # O'rtacha shovqin (dB)
+    weight_kg: Optional[float] = None      # Vazn (kg)
+    body_fat_pct: Optional[float] = None   # Yog' foizi (%)
+    mindful_minutes: Optional[int] = None  # Meditatsiya daqiqalari
+    water_ml: Optional[int] = None         # Suvli ichimlik (ml)
+    date: Optional[str] = None             # Sana (YYYY-MM-DD)
+
+class ReminderItem(BaseModel):
+    """Bitta iOS Reminders eslatmasi."""
+    title: str
+    due_date: Optional[str] = None         # ISO: "2026-04-26T10:00:00"
+    completed: Optional[bool] = False
+    list_name: Optional[str] = None        # Ro'yxat nomi
+    notes: Optional[str] = None
+    priority: Optional[int] = 0           # 0=yo'q, 1=past, 5=o'rta, 9=yuqori
+
+class RemindersPayload(BaseModel):
+    """iOS Reminders dan keluvchi eslatmalar to'plami."""
+    reminders: list[ReminderItem]
+    include_completed: Optional[bool] = False
+
+class ScreenTimeApp(BaseModel):
+    """Bitta ilovaning Screen Time ma'lumoti."""
+    app_name: str
+    category: Optional[str] = None        # "Social", "Productivity", "Entertainment"
+    minutes: float
+
+class ScreenTimePayload(BaseModel):
+    """iOS Screen Time kunlik hisoboti."""
+    apps: list[ScreenTimeApp]
+    total_minutes: Optional[float] = None
+    pickups: Optional[int] = None          # Telefon qo'lga olingan marta
+    notifications: Optional[int] = None   # Bildirishnomalar soni
+    date: Optional[str] = None
+
+class MusicData(BaseModel):
+    """Hozirgi musiqa holati."""
+    title: Optional[str] = None
+    artist: Optional[str] = None
+    album: Optional[str] = None
+    is_playing: Optional[bool] = None
+    playlist: Optional[str] = None
+    duration_seconds: Optional[int] = None
+    position_seconds: Optional[int] = None
+
+class MessagesData(BaseModel):
+    """iOS Messages — o'qilmagan xabarlar holati."""
+    unread_count: Optional[int] = None
+    conversations: Optional[int] = None   # O'qilmagan suhbatlar soni
+    date: Optional[str] = None
+
 
 # ─── Bog'liqliklar (bot.py dan inject qilinadi) ─────────────
 BOT_CONTEXT: dict = {}
@@ -459,3 +528,492 @@ async def get_commands():
 async def add_command(cmd: PhoneCommand):
     push_phone_command(cmd.type, cmd.payload, cmd.time)
     return {"status": "queued", "command": cmd.type}
+
+
+# ─── iOS Health Dasturi Ma'lumotlari ─────────────────────────
+
+def _clean(text: str) -> str:
+    """Telegram markdown belgilarini tozalaydi — xabar buzilmasligi uchun."""
+    for ch in ("*", "_", "`", "[", "]", "#"):
+        text = text.replace(ch, "")
+    return text.strip()
+
+
+@app.post("/ios-health")
+async def ios_health_report(data: HealthData):
+    """
+    iOS Shortcuts automatsiyasi bu endpointga POST yuboradi.
+    Health app ma'lumotlari Gemini tomonidan tahlil qilinib, Telegramga yuboriladi.
+    """
+    from fastapi.responses import JSONResponse
+
+    ai       = BOT_CONTEXT.get("ai")
+    executor = BOT_CONTEXT.get("execute_tool")
+    userbot  = BOT_CONTEXT.get("userbot")
+    bot      = BOT_CONTEXT.get("bot")
+    owner_id = BOT_CONTEXT.get("owner_id")
+
+    if not ai:
+        return JSONResponse({"status": "error", "reason": "AI tayyor emas"}, status_code=503)
+
+    # Faqat kelgan (None bo'lmagan) ma'lumotlarni qo'shamiz
+    fields = [
+        ("steps",            "👣",  "",        "qadam"),
+        ("distance_km",      "📍",  " km",     "masofa"),
+        ("calories_active",  "🔥",  " kkal",   "aktiv kaloriya"),
+        ("heart_rate_avg",   "❤️",  " bpm",    "yurak (o'rt)"),
+        ("heart_rate_min",   "❤️",  " bpm",    "yurak (min)"),
+        ("heart_rate_max",   "❤️",  " bpm",    "yurak (max)"),
+        ("hrv",              "📊",  " ms",     "HRV"),
+        ("sleep_hours",      "😴",  " soat",   "uyqu"),
+        ("sleep_deep_hours", "🛌",  " soat",   "chuqur"),
+        ("sleep_rem_hours",  "💭",  " soat",   "REM"),
+        ("stand_hours",      "🧍",  "/12",     "turish"),
+        ("exercise_minutes", "🏃",  " daq",    "mashq"),
+        ("blood_oxygen",     "🫁",  "%",       "O2"),
+        ("respiratory_rate", "💨",  "/min",    "nafas"),
+        ("weight_kg",        "⚖️",  " kg",     "vazn"),
+        ("body_fat_pct",     "📉",  "%",       "yog'"),
+        ("mindful_minutes",  "🧘",  " daq",    "med"),
+        ("water_ml",         "💧",  " ml",     "suv"),
+    ]
+    raw = data.dict()
+    lines = []
+    ai_lines = []  # AI uchun qisqa format
+
+    for field, emoji, unit, label in fields:
+        val = raw.get(field)
+        if val is not None:
+            # int bo'lsa .0 ko'rsatmaslik
+            display = int(val) if isinstance(val, float) and val == int(val) else val
+            lines.append(f"{emoji} {label}: {display}{unit}")
+            ai_lines.append(f"{label}: {display}{unit}")
+
+    if not lines:
+        return JSONResponse({"status": "error", "reason": "Ma'lumot yuborilmadi"}, status_code=400)
+
+    date_str    = data.date or datetime.now().strftime("%Y-%m-%d")
+    health_text = "  ".join(lines[:7]) + "\n" + "  ".join(lines[7:])  # 2 qatorda chiroyli
+    ai_data     = ", ".join(ai_lines)
+
+    # Ma'lumotlarni saqlaymiz — life_coach_job uchun
+    BOT_CONTEXT["last_health"] = {"date": date_str, "data": raw, "summary": ai_data}
+
+    logger.info(f"📱 iOS Health ma'lumoti keldi ({date_str}): {len(lines)} ko'rsatkich")
+
+    # Qisqa, emoji-asosli prompt — sarlavha, ro'yxat, markdown YO'Q
+    prompt = (
+        f"Bugun {date_str}: {ai_data}. "
+        "Sog'liq holatini 4-5 jumlada o'zbek tilida baholab ber. "
+        "Faqat emoji va oddiy matn — sarlavha, ro'yxat, yulduzcha YO'Q. "
+        "Eng muhim 1-2 maslahat bilan yakolla."
+    )
+
+    try:
+        sys_prompt = await _get_sys_prompt("sog'liq")
+        response   = await ai.process_message(prompt, sys_prompt, executor)
+        # Markdown belgilarini tozalaymiz
+        clean_resp = _clean(response)
+
+        report = (
+            f"🏥 Sog'liq — {date_str}\n\n"
+            f"{health_text}\n\n"
+            f"💬 {clean_resp}"
+        )
+
+        # Telegramga ODDIY MATN sifatida yuboramiz (parse_mode yo'q)
+        sent = False
+        if userbot and getattr(userbot, "connected", False):
+            try:
+                await userbot.send_message("me", report)
+                sent = True
+            except Exception as e:
+                logger.warning(f"userbot health send xato: {e}")
+
+        if not sent and bot and owner_id:
+            try:
+                await bot.send_message(owner_id, report)  # parse_mode yo'q!
+                sent = True
+            except Exception as e:
+                logger.warning(f"bot health send xato: {e}")
+
+        logger.info(f"iOS Health hisobot yuborildi: {sent}")
+        return {"status": "ok", "sent": sent, "metrics_received": len(lines)}
+
+    except Exception as e:
+        logger.error(f"iOS Health tahlil xatosi: {e}", exc_info=True)
+        return JSONResponse({"status": "error", "reason": str(e)}, status_code=500)
+
+
+
+@app.get("/ios-health/last")
+async def get_last_health():
+    """Oxirgi kelgan Health ma'lumotini qaytaradi (bot_data ichida)."""
+    last = BOT_CONTEXT.get("last_health_data")
+    if not last:
+        return {"status": "empty", "message": "Hali iOS dan hech qanday ma'lumot kelmagan."}
+    return {"status": "ok", "data": last}
+
+
+# ─── iOS Calendar Integratsiyasi ─────────────────────────────
+
+class CalendarEvent(BaseModel):
+    """iOS Kalendar voqeasi."""
+    title: str
+    start: str                        # ISO format: "2026-04-26T10:00:00"
+    end: Optional[str] = None         # ISO format
+    location: Optional[str] = None
+    notes: Optional[str] = None
+    calendar: Optional[str] = None    # Taqvim nomi (masalan: "Ishlar", "Shaxsiy")
+    all_day: Optional[bool] = False
+
+class CalendarSyncPayload(BaseModel):
+    """iOS dan keluvchi voqealar ro'yxati."""
+    events: list[CalendarEvent]
+    range_start: Optional[str] = None  # Qaysi kundan
+    range_end: Optional[str] = None    # Qaysi kungacha
+
+
+@app.post("/ios-calendar/sync")
+async def ios_calendar_sync(payload: CalendarSyncPayload):
+    """
+    iOS Shortcuts → Bu endpoint: iPhone taqvimidagi voqealarni Jasminaga yuboradi.
+    Jasmina tahlil qilib kunlik reja yoki eslatmalar beradi.
+    """
+    from fastapi.responses import JSONResponse
+
+    ai       = BOT_CONTEXT.get("ai")
+    executor = BOT_CONTEXT.get("execute_tool")
+    userbot  = BOT_CONTEXT.get("userbot")
+    bot      = BOT_CONTEXT.get("bot")
+    owner_id = BOT_CONTEXT.get("owner_id")
+
+    if not ai:
+        return JSONResponse({"status": "error", "reason": "AI tayyor emas"}, status_code=503)
+
+    events = payload.events
+    if not events:
+        return JSONResponse({"status": "error", "reason": "Voqealar ro'yxati bo'sh"}, status_code=400)
+
+    # Voqealarni matn ko'rinishiga o'tkazamiz
+    lines = []
+    for ev in events:
+        start = ev.start[:16].replace("T", " ") if ev.start else "?"
+        end   = ev.end[:16].replace("T", " ")   if ev.end   else ""
+        loc   = f" | 📍 {ev.location}" if ev.location else ""
+        cal   = f" [{ev.calendar}]"   if ev.calendar  else ""
+        note  = f"\n   📝 {ev.notes}" if ev.notes      else ""
+        time_str = f"{start}" + (f" – {end[11:]}" if end else "")
+        lines.append(f"• {time_str}{cal} — {ev.title}{loc}{note}")
+
+    events_text = "\n".join(lines)
+    date_range = ""
+    if payload.range_start:
+        date_range = f"{payload.range_start}"
+        if payload.range_end and payload.range_end != payload.range_start:
+            date_range += f" – {payload.range_end}"
+
+    logger.info(f"📅 iOS Calendar sync: {len(events)} voqea ({date_range})")
+
+    prompt = (
+        f"Xo'jayin Isroiljonning iOS taqvimidan {date_range or 'bugungi'} voqealar keldi:\n\n"
+        f"{events_text}\n\n"
+        "Ushbu jadval asosida:\n"
+        "1. Eng muhim va shoshilinch voqealarni ajrat\n"
+        "2. Vaqt to'qnashuvlari (conflict) bormi tekshir\n"
+        "3. Har bir voqea uchun qisqa tayyorgarlik maslahatini ber\n"
+        "4. Bugungi kun rejasini energiya va muhimlik bo'yicha tartiblash\n"
+        "Javob qisqa, aniq, o'zbek tilida. Emoji bilan chiroyli formatlash."
+    )
+
+    try:
+        sys_prompt = await _get_sys_prompt("taqvim voqealar")
+        response = await ai.process_message(prompt, sys_prompt, executor)
+        report = (
+            f"📅 *iOS Taqvim Hisoboti*"
+            + (f" — {date_range}" if date_range else "") +
+            f"\n\n{events_text}\n\n"
+            f"---\n"
+            f"🤖 *Jasmina Tahlili:*\n{response}"
+        )
+
+        sent = False
+        if userbot and getattr(userbot, "connected", False):
+            try:
+                await userbot.send_message("me", report)
+                sent = True
+            except Exception as e:
+                logger.warning(f"userbot calendar send xato: {e}")
+
+        if not sent and bot and owner_id:
+            try:
+                safe = report.replace("**", "*")
+                await bot.send_message(owner_id, safe, parse_mode="Markdown")
+                sent = True
+            except Exception as e:
+                logger.warning(f"bot calendar send xato: {e}")
+
+        return {"status": "ok", "sent": sent, "events_received": len(events)}
+
+    except Exception as e:
+        logger.error(f"iOS Calendar sync xatosi: {e}", exc_info=True)
+        return JSONResponse({"status": "error", "reason": str(e)}, status_code=500)
+
+
+@app.get("/ios-calendar/pending")
+async def ios_calendar_pending():
+    """
+    iOS Shortcuts shu endpointni polling qiladi.
+    Bot 'Voqea qo'sh' desa — bu yerdan olib iOS Calendar ga qo'shadi.
+    """
+    cmds = [c for c in list(COMMAND_QUEUE) if c.get("type") == "calendar_add"]
+    # Faqat calendar_add larni olamiz va qolganlarini qaytarib qo'yamiz
+    other = [c for c in list(COMMAND_QUEUE) if c.get("type") != "calendar_add"]
+    COMMAND_QUEUE.clear()
+    for c in other:
+        COMMAND_QUEUE.append(c)
+
+    return {"events_to_add": cmds}
+
+
+# ─── iOS Reminders ────────────────────────────────────────────
+
+async def _send_to_telegram(report: str):
+    """Yordamchi: xabarni Telegramga yuboradi."""
+    userbot  = BOT_CONTEXT.get("userbot")
+    bot      = BOT_CONTEXT.get("bot")
+    owner_id = BOT_CONTEXT.get("owner_id")
+
+    sent = False
+    if userbot and getattr(userbot, "connected", False):
+        try:
+            await userbot.send_message("me", report)
+            return True
+        except Exception as e:
+            logger.warning(f"userbot send xato: {e}")
+
+    if bot and owner_id:
+        try:
+            safe = report.replace("**", "*")
+            await bot.send_message(owner_id, safe, parse_mode="Markdown")
+            return True
+        except Exception as e:
+            logger.warning(f"bot send xato: {e}")
+    return False
+
+
+@app.post("/ios-reminders/sync")
+async def ios_reminders_sync(payload: RemindersPayload):
+    """
+    iOS Reminders dan kelgan eslatmalarni qabul qiladi.
+    Jasmina muhimlarini ajratib Telegramga yuboradi.
+    """
+    from fastapi.responses import JSONResponse
+    ai       = BOT_CONTEXT.get("ai")
+    executor = BOT_CONTEXT.get("execute_tool")
+    if not ai:
+        return JSONResponse({"status": "error", "reason": "AI tayyor emas"}, status_code=503)
+
+    reminders = [r for r in payload.reminders if not r.completed]
+    if not reminders:
+        return {"status": "ok", "message": "Bajarilmagan eslatmalar yo'q"}
+
+    pri_map = {0: "", 1: "🟢", 5: "🟡", 9: "🔴"}
+    lines = []
+    for r in reminders:
+        due   = f" ⏰ {r.due_date[:16].replace('T',' ')}" if r.due_date else ""
+        lst   = f" [{r.list_name}]" if r.list_name else ""
+        pri   = pri_map.get(r.priority or 0, "")
+        note  = f"\n   💬 {r.notes}" if r.notes else ""
+        lines.append(f"{pri}• {r.title}{due}{lst}{note}")
+
+    reminders_text = "\n".join(lines)
+    logger.info(f"🔔 iOS Reminders sync: {len(reminders)} ta bajarilmagan")
+
+    prompt = (
+        f"Xo'jayin Isroiljonning iOS Reminders eslatmalari ({len(reminders)} ta):\n\n"
+        f"{reminders_text}\n\n"
+        "Tahlil qil:\n"
+        "1. Bugun bajarish kerak bo'lganlarni ajrat (🔴 qizil)\n"
+        "2. Kechikkan (muddati o'tgan) eslatmalarni belgilab, ogohlantir!\n"
+        "3. Yuqori prioritetli eslatmalar uchun konkret harakat tavsiya et\n"
+        "4. Yaqin 2 kun uchun reja tuz\n"
+        "O'zbek tilida, qisqa va aniq."
+    )
+
+    try:
+        sys_prompt = await _get_sys_prompt("eslatmalar")
+        response   = await ai.process_message(prompt, sys_prompt, executor)
+        report = (
+            f"🔔 *iOS Reminders Hisoboti*\n\n"
+            f"{reminders_text}\n\n---\n"
+            f"🤖 *Jasmina:*\n{response}"
+        )
+        sent = await _send_to_telegram(report)
+        return {"status": "ok", "sent": sent, "reminders_count": len(reminders)}
+    except Exception as e:
+        logger.error(f"Reminders sync xatosi: {e}", exc_info=True)
+        return JSONResponse({"status": "error", "reason": str(e)}, status_code=500)
+
+
+@app.get("/ios-reminders/pending")
+async def ios_reminders_pending():
+    """iOS Shortcuts polling — bot qo'shgan eslatmalarni olish."""
+    cmds  = [c for c in list(COMMAND_QUEUE) if c.get("type") == "reminder_add"]
+    other = [c for c in list(COMMAND_QUEUE) if c.get("type") != "reminder_add"]
+    COMMAND_QUEUE.clear()
+    for c in other:
+        COMMAND_QUEUE.append(c)
+    return {"reminders_to_add": cmds}
+
+
+# ─── iOS Screen Time ──────────────────────────────────────────
+
+@app.post("/ios-screentime")
+async def ios_screentime(payload: ScreenTimePayload):
+    """iOS Screen Time kunlik hisobotini qabul qiladi."""
+    from fastapi.responses import JSONResponse
+    ai       = BOT_CONTEXT.get("ai")
+    executor = BOT_CONTEXT.get("execute_tool")
+    if not ai:
+        return JSONResponse({"status": "error", "reason": "AI tayyor emas"}, status_code=503)
+
+    apps = sorted(payload.apps, key=lambda x: x.minutes, reverse=True)
+    lines = []
+    for a in apps[:10]:  # Top 10 ta
+        h, m = divmod(int(a.minutes), 60)
+        time_str = f"{h}s {m}d" if h else f"{m}d"
+        cat = f" ({a.category})" if a.category else ""
+        lines.append(f"• {a.app_name}{cat}: {time_str}")
+
+    total_h, total_m = divmod(int(payload.total_minutes or sum(a.minutes for a in payload.apps)), 60)
+    summary_lines = [f"📱 Umumiy: {total_h}s {total_m}d"]
+    if payload.pickups:     summary_lines.append(f"🤲 Qo'lga olish: {payload.pickups} marta")
+    if payload.notifications: summary_lines.append(f"🔔 Bildirishnomalar: {payload.notifications} ta")
+
+    date_str = payload.date or datetime.now().strftime("%Y-%m-%d")
+    apps_text = "\n".join(lines)
+    summary_text = " | ".join(summary_lines)
+
+    # Ma'lumotlarni saqlaymiz — life_coach_job uchun
+    BOT_CONTEXT["last_screentime"] = {
+        "date": date_str,
+        "total_minutes": payload.total_minutes or sum(a.minutes for a in apps),
+        "pickups": payload.pickups,
+        "top_apps": [{"name": a.app_name, "minutes": a.minutes, "category": a.category} for a in apps[:5]],
+        "summary": summary_text,
+    }
+
+    logger.info(f"📊 iOS Screen Time: {len(apps)} ilova ({date_str})")
+
+    prompt = (
+        f"Xo'jayin Isroiljonning {date_str} kungi iPhone ishlatish statistikasi:\n\n"
+        f"{summary_text}\n\nTop ilovalar:\n{apps_text}\n\n"
+        "Raqamli hayot tahlili:\n"
+        "1. Eng ko'p vaqt ketgan ilovalarni baholab, bu yaxshimi yoki yomonmi?\n"
+        "2. Ijtimoiy tarmoqlar, o'yinlarga sarflangan vaqt ko'pmi?\n"
+        "3. Produktivlik vs dam olish nisbati qanday?\n"
+        "4. Ertangi kun uchun aniq maqsad (masalan: '2 soatdan kam Instagram')\n"
+        "O'zbek tilida, motivatsion, qisqa."
+    )
+
+    try:
+        sys_prompt = await _get_sys_prompt("screen time")
+        response   = await ai.process_message(prompt, sys_prompt, executor)
+        report = (
+            f"📊 *Screen Time Hisoboti — {date_str}*\n\n"
+            f"{summary_text}\n\n*Top Ilovalar:*\n{apps_text}\n\n---\n"
+            f"🤖 *Jasmina:*\n{response}"
+        )
+        sent = await _send_to_telegram(report)
+        return {"status": "ok", "sent": sent, "apps_count": len(apps)}
+    except Exception as e:
+        logger.error(f"Screen Time xatosi: {e}", exc_info=True)
+        return JSONResponse({"status": "error", "reason": str(e)}, status_code=500)
+
+
+# ─── iOS Music ────────────────────────────────────────────────
+
+@app.post("/ios-music")
+async def ios_music(data: MusicData):
+    """Hozirgi ijro etilayotgan qo'shiq ma'lumotini qabul qiladi."""
+    from fastapi.responses import JSONResponse
+    ai       = BOT_CONTEXT.get("ai")
+    executor = BOT_CONTEXT.get("execute_tool")
+    if not ai:
+        return JSONResponse({"status": "error", "reason": "AI tayyor emas"}, status_code=503)
+
+    if not data.title and not data.artist:
+        return JSONResponse({"status": "error", "reason": "Qo'shiq ma'lumoti yo'q"}, status_code=400)
+
+    status = "▶️ Ijro etilmoqda" if data.is_playing else "⏸ Pauza"
+    lines  = [f"{status}: **{data.title or '?'}**"]
+    if data.artist:   lines.append(f"🎤 Ijrochi: {data.artist}")
+    if data.album:    lines.append(f"💿 Album: {data.album}")
+    if data.playlist: lines.append(f"📃 Playlist: {data.playlist}")
+    if data.duration_seconds:
+        m, s = divmod(data.duration_seconds, 60)
+        lines.append(f"⏱ Davomiyligi: {m}:{s:02d}")
+
+    music_text = "\n".join(lines)
+    BOT_CONTEXT["current_music"] = data.dict()
+    logger.info(f"🎵 iOS Music: {data.title} — {data.artist}")
+
+    prompt = (
+        f"Xo'jayin hozir shu qo'shiqni tinglayapti:\n{music_text}\n\n"
+        "Unga yoqqan bu qo'shiq janri va kayfiyatiga qarab:\n"
+        "1. Shu kayfiyatga mos 2-3 qo'shiq tavsiya qil (aniq nom va ijrochi)\n"
+        "2. Bu qo'shiq/ijrochi haqida qiziqarli 1 fakt\n"
+        "Javob juda qisqa va do'stona bo'lsin."
+    )
+
+    try:
+        sys_prompt = await _get_sys_prompt("musiqa")
+        response   = await ai.process_message(prompt, sys_prompt, executor)
+        report = f"🎵 *Musiqa*\n\n{music_text}\n\n---\n🤖 *Jasmina:*\n{response}"
+        sent = await _send_to_telegram(report)
+        return {"status": "ok", "sent": sent}
+    except Exception as e:
+        logger.error(f"Music endpoint xatosi: {e}", exc_info=True)
+        return JSONResponse({"status": "error", "reason": str(e)}, status_code=500)
+
+@app.get("/ios-music/current")
+async def get_current_music():
+    """Hozir ijro etilayotgan qo'shiqni qaytaradi."""
+    music = BOT_CONTEXT.get("current_music")
+    if not music:
+        return {"status": "empty", "message": "Hozir musiqa yo'q"}
+    return {"status": "ok", "music": music}
+
+
+# ─── iOS Messages ─────────────────────────────────────────────
+
+@app.post("/ios-messages")
+async def ios_messages(data: MessagesData):
+    """iOS Messages o'qilmagan xabarlar hisobotini qabul qiladi."""
+    from fastapi.responses import JSONResponse
+    if data.unread_count is None:
+        return JSONResponse({"status": "error", "reason": "unread_count yo'q"}, status_code=400)
+
+    if data.unread_count == 0:
+        logger.info("📬 iOS Messages: o'qilmagan xabar yo'q")
+        return {"status": "ok", "message": "O'qilmagan SMS yo'q"}
+
+    date_str = data.date or datetime.now().strftime("%Y-%m-%d")
+    conv_str = f", {data.conversations} ta suhbatda" if data.conversations else ""
+    msg_text = f"📬 O'qilmagan SMS: {data.unread_count} ta{conv_str}"
+
+    logger.info(f"📬 iOS Messages: {data.unread_count} o'qilmagan ({date_str})")
+
+    # Faqat 5 dan ko'p bo'lsa Jasminaga bildirish
+    if data.unread_count < 5:
+        return {"status": "ok", "notified": False, "reason": "5 dan kam, bildirish shart emas"}
+
+    report = (
+        f"📬 *iOS Messages*\n\n"
+        f"{msg_text}\n\n"
+        f"⚠️ Xo'jayin, {data.unread_count} ta o'qilmagan SMS bor! "
+        f"Muhim xabar bo'lishi mumkin — tekshirib ko'ring."
+    )
+    sent = await _send_to_telegram(report)
+    return {"status": "ok", "sent": sent, "unread": data.unread_count}

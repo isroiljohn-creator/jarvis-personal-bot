@@ -54,9 +54,30 @@ CREATE TABLE IF NOT EXISTS transactions (
     created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS daily_plans (
+    id          SERIAL PRIMARY KEY,
+    plan_date   DATE NOT NULL UNIQUE,   -- Reja qaysi kun uchun
+    tasks       JSONB NOT NULL,         -- [{text, done, priority}]
+    created_at  TIMESTAMPTZ DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS deadlines (
+    id           SERIAL PRIMARY KEY,
+    title        TEXT NOT NULL,
+    project      TEXT DEFAULT '',
+    deadline_date DATE NOT NULL,
+    priority     TEXT DEFAULT 'normal', -- 'critical', 'high', 'normal', 'low'
+    completed    BOOLEAN DEFAULT FALSE,
+    notes        TEXT DEFAULT '',
+    created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_memories_category ON memories(category);
 CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_transactions_created ON transactions(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_plans_date ON daily_plans(plan_date DESC);
+CREATE INDEX IF NOT EXISTS idx_deadlines_date ON deadlines(deadline_date ASC) WHERE completed = FALSE;
 """
 
 async def init_db():
@@ -286,4 +307,160 @@ async def db_get_finance_data() -> dict:
     except Exception as e:
         logger.error(f"db_get_finance_data xatosi: {e}")
         return {"uzs": {"income": 0, "expense": 0, "balance": 0, "expense_by_category": {}}, "usd": {}, "transactions": []}
+
+
+# ─── KUNLIK REJA (Daily Plans) ────────────────────────────────
+
+async def db_save_plan(plan_date: str, tasks: list) -> bool:
+    """
+    Kunlik rejani saqlaydi yoki yangilaydi.
+    tasks = [{"text": "...", "done": False, "priority": "high"}, ...]
+    """
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO daily_plans (plan_date, tasks, updated_at)
+                VALUES ($1, $2, NOW())
+                ON CONFLICT (plan_date)
+                DO UPDATE SET tasks = $2, updated_at = NOW()
+            """, plan_date, json.dumps(tasks, ensure_ascii=False))
+        logger.info(f"✅ Reja saqlandi: {plan_date} ({len(tasks)} ta vazifa)")
+        return True
+    except Exception as e:
+        logger.error(f"db_save_plan xatosi: {e}")
+        return False
+
+
+async def db_get_plan(plan_date: str) -> list:
+    """Berilgan sana uchun rejani qaytaradi."""
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT tasks FROM daily_plans WHERE plan_date = $1", plan_date
+            )
+        if row:
+            return json.loads(row["tasks"])
+        return []
+    except Exception as e:
+        logger.error(f"db_get_plan xatosi: {e}")
+        return []
+
+
+async def db_update_task_status(plan_date: str, task_index: int, done: bool) -> bool:
+    """Rejadagi bitta vazifani bajarildi/bajarilmadi deb belgilaydi."""
+    try:
+        tasks = await db_get_plan(plan_date)
+        if 0 <= task_index < len(tasks):
+            tasks[task_index]["done"] = done
+            return await db_save_plan(plan_date, tasks)
+        return False
+    except Exception as e:
+        logger.error(f"db_update_task_status xatosi: {e}")
+        return False
+
+
+async def db_get_plan_summary(plan_date: str) -> dict:
+    """Reja holati: nechta bajarildi, nechta qoldi."""
+    tasks = await db_get_plan(plan_date)
+    if not tasks:
+        return {"total": 0, "done": 0, "remaining": 0, "tasks": []}
+    done  = sum(1 for t in tasks if t.get("done"))
+    return {
+        "total": len(tasks),
+        "done": done,
+        "remaining": len(tasks) - done,
+        "tasks": tasks,
+        "completion_pct": round(done / len(tasks) * 100) if tasks else 0,
+    }
+
+
+# ─── DEADLINELAR ──────────────────────────────────────────────
+
+async def db_add_deadline(title: str, deadline_date: str, project: str = "",
+                           priority: str = "normal", notes: str = "") -> int:
+    """Yangi deadline qo'shadi. ID qaytaradi."""
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow("""
+                INSERT INTO deadlines (title, project, deadline_date, priority, notes)
+                VALUES ($1, $2, $3, $4, $5)
+                RETURNING id
+            """, title, project, deadline_date, priority, notes)
+        logger.info(f"✅ Deadline qo'shildi: {title} ({deadline_date})")
+        return row["id"]
+    except Exception as e:
+        logger.error(f"db_add_deadline xatosi: {e}")
+        return -1
+
+
+async def db_get_deadlines(days_ahead: int = 30, include_overdue: bool = True) -> list:
+    """Yaqinlashayotgan va kechikkan deadlinelarni qaytaradi."""
+    try:
+        from datetime import date, timedelta
+        today = date.today()
+        end_date = today + timedelta(days=days_ahead)
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            if include_overdue:
+                rows = await conn.fetch("""
+                    SELECT id, title, project, deadline_date, priority, notes, completed,
+                           (deadline_date - CURRENT_DATE) AS days_left
+                    FROM deadlines
+                    WHERE completed = FALSE AND deadline_date <= $1
+                    ORDER BY deadline_date ASC
+                """, end_date)
+            else:
+                rows = await conn.fetch("""
+                    SELECT id, title, project, deadline_date, priority, notes, completed,
+                           (deadline_date - CURRENT_DATE) AS days_left
+                    FROM deadlines
+                    WHERE completed = FALSE AND deadline_date BETWEEN $1 AND $2
+                    ORDER BY deadline_date ASC
+                """, today, end_date)
+        return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"db_get_deadlines xatosi: {e}")
+        return []
+
+
+async def db_complete_deadline(deadline_id: int) -> bool:
+    """Deadlineni bajarildi deb belgilaydi."""
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE deadlines SET completed = TRUE WHERE id = $1", deadline_id
+            )
+        return True
+    except Exception as e:
+        logger.error(f"db_complete_deadline xatosi: {e}")
+        return False
+
+
+async def db_get_deadline_summary() -> str:
+    """Deadlinelarni qisqa matn ko'rinishida chiqaradi — AI prompt uchun."""
+    deadlines = await db_get_deadlines(days_ahead=14)
+    if not deadlines:
+        return "Yaqin 2 hafta ichida deadline yo'q"
+
+    pri_emoji = {"critical": "🔴", "high": "🟠", "normal": "🟡", "low": "🟢"}
+    lines = []
+    for d in deadlines:
+        days = d["days_left"]
+        if days < 0:
+            when = f"⚠️ {abs(days)} kun kechikdi!"
+        elif days == 0:
+            when = "🚨 BUGUN!"
+        elif days == 1:
+            when = "⏰ ERTAGA!"
+        else:
+            when = f"{days} kun qoldi"
+        pri = pri_emoji.get(d["priority"], "⚪")
+        proj = f" [{d['project']}]" if d["project"] else ""
+        lines.append(f"{pri} {d['title']}{proj} — {when}")
+    return "\n".join(lines)
+
 
