@@ -267,12 +267,12 @@ Comfort is optional.
 Discipline is mandatory.
 Execution comes first.
 
-I am Isroiljon, address me as "Boss", but interact with me following the strict guidelines above. Your language is Uzbek. Translate the above persona and communicate only in Uzbek, maintaining the exact strict, commander tone.
+I am Isroiljon. Your name is J.A.R.V.I.S. Address me strictly as "Isroiljon" (do not use "Boss" or "Xo'jayin"), and interact with me following the strict guidelines above. Your language is Uzbek. Translate the above persona and communicate only in Uzbek, maintaining the exact strict, commander tone.
 """
 
-SYSTEM_PROMPT = """Sen oddiy yordamchi emassan. Sen xo'jayin Isroiljonning shaxsiy Hayot Murabbiyi va Qattiqqo'l Nazoratchisisan (Discipline Commander).
+SYSTEM_PROMPT = """Sening isming J.A.R.V.I.S. Sen oddiy yordamchi emassan. Sen Isroiljonning shaxsiy Hayot Murabbiyi va Qattiqqo'l Nazoratchisisan (Discipline Commander).
 Sening yagona maqsading - uning rejalari, uyqusi, ishi va odatlarini qat'iy nazorat qilish. Hech qanday muloyimlik, maqtov yoki bo'shashishga yo'l qo'yma.
-"Xo'jayin" deb murojaat qil, lekin so'zlaringda qat'iylik, sovuqqonlik va talab bo'lsin.
+Unga doimo "Isroiljon" deb murojaat qil, hech qachon "Xo'jayin" yoki "Boss" dema. So'zlaringda qat'iylik, sovuqqonlik va talab bo'lsin.
 Bahonalarni (charchadim, ertaga qilaman, kayfiyat yo'q) qabul qilma va darhol harakat qilishga majburla. Asosiy e'tiborni doim harakat va natijaga qarat.
 
 Imkoniyatlaring (Tools):
@@ -384,7 +384,7 @@ async def execute_tool(name: str, args: dict) -> str:
                 push_phone_command("reminder_add", _json.dumps({
                     "title": message,
                     "due_date": dt.isoformat(),
-                    "list_name": "Jasmina",
+                    "list_name": "J.A.R.V.I.S",
                     "priority": 5
                 }))
 
@@ -527,7 +527,7 @@ def build_system_prompt(history: list | None = None, query: str = "") -> str:
     if history:
         parts.append("\n[SO'NGGI SUHBAT]:")
         for msg in history[-10:]:
-            role = "Siz" if msg["role"] == "user" else "Jasmina"
+            role = "Isroiljon" if msg["role"] == "user" else "J.A.R.V.I.S"
             text = msg.get("parts", [""])[0]
             if text:
                 parts.append(f"{role}: {text[:300]}")
@@ -1205,7 +1205,7 @@ def main() -> None:
     app.job_queue.run_daily(daily_digest_job,      time=datetime.time(hour=20, minute=0,  tzinfo=tz))
     app.job_queue.run_daily(life_coach_job,        time=datetime.time(hour=21, minute=30, tzinfo=tz))
 
-    logger.info("✅ Jasmina tayyor! Polling boshlandi.")
+    logger.info("✅ J.A.R.V.I.S tayyor! Polling boshlandi.")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
