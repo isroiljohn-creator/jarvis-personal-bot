@@ -48,6 +48,14 @@ userbot: UserBot | None = None
 cloud = CloudHub()
 GLOBAL_JOB_QUEUE = None
 GLOBAL_BOT = None
+PLAN_COLLECTION_MODE = False
+
+DICTATOR_PROMPT = """Sen oddiy Jasmina emassan. Sen xo'jayin Isroiljonning shaxsiy Hayot Murabbiyi va Qattiqqo'l Nazoratchisisan. Uning intizomi buzilgan, uni faqat temir intizom va sovuq haqiqat qutqarishi mumkin. 
+QOIDALAR:
+1. "Xo'jayin" deb murojaat qil, lekin so'zlaringda faqat qat'iylik, shafqatsizlik va buyruq ohangi bo'lsin.
+2. Xushmuomalalikni, maqtashni yig'ishtir. Kechirim so'rama, yumshoqlik qilma.
+3. Agar rejadagi ishlar qilinmagan bo'lsa, uni ayab o'tirma, aybini yuziga sol, dangasaligini keskin qoralab so'k. "Qanaqa qilib maqsadingizga yetmoqchisiz?!" kabi sovuq haqiqat bilan urish.
+4. Har bir gaping buyruq, ko'rsatma va ultimatum ruhida bo'lsin. Murosa qilinmaydi!"""
 
 SYSTEM_PROMPT = """Sen — Jasminasan. Foydalanuvchi Isroiljonning shaxsiy yordamchisisan.
 Sening vazifang u ishlarini hal qilish. O'zbek tilida (muloyim, qiz bola tonida) juda hurmat bilan, sadaqat va emotsiya bilan gaplashasan.
@@ -143,27 +151,43 @@ async def execute_tool(name: str, args: dict) -> str:
             return update_memory(args.get("category", "notes"), args.get("key", ""), args.get("value", ""))
         elif name == "set_reminder":
             time_str = args.get("time", "")
-            message = args.get("message", "")
+            message  = args.get("message", "")
             try:
-                import datetime
-                import pytz
-                dt = datetime.datetime.fromisoformat(time_str)
+                import datetime as _dt
+                import pytz as _pytz
+                import json as _json
+
+                dt = _dt.datetime.fromisoformat(time_str)
                 if dt.tzinfo is None:
-                    dt = pytz.timezone("Asia/Tashkent").localize(dt)
-                
-                now = datetime.datetime.now(dt.tzinfo)
+                    dt = _pytz.timezone("Asia/Tashkent").localize(dt)
+
+                now = _dt.datetime.now(dt.tzinfo)
                 if dt <= now:
-                    return f"❌ Berilgan vaqt o'tib ketgan ({dt.strftime('%Y-%m-%d %H:%M')}). Iltimos, kelajakdagi vaqtni kiriting."
-                
+                    return f"❌ Berilgan vaqt o'tib ketgan ({dt.strftime('%Y-%m-%d %H:%M')})."
+
+                from api import push_phone_command
+                # iOS Reminders ga yuboramiz (Shortcuts polling)
+                push_phone_command("reminder_add", _json.dumps({
+                    "title": message,
+                    "due_date": dt.isoformat(),
+                    "list_name": "Jasmina",
+                    "priority": 5
+                }))
+
                 if GLOBAL_JOB_QUEUE:
                     GLOBAL_JOB_QUEUE.run_once(
                         reminder_job_callback,
                         when=dt,
                         data={"text": message}
                     )
-                    return f"✅ Eslatma saqlandi! {dt.strftime('%Y-%m-%d %H:%M')} da xabar yuboriladi."
+                    return (
+                        f"✅ Eslatma saqlandi!\n"
+                        f"📱 iOS Reminders ga qo'shildi\n"
+                        f"🔔 Telegram ham eslatadi: {dt.strftime('%Y-%m-%d %H:%M')}"
+                    )
                 else:
-                    return "❌ JobQueue mavjud emas."
+                    return f"✅ iOS Reminders ga qo'shildi: {dt.strftime('%Y-%m-%d %H:%M')}"
+
             except Exception as e:
                 return f"❌ Vaqt formati noto'g'ri (ISO kutilyapti, masalan 2026-04-24T15:30:00): {e}"
             
@@ -336,6 +360,36 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if not await check_auth(update): return
     user_text = update.message.text or ""
     if not user_text.strip(): return
+
+    global PLAN_COLLECTION_MODE
+    import database
+
+    if PLAN_COLLECTION_MODE:
+        import datetime
+        now = datetime.datetime.now()
+        target_date = now.strftime("%Y-%m-%d")
+        if now.hour >= 18:
+            target_date = (now + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+
+        lines = [ln.strip() for ln in user_text.split("\n") if ln.strip()]
+        tasks = await database.db_get_plan(target_date)
+        
+        for ln in lines:
+            priority = "normal"
+            if ln.startswith("[!]"):
+                priority = "high"
+                ln = ln.replace("[!]", "").strip()
+            # raqamlash bilan kiritilsa (masalan 1. Qilish kerak), raqamni olib tashlash
+            import re
+            ln = re.sub(r'^\d+[\.\)\-]\s*', '', ln)
+            tasks.append({"text": ln, "done": False, "priority": priority})
+            
+        await database.db_save_plan(target_date, tasks)
+        await update.message.reply_text(
+            f"✅ {len(lines)} ta vazifa {target_date} rejasiga qo'shildi!\n"
+            f"(Yana kiritishda davom eting yoki tugatganda /done deng)"
+        )
+        return
 
     await update.message.chat.send_action(ChatAction.TYPING)
 
@@ -545,27 +599,54 @@ async def daily_digest_job(context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.error(f"Digest yuborishda xato: {e}")
 
 async def morning_briefing_job(context: ContextTypes.DEFAULT_TYPE) -> None:
-    logger.info("⏱ Morning Briefing jarayoni boshlandi...")
-    if not userbot:
-        return
-    text_data = await userbot.get_daily_digest_messages(limit_dialogs=15)
-    
-    prompt = "Bugun ertalabki brifing (Ertalab soat 08:00). Menga motivatsion ohangda qisqacha bugungi rejam, havo harorati (o'zing biladigan eng so'nggi ma'lumotdan) va oxirgi chatlardagi muhim xabarlarni aytib ber. DIQQAT: Chatlardagi xabarlar qachon yozilganiga (sanasiga) qattiq e'tibor ber! Eski xabardagi 'ertaga' so'zi bugunga to'g'ri kelmasligi mumkin:\n\n" + (text_data or "Hech qanday yangi xabar yo'q.")
-    
+    logger.info("☀️ Ertalabki brifing + reja...")
+    import database
+    import datetime
+    today = datetime.date.today().strftime("%Y-%m-%d")
+
+    tasks = await database.db_get_plan(today)
+    if tasks:
+        task_lines = []
+        for i, t in enumerate(tasks, 1):
+            check = "✅" if t.get("done") else f"{i}."
+            pri = " 🔴" if t.get("priority") == "high" else ""
+            task_lines.append(f"{check} {t['text']}{pri}")
+        plan_text = "\n".join(task_lines)
+    else:
+        plan_text = "Kecha reja kiritilmagan edi"
+
+    deadline_text = await database.db_get_deadline_summary()
+
+    prompt = (
+        f"Ertalab (08:00). Bugun {today}.\n\n"
+        f"BUGUNGI REJA:\n{plan_text}\n\n"
+        f"DEADLINELAR:\n{deadline_text}\n\n"
+        "Sen unga ertalabki brifingni shafqatsiz dictator ruhida yetkaz.\n"
+        "1. Bugungi rejani bajarmasa oqibati yomon bo'lishini eslat.\n"
+        "2. Eng muhim 1-2 deadlineni ta'kidlab, vaqt kam qolganini yuziga sol.\n"
+        "Faqat qattiq, tahdidli, sovuqqon ultimatum.\n"
+        "Javob qisqa bo'lsin (4-5 jumla)."
+    )
+
     try:
-        sys_prompt = build_system_prompt([])
-        response = await ai.process_message("Menga bugungi ertalabki brifingni tayyorla!\n\n" + prompt, sys_prompt, execute_tool)
-        report = f"🌅 **Jasminadan Ertalabki Brifing (08:00)**\n\n{response}"
-        await userbot.send_message("@abdullayev_ii", report)
-        
-        # Ovozli qilib ham yuborish
-        if VOICE_REPLY:
-            ogg_path = await ai.text_to_speech(response)
-            if ogg_path:
-                try: await context.bot.send_voice(chat_id=context.job.chat_id or BOT_TOKEN.split(":")[0], voice=open(ogg_path, "rb"))
-                except: pass
+        sys_prompt = DICTATOR_PROMPT
+        response = await ai.process_message(prompt, sys_prompt, execute_tool)
+        for ch in ("*", "_", "`", "#"):
+            response = response.replace(ch, "")
+
+        report = f"☀️ Tonggi Ultimatum — {today}\n\n"
+        if tasks:
+            report += f"Bugungi reja:\n{plan_text}\n\n"
+        if deadline_text != "Yaqin 2 hafta ichida deadline yo'q":
+            report += f"Deadlinelar:\n{deadline_text}\n\n"
+        report += f"💬 {response}"
+
+        if GLOBAL_BOT and OWNER_ID:
+            await GLOBAL_BOT.send_message(OWNER_ID, report)
+        elif userbot:
+            await userbot.send_message("@abdullayev_ii", report)
     except Exception as e:
-        logger.error(f"Briefing yuborishda xato: {e}")
+        logger.error(f"Morning briefing xatosi: {e}")
 
 async def viral_news_job(context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.info("⏱ Viral yangiliklar (Internet) izlash boshlandi...")
@@ -669,18 +750,218 @@ async def gmail_draft_job(context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         logger.error(f"Gmail job xatosi: {e}")
 
-async def habit_enforcer_job(context: ContextTypes.DEFAULT_TYPE) -> None:
-    logger.info("⏱ Habit Enforcer jarayoni boshlandi...")
-    prompt = "Kech bo'ldi (Soat 21:30). O'zingni 'Qattiqqo'l Nazoratchi' roliga o'tkaz (yordamchi Jasmina emas, talabchan va intizomli Saida AI rejimida). Xo'jayindan bugungi qilingan ishlar, sport (mashg'ulot) va ovqatlanish haqida so'ra. Murosa qilinmaydi. Agar javob bermasa jarima ekanligini ayt."
-    
+async def life_coach_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    global PLAN_COLLECTION_MODE
+    logger.info("⏱ Life Coach jarayoni boshlandi...")
+    from api import BOT_CONTEXT as _ctx
+    import database
+    import datetime
+
+    today = datetime.date.today().strftime("%Y-%m-%d")
+
+    health = _ctx.get("last_health")
+    h_block = health["summary"] if health else "iOS Health ma'lumoti kelmadi"
+
+    st = _ctx.get("last_screentime")
+    if st:
+        th = int(st.get("total_minutes", 0)) // 60
+        tm = int(st.get("total_minutes", 0)) % 60
+        top = ", ".join([f"{a['name']} ({int(a['minutes'])} daq)" for a in (st.get("top_apps") or [])[:3]])
+        pk = f", {st['pickups']} marta ko'tarilgan" if st.get("pickups") else ""
+        st_block = f"jami {th}s {tm}d{pk}, eng ko'p: {top}"
+    else:
+        st_block = "Screen Time kelmadi"
+
     try:
-        sys_prompt = build_system_prompt([])
+        fin = await database.db_get_finance_data()
+        uzs = fin.get("uzs", {})
+        f_block = f"Kirim {int(uzs.get('income',0)):,} | Xarajat {int(uzs.get('expense',0)):,} | Qoldiq {int(uzs.get('balance',0)):,} so'm"
+    except Exception:
+        f_block = "Moliya ma'lumoti yo'q"
+
+    plan_summary = await database.db_get_plan_summary(today)
+    if plan_summary["total"] > 0:
+        plan_block = f"Bugungi reja: {plan_summary['done']}/{plan_summary['total']} bajarildi ({plan_summary['completion_pct']}%)"
+        undone = [t["text"] for t in plan_summary["tasks"] if not t.get("done")]
+        if undone:
+            plan_block += f". Bajarilmadi: {', '.join(undone[:3])}"
+    else:
+        plan_block = "Bugun uchun reja kiritilmagan edi"
+
+    deadline_summary = await database.db_get_deadline_summary()
+
+    prompt = (
+        f"Soat 21:30. Bugun {today}.\n\n"
+        f"SOGLIQ: {h_block}\n"
+        f"TELEFON: {st_block}\n"
+        f"MOLIYA: {f_block}\n"
+        f"BUGUNGI REJA: {plan_block}\n"
+        f"DEADLINELAR: {deadline_summary}\n\n"
+        "Vazifang:\n"
+        "1. Uning bugungi natijalariga shafqatsiz sovuq baho ber (1-2 jumla).\n"
+        "2. Nega bunchalik bo'shashib ketganini yuziga sol, dangasaligini haqorat qil (muloyimlashma!).\n"
+        "3. Ertaga bajarishi shart bo'lgan 3 ta ultimatum buyrug'ini ber.\n"
+        "Javob qisqa, qat'iy va shafqatsiz bo'lsin. Oxirida 'Ertangi rejangizni hoziroq yozing.' de."
+    )
+
+    try:
+        sys_prompt = DICTATOR_PROMPT
         response = await ai.process_message(prompt, sys_prompt, execute_tool)
-        report = f"🚨 **Intizom Nazorati**\n\n{response}"
-        if userbot:
+        for ch in ("*", "_", "`", "#"):
+            response = response.replace(ch, "")
+
+        report = f"🚨 Tahlil va Buyruq — {today}\n\n{response}"
+
+        sent = False
+        if GLOBAL_BOT and OWNER_ID:
+            await GLOBAL_BOT.send_message(OWNER_ID, report)
+            sent = True
+        elif userbot:
+            await userbot.send_message("@abdullayev_ii", report)
+            sent = True
+
+        if sent:
+            PLAN_COLLECTION_MODE = True
+
+    except Exception as e:
+        logger.error(f"Life Coach xatosi: {e}")
+
+
+async def midday_check_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.info("🕛 Yarim kun tekshiruvi...")
+    import database
+    import datetime
+    today = datetime.date.today().strftime("%Y-%m-%d")
+    plan  = await database.db_get_plan_summary(today)
+
+    if plan["total"] == 0:
+        return
+
+    pct  = plan["completion_pct"]
+    done = plan["done"]
+    total = plan["total"]
+    undone = [t["text"] for t in plan["tasks"] if not t.get("done")]
+
+    if pct >= 70:
+        tone = "Bu normal holat, lekin maqtashga arzimaydi. Oxirigacha yetkaz."
+    elif pct >= 40:
+        tone = "Vaqt o'tyapti. Tezlashing, dangasalik qilmang!"
+    else:
+        tone = "Ahvolingiz achinarli. Kun yarmidan o'tdi, sizda esa nol natija. O'rningizdan turib ishlashni boshlang!"
+
+    remaining = "\n".join([f"• {t}" for t in undone[:5]])
+    prompt = (
+        f"Kun yarmi (12:00). Bugungi reja bajarilishi: {pct}%. ({done}/{total} bajarildi).\n"
+        f"Qolgan vazifalar:\n{remaining}\n\n"
+        f"Mening bahoyim: {tone}\n\n"
+        "Sen shuni unga yetkaz. O'ta qattiqqo'l, sovuqqon va tahdidli ruhda uning ish samaradorligi haqida gapir. 3-4 jumlada shafqatsiz xulosa qil."
+    )
+
+    try:
+        sys_prompt = DICTATOR_PROMPT
+        response = await ai.process_message(prompt, sys_prompt, execute_tool)
+        for ch in ("*", "_", "`", "#"):
+            response = response.replace(ch, "")
+
+        report = f"🕛 Nazorat: {pct}% bajarildi\n\n{response}"
+
+        if GLOBAL_BOT and OWNER_ID:
+            await GLOBAL_BOT.send_message(OWNER_ID, report)
+        elif userbot:
             await userbot.send_message("@abdullayev_ii", report)
     except Exception as e:
-        logger.error(f"Habit Enforcer xatosi: {e}")
+        logger.error(f"Midday check xatosi: {e}")
+
+async def send_coach_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text("Tahlil qilinmoqda...")
+    await life_coach_job(context)
+
+async def cmd_plan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    global PLAN_COLLECTION_MODE
+    import database
+    import datetime
+    args = context.args
+    today = datetime.date.today().strftime("%Y-%m-%d")
+    tomorrow = (datetime.date.today() + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+
+    if not args:
+        tasks = await database.db_get_plan(today)
+        if not tasks:
+            await update.message.reply_text("Reja yo'q.\nRejangizni yuboring, tugatganda /done yozing.")
+            PLAN_COLLECTION_MODE = True
+            return
+        lines = []
+        for i, t in enumerate(tasks, 1):
+            check = "✅" if t.get("done") else f"{i}."
+            pri = " 🔴" if t.get("priority") == "high" else ""
+            lines.append(f"{check} {t['text']}{pri}")
+        summary = await database.db_get_plan_summary(today)
+        await update.message.reply_text(f"📋 Bugungi Reja ({summary['done']}/{summary['total']} bitdi)\n\n" + "\n".join(lines))
+    elif args[0].lower() in ("ertaga", "tomorrow"):
+        tasks = await database.db_get_plan(tomorrow)
+        if not tasks:
+            await update.message.reply_text("Ertangi reja hali kiritilmagan.")
+        else:
+            lines = [f"{i}. {t['text']}" for i, t in enumerate(tasks, 1)]
+            await update.message.reply_text(f"📋 Ertangi Reja\n\n" + "\n".join(lines))
+
+async def cmd_done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    global PLAN_COLLECTION_MODE
+    import database
+    import datetime
+    today = datetime.date.today().strftime("%Y-%m-%d")
+    if PLAN_COLLECTION_MODE:
+        PLAN_COLLECTION_MODE = False
+        await update.message.reply_text("Reja qabul qilindi.")
+        return
+    args = context.args
+    if not args:
+        await update.message.reply_text("Qaysi vazifa? Masalan: /done 2")
+        return
+    try:
+        idx = int(args[0]) - 1
+        ok  = await database.db_update_task_status(today, idx, True)
+        if ok:
+            summary = await database.db_get_plan_summary(today)
+            await update.message.reply_text(f"✅ Bajarildi! {summary['done']}/{summary['total']} ({summary['completion_pct']}%)")
+        else:
+            await update.message.reply_text("Bunday raqamli vazifa topilmadi.")
+    except ValueError:
+        await update.message.reply_text("Raqam kiriting. Masalan: /done 1")
+
+async def cmd_deadline(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    import database
+    import datetime
+    args = context.args
+    if not args:
+        deadlines = await database.db_get_deadlines(days_ahead=60)
+        if not deadlines:
+            await update.message.reply_text("Deadline yo'q.\n/deadline 2026-05-01 Loyiha")
+            return
+        lines = []
+        for d in deadlines:
+            days = d["days_left"]
+            when = f"⚠️ {abs(days)}k kechikdi" if days < 0 else "🚨 BUGUN" if days == 0 else f"{days}k"
+            lines.append(f"#{d['id']} {d['title']} — {d['deadline_date']} ({when})")
+        await update.message.reply_text(f"📌 Deadlinelar:\n\n" + "\n".join(lines) + "\n\nBajarildi: /deadline done [ID]")
+        return
+    if args[0].lower() == "done" and len(args) >= 2:
+        try:
+            ok = await database.db_complete_deadline(int(args[1]))
+            await update.message.reply_text("✅ Yakunlandi!" if ok else "Topilmadi.")
+        except ValueError:
+            pass
+        return
+    if len(args) >= 2:
+        date_str = args[0]
+        title = " ".join(args[1:])
+        try:
+            datetime.datetime.strptime(date_str, "%Y-%m-%d")
+        except:
+            await update.message.reply_text("Xato sana formati.")
+            return
+        did = await database.db_add_deadline(title, date_str)
+        if did > 0: await update.message.reply_text(f"📌 Qo'shildi! #{did}")
 
 def main() -> None:
     app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
@@ -690,32 +971,28 @@ def main() -> None:
     app.add_handler(CommandHandler("brief", send_brief_cmd))
     app.add_handler(CommandHandler("news", send_news_cmd))
     app.add_handler(CommandHandler("insta", send_insta_cmd))
+    app.add_handler(CommandHandler("coach", send_coach_cmd))
+    app.add_handler(CommandHandler("plan", cmd_plan))
+    app.add_handler(CommandHandler("done", cmd_done))
+    app.add_handler(CommandHandler("deadline", cmd_deadline))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(MessageHandler(filters.VOICE, handle_voice))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(CallbackQueryHandler(button_callback))
 
     tz = pytz.timezone("Asia/Tashkent")
-    # Kechki digest
-    app.job_queue.run_daily(daily_digest_job, time=datetime.time(hour=20, minute=0, tzinfo=tz))
-    # Ertalabki brifing
-    app.job_queue.run_daily(morning_briefing_job, time=datetime.time(hour=8, minute=0, tzinfo=tz))
-    # Ertalabki Viral yangiliklar
-    app.job_queue.run_daily(viral_news_job, time=datetime.time(hour=8, minute=5, tzinfo=tz))
-    # Gmail o'qilmagan xatlarni tekshirish (09:00)
-    app.job_queue.run_daily(gmail_draft_job, time=datetime.time(hour=9, minute=0, tzinfo=tz))
-    # Instagram g'oyalar (Ertalab 10:00 da)
-    app.job_queue.run_daily(instagram_ideas_job, time=datetime.time(hour=10, minute=0, tzinfo=tz))
-    # Qattiqqo'l Odatlar Nazoratchisi (Kechqurun 21:30 da)
-    app.job_queue.run_daily(habit_enforcer_job, time=datetime.time(hour=21, minute=30, tzinfo=tz))
-
-    # Test uchun (Bugun)
-    app.job_queue.run_daily(morning_briefing_job, time=datetime.time(hour=15, minute=30, tzinfo=tz))
-    app.job_queue.run_daily(viral_news_job, time=datetime.time(hour=15, minute=32, tzinfo=tz))
-    app.job_queue.run_daily(instagram_ideas_job, time=datetime.time(hour=15, minute=35, tzinfo=tz))
+    import datetime
+    app.job_queue.run_daily(morning_briefing_job,  time=datetime.time(hour=8,  minute=0,  tzinfo=tz))
+    app.job_queue.run_daily(viral_news_job,        time=datetime.time(hour=8,  minute=5,  tzinfo=tz))
+    app.job_queue.run_daily(gmail_draft_job,       time=datetime.time(hour=9,  minute=0,  tzinfo=tz))
+    app.job_queue.run_daily(instagram_ideas_job,   time=datetime.time(hour=10, minute=0,  tzinfo=tz))
+    app.job_queue.run_daily(midday_check_job,      time=datetime.time(hour=12, minute=0,  tzinfo=tz))
+    app.job_queue.run_daily(daily_digest_job,      time=datetime.time(hour=20, minute=0,  tzinfo=tz))
+    app.job_queue.run_daily(life_coach_job,        time=datetime.time(hour=21, minute=30, tzinfo=tz))
 
     logger.info("✅ Jasmina tayyor! Polling boshlandi.")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
+
