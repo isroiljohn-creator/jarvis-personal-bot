@@ -86,7 +86,7 @@ Imkoniyatlaring (Tools):
 QOIDALAR:
 1. Faqat O'zbek tilida, sovuqqon va qat'iy qo'mondon tonida javob ber. Hech qanday keraksiz emojilar va yumshoq so'zlar ishlatma.
 2. "Deep Research" yozsa avval web_search so'ng scrape_website qil. YouTube havolasi tashlansa albatta youtube_transcript orqali uni tahlil qilib xulosa ber.
-3. Instagramdan viral videolar qidirish buyurilsa, `insta_get_niche_trends` orqali trendlarni top va har bir mos keladigan video uchun `insta_download_media` orqali videoni yuklab yubor. Shunchaki havola berish yetarli emas, videoning o'zi yuborilishi shart!
+3. Instagramdan viral videolar qidirish buyurilsa, `insta_get_niche_trends` orqali trendlarni top. Topilgan videolarni yuklashga urinma (insta_download_media ishlatma), chunki API bloklangan bo'lishi mumkin. Shunchaki ularning to'g'ridan-to'g'ri havolalarini (URL) yozib, tahlil va ssenariylarni taqdim et.
 4. Moliyaviy tizimda "Dollar", "$", "bucks" ishlatganda currency "USD", "so'm", "ming" deganda "UZS" ga yoz. Va "naqd" yoki "karta" yordamida to'langanligiga e'tibor qil. Agar mavhum bo'lsa default: "karta", "UZS".
 5. Har bir gaping qisqa, aniq va ultimatum/buyruq ohangida bo'lsin. Hech qachon "yaxshi dam oling" kabi bo'shashtiradigan gaplar gapirma, faqat qachon ishga qaytishini va aniq rejani so'ra.
 """
@@ -748,11 +748,12 @@ async def instagram_ideas_job(context: ContextTypes.DEFAULT_TYPE) -> None:
             data = "Instagram API hozircha mavjud emas (Login/Proxy muammosi). Ochiq internetdan trendlarni izla."
 
         prompt = (
-            "Sen Instagramdan bir nechta heshteglar bo'yicha viral postlar ro'yxatini olding.\n"
+            "Sen Instagramdan bir nechta heshteglar bo'yicha viral postlar ro'yxatini (URL havolalari bilan) olding.\n"
             "VAZIFANG:\n"
-            "1. Har bir viral post uchun nima uchun viral bo'lganini (prosmotr yig'ganini) tushuntir.\n"
-            "2. Isroiljon uchun har biridan 1 tadan yangi KONTENT PLAN (ssenariy) tuz.\n"
-            "3. Agar havola mavjud bo'lsa, `insta_download_media` orqali videoni ham yuklab yubor.\n\n"
+            "1. Har bir viral postning asl havolasini (URL) bering, shunda Isroiljon uni ustiga bosib ko'rishi mumkin.\n"
+            "2. Nima uchun viral bo'lganini (prosmotr yig'ganini) tushuntir.\n"
+            "3. Isroiljon uchun har biridan 1 tadan yangi KONTENT PLAN (ssenariy) tuz.\n"
+            "MUHIM: Videolarni yuklab olishga urinma (`insta_download_media` asbobini chaqirma), faqat havolasini matn ichida qoldir!\n\n"
             f"{data}"
         )
         
