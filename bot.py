@@ -734,27 +734,25 @@ async def send_news_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 async def instagram_ideas_job(context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.info("⏱ Instagram Niche Ideas jarayoni boshlandi...")
     try:
-        data = await cloud.insta_get_niche_trends("biznes", limit=3)
+        # Bir nechta heshteglar bo'yicha qidiramiz
+        hashtags = ["AI", "biznes", "uzbekistan"]
+        all_data = []
+        for tag in hashtags:
+            tag_data = await cloud.insta_get_niche_trends(tag, limit=2)
+            all_data.append(f"#{tag} trendlari:\n{tag_data}")
         
-        if "❌" in data:
-            # Xatolikni to'g'ridan-to'g'ri userga yetkazamiz (o'ylab topmasligi uchun)
-            report = f"⚠️ **Instagram bilan muammo:**\n\n{data}\n\n**Izoh:** Bepul proxylar ishlamadi yoki IP bloklangan. Jonli videolarni olish uchun Pullik Proxy ulanishi shart."
-            try:
-                if context.job and context.job.chat_id:
-                    await context.bot.send_message(context.job.chat_id, report.replace("**", "*"), parse_mode="Markdown")
-                elif userbot:
-                    await userbot.send_message("@abdullayev_ii", report)
-            except:
-                if context.job and context.job.chat_id:
-                    await context.bot.send_message(context.job.chat_id, report)
-            return
+        data = "\n\n".join(all_data)
+        
+        if not data or "❌" in data:
+            logger.warning("Instagram API ishlamadi, kundalik job ochiq internet qidiruviga o'tadi.")
+            data = "Instagram API hozircha mavjud emas (Login/Proxy muammosi). Ochiq internetdan trendlarni izla."
 
         prompt = (
-            "Sen Instagramdan '#biznes' heshtegi bo'yicha so'nggi eng zo'r viral postlarni olding.\n"
+            "Sen Instagramdan bir nechta heshteglar bo'yicha viral postlar ro'yxatini olding.\n"
             "VAZIFANG:\n"
-            "1. Har bir viral post uchun `insta_download_media` toolini chaqirib, videoning o'zini Isroiljon uchun yuklab ber.\n"
-            "2. Har bir video uchun virallik sababini tushuntir va shu asosida 1 tadan tayyor KONTENT PLAN (ssenariy) tuzib ber.\n"
-            "Isroiljon kutib o'tirmasligi kerak, videolarni darhol yuklab yubor!\n\n"
+            "1. Har bir viral post uchun nima uchun viral bo'lganini (prosmotr yig'ganini) tushuntir.\n"
+            "2. Isroiljon uchun har biridan 1 tadan yangi KONTENT PLAN (ssenariy) tuz.\n"
+            "3. Agar havola mavjud bo'lsa, `insta_download_media` orqali videoni ham yuklab yubor.\n\n"
             f"{data}"
         )
         
