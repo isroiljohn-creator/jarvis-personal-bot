@@ -71,6 +71,7 @@ class CloudHub:
     # Instagrapi har doim birdan ulanishni yomon ko'radi (block bo'lishi mumkin). 
     # Shuning uchun uni alohida async tarzda chaqirganimiz ma'qul.
     async def _init_instagram(self):
+        """Instagram sessiyasini boshlash (Login + Proxy)."""
         if self._insta:
             return self._insta
 
@@ -80,32 +81,26 @@ class CloudHub:
 
         try:
             from instagrapi import Client
-            import requests
             cl = Client()
             
-            # PROXY ROTATOR (User "proxyni hal qil" degani uchun)
-            # Railway IP si bloklangani uchun bepul proxy ishlatamiz.
-            # Agar foydalanuvchi PROXY_URL kiritgan bo'lsa, uni ishlatamiz.
-            proxy_env = os.environ.get("PROXY_URL")
-            if proxy_env:
-                cl.set_proxy(proxy_env)
-                logger.info(f"🔒 Custom Proxy o'rnatildi: {proxy_env}")
+            # PROXY sozlash
+            proxy_url = os.environ.get("PROXY_URL")
+            if proxy_url:
+                logger.info("🌐 Instagram uchun proksi o'rnatilmoqda...")
+                cl.set_proxy(proxy_url)
             else:
-                logger.info("🔄 Bepul proxy qidirilmoqda...")
-                try:
-                    res = requests.get("https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=5000&country=all&ssl=all&anonymity=all", timeout=10)
-                    proxies = res.text.strip().split("\n")
-                    if proxies:
-                        proxy_url = f"http://{proxies[0].strip()}"
-                        cl.set_proxy(proxy_url)
-                        logger.info(f"✅ Bepul proxy o'rnatildi: {proxy_url}")
-                except Exception as e:
-                    logger.warning(f"Bepul proxy olishda xato: {e}")
-
+                logger.warning("⚠️ PROXY_URL topilmadi. Instagram ulanishi bloklanishi mumkin.")
+            
+            # Login (to_thread orqali bloklanishdan qochamiz)
+            logger.info(f"🔐 Instagramga kirish: {INSTA_USERNAME}...")
             await asyncio.to_thread(cl.login, INSTA_USERNAME, INSTA_PASSWORD)
+            
             self._insta = cl
             logger.info("✅ Instagram ulandi.")
             return cl
+        except Exception as e:
+            logger.error(f"❌ Instagram login xatosi: {e}")
+            return None
         except ImportError:
             logger.warning("❌ instagrapi o'rnatilmagan.")
             return None
