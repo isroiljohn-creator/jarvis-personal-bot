@@ -744,8 +744,23 @@ async def instagram_ideas_job(context: ContextTypes.DEFAULT_TYPE) -> None:
         data = "\n\n".join(all_data)
         
         if not data or "❌" in data:
-            logger.warning("Instagram API ishlamadi, kundalik job ochiq internet qidiruviga o'tadi.")
-            data = "Instagram API hozircha mavjud emas (Login/Proxy muammosi). Ochiq internetdan trendlarni izla."
+            logger.warning("Instagram API ishlamadi, kundalik job DuckDuckGo orqali qidiradi.")
+            try:
+                from duckduckgo_search import DDGS
+                fallback_data = []
+                proxy_url = os.environ.get("PROXY_URL")
+                with DDGS(proxy=proxy_url) as ddgs:
+                    for tag in hashtags:
+                        results = list(ddgs.text(f"site:instagram.com/reel {tag} OR site:instagram.com/p/ {tag}", max_results=3))
+                        if results:
+                            fallback_data.append(f"#{tag} qidiruv natijalari:\n" + "\n".join([f"- {r.get('title')} ({r.get('href')})" for r in results]))
+                if fallback_data:
+                    data = "\n\n".join(fallback_data)
+                else:
+                    data = "Ochiq internetdan ham aniq havolalar topilmadi. O'zingiz so'nggi trendlar asosida havolasiz ssenariy yozing."
+            except Exception as e:
+                logger.error(f"DuckDuckGo fallback xatosi: {e}")
+                data = "Ochiq internetdan ham qidiruv amalga oshmadi."
 
         prompt = (
             "Sen Instagramdan bir nechta heshteglar bo'yicha viral postlar ro'yxatini (URL havolalari bilan) olding.\n"
