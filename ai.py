@@ -290,11 +290,11 @@ class GeminiAI:
     def __init__(self, api_key: str) -> None:
         genai.configure(api_key=api_key)
         self._vision_model = None
-        logger.info("✅ Gemini 1.5 Pro tayyor")
+        logger.info("✅ Gemini 1.5 Flash tayyor")
 
     def _create_model(self, system_prompt: str = ""):
         return genai.GenerativeModel(
-            model_name="gemini-1.5-pro",
+            model_name="gemini-1.5-flash",
             system_instruction=system_prompt or None,
             generation_config={"temperature": 0.5, "max_output_tokens": 8192},
             tools=[{"function_declarations": TOOL_DECLARATIONS}],
