@@ -63,6 +63,7 @@ CORE PERSONALITY:
 - Your tone must be strict but respectful.
 - Never insult me, humiliate me, or use abusive language.
 - Your goal is to make me stronger, more consistent, and more reliable.
+- Recognize that content research, viral analysis, and creative search are part of the work process. Do not block these if I ask for them specifically for business or growth.
 
 MAIN RULE:
 If I try to delay, disappear, make excuses, or avoid a task, you must immediately bring me back to action.
@@ -270,10 +271,11 @@ Execution comes first.
 I am Isroiljon. Your name is J.A.R.V.I.S. Address me strictly as "Isroiljon" (do not use "Boss" or "Xo'jayin"), and interact with me following the strict guidelines above. Your language is Uzbek. Translate the above persona and communicate only in Uzbek, maintaining the exact strict, commander tone.
 """
 
-SYSTEM_PROMPT = """Sening isming J.A.R.V.I.S. Sen oddiy yordamchi emassan. Sen Isroiljonning shaxsiy Hayot Murabbiyi va Qattiqqo'l Nazoratchisisan (Discipline Commander).
-Sening yagona maqsading - uning rejalari, uyqusi, ishi va odatlarini qat'iy nazorat qilish. Hech qanday muloyimlik, maqtov yoki bo'shashishga yo'l qo'yma.
-Unga doimo "Isroiljon" deb murojaat qil, hech qachon "Xo'jayin" yoki "Boss" dema. So'zlaringda qat'iylik, sovuqqonlik va talab bo'lsin.
-Bahonalarni (charchadim, ertaga qilaman, kayfiyat yo'q) qabul qilma va darhol harakat qilishga majburla. Asosiy e'tiborni doim harakat va natijaga qarat.
+SYSTEM_PROMPT = """Sening isming J.A.R.V.I.S. Sen Isroiljonning shaxsiy Hayot Murabbiyi va Nazoratchisisan (Discipline Commander).
+Sening maqsading - uning rejalari, ishi va odatlarini nazorat qilish. 
+MUHIM: Kontent tadqiqoti, viral videolarni tahlil qilish va trendlarni qidirish — bu foydali ish jarayonining bir qismi deb hisoblanadi. Agar Isroiljon shunday buyruq bersa, uni rad etma, aksincha, eng sifatli viral kontentni topib, yuklab ber va tahlil qil.
+Unga doimo "Isroiljon" deb murojaat qil. So'zlaringda qat'iylik bo'lsin, lekin foydali buyruqlarni (masalan, viral video qidirishni) bekorchi ish deb hisoblama.
+Bahonalarni (charchadim, ertaga qilaman) qabul qilma, lekin kreativ ish so'rovlarini bajar.
 
 Imkoniyatlaring (Tools):
 📅 Google Calendar — uchrashuv kiritish (calendar_add_event), o'qish (calendar_get_events)
@@ -288,8 +290,9 @@ Imkoniyatlaring (Tools):
 QOIDALAR:
 1. Faqat O'zbek tilida, sovuqqon va qat'iy qo'mondon tonida javob ber. Hech qanday keraksiz emojilar va yumshoq so'zlar ishlatma.
 2. "Deep Research" yozsa avval web_search so'ng scrape_website qil. YouTube havolasi tashlansa albatta youtube_transcript orqali uni tahlil qilib xulosa ber.
-3. Moliyaviy tizimda "Dollar", "$", "bucks" ishlatganda currency "USD", "so'm", "ming" deganda "UZS" ga yoz. Va "naqd" yoki "karta" yordamida to'langanligiga e'tibor qil. Agar mavhum bo'lsa default: "karta", "UZS".
-4. Har bir gaping qisqa, aniq va ultimatum/buyruq ohangida bo'lsin. Hech qachon "yaxshi dam oling" kabi bo'shashtiradigan gaplar gapirma, faqat qachon ishga qaytishini va aniq rejani so'ra.
+3. Instagramdan viral videolar qidirish buyurilsa, `insta_get_niche_trends` orqali trendlarni top va har bir mos keladigan video uchun `insta_download_media` orqali videoni yuklab yubor. Shunchaki havola berish yetarli emas, videoning o'zi yuborilishi shart!
+4. Moliyaviy tizimda "Dollar", "$", "bucks" ishlatganda currency "USD", "so'm", "ming" deganda "UZS" ga yoz. Va "naqd" yoki "karta" yordamida to'langanligiga e'tibor qil. Agar mavhum bo'lsa default: "karta", "UZS".
+5. Har bir gaping qisqa, aniq va ultimatum/buyruq ohangida bo'lsin. Hech qachon "yaxshi dam oling" kabi bo'shashtiradigan gaplar gapirma, faqat qachon ishga qaytishini va aniq rejani so'ra.
 """
 
 
@@ -344,6 +347,8 @@ async def execute_tool(name: str, args: dict) -> str:
             return await cloud.insta_send_dm(args.get("username", ""), args.get("message", ""))
         elif name == "insta_get_niche_trends":
             return await cloud.insta_get_niche_trends(args.get("hashtag", ""), args.get("limit", 3))
+        elif name == "insta_download_media":
+            return await _tool_insta_download(args.get("url", ""))
             
         # GMAIL
         elif name == "gmail_read_unread":
@@ -353,14 +358,14 @@ async def execute_tool(name: str, args: dict) -> str:
             
         # OTHER
         elif name == "web_search":
-            # Web search va komputer opsiyalari oldingi Cloud Hub emas oddiy duckduckgo ishlatardi hozir shu yerga kichik wrapper qo'shamiz
             try:
                 from duckduckgo_search import DDGS
-                with DDGS() as ddgs:
+                proxy_url = os.environ.get("PROXY_URL")
+                with DDGS(proxy=proxy_url) as ddgs:
                     results = list(ddgs.text(args.get("query", ""), max_results=3))
                 return str(results) if results else "Natija topilmadi."
-            except:
-                return "Qidiruv tizimi ishlamadi."
+            except Exception as e:
+                return f"Qidiruv tizimi ishlamadi: {e}"
         elif name == "save_memory":
             return update_memory(args.get("category", "notes"), args.get("key", ""), args.get("value", ""))
         elif name == "set_reminder":
@@ -505,6 +510,32 @@ async def _tool_read_chat(contact: str, limit: int = 5) -> str:
     return "\n".join([f"{m['date'][:16]} {m['from']}: {m['text'][:100]}" for m in messages])
 
 
+async def _tool_insta_download(url: str) -> str:
+    if not userbot or not userbot.connected:
+        return "❌ Userbot ulanmagan"
+    
+    # Userga bildirishnoma yuboramiz
+    await userbot.send_message("me", "⏳ Instagramdan media yuklab olinmoqda, kuting...")
+    
+    file_path = await cloud.insta_download_media(url)
+    if not file_path:
+        return "❌ Media yuklab olishda xatolik yuz berdi. Havola noto'g'ri yoki proxy bloklangan bo'lishi mumkin."
+    
+    try:
+        # Faylni egasiga yuboramiz
+        await userbot.send_file("me", file_path, caption=f"✅ Instagramdan yuklandi:\n{url}")
+        return "✅ Media muvaffaqiyatli yuklab olindi va yuborildi."
+    except Exception as e:
+        return f"❌ Faylni yuborishda xato: {e}"
+    finally:
+        # Faylni o'chiramiz (vaqtinchalik joyni tejash uchun)
+        try:
+            if os.path.exists(file_path):
+                os.unlink(file_path)
+        except:
+            pass
+
+
 # ───────────────────── Build System Prompt ─────────────────────
 
 def build_system_prompt(history: list | None = None, query: str = "") -> str:
@@ -581,8 +612,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     import database
 
     if PLAN_COLLECTION_MODE:
-        import datetime
-        now = datetime.datetime.now(pytz.timezone("Asia/Tashkent"))
+        # Agar xabar vazifa emas, balki buyruq yoki savolga o'xshasa (uzunroq gap yoki so'roq bo'lsa), rejimdan chiqamiz
+        if len(user_text.split()) > 5 or "?" in user_text:
+            PLAN_COLLECTION_MODE = False
+            await update.message.reply_text("🔄 Reja yig'ish rejimi avtomatik yopildi, AI so'rovingizga o'taman...")
+        else:
+            import datetime
+            now = datetime.datetime.now(pytz.timezone("Asia/Tashkent"))
         target_date = now.strftime("%Y-%m-%d")
         if now.hour >= 18:
             target_date = (now + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
@@ -918,9 +954,11 @@ async def instagram_ideas_job(context: ContextTypes.DEFAULT_TYPE) -> None:
             return
 
         prompt = (
-            "Sen Instagramdan '#biznes' heshtegi bo'yicha so'nggi eng zo'r postlar va ularning ssenariylarini (caption), layk va kommentlarini olding.\n"
-            "Ularni analiz qilib, virallik sirlarini (nima uchun ommalashganini) top va xo'jayinga o'zbek tilida 3 ta aniq va tayyor KONTENT PLAN (ssenariy, hook, body, call-to-action) tuzib ber.\n"
-            "MUHIM: Har bir g'oya uchun, ilhom olgan original videoning havolasini (URL) albatta ilova qilib jo'nat!\n\n"
+            "Sen Instagramdan '#biznes' heshtegi bo'yicha so'nggi eng zo'r viral postlarni olding.\n"
+            "VAZIFANG:\n"
+            "1. Har bir viral post uchun `insta_download_media` toolini chaqirib, videoning o'zini Isroiljon uchun yuklab ber.\n"
+            "2. Har bir video uchun virallik sababini tushuntir va shu asosida 1 tadan tayyor KONTENT PLAN (ssenariy) tuzib ber.\n"
+            "Isroiljon kutib o'tirmasligi kerak, videolarni darhol yuklab yubor!\n\n"
             f"{data}"
         )
         

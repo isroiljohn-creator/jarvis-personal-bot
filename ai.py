@@ -248,6 +248,17 @@ Har doim bu toolni telefon bilan bog'liq so'rovlarda chaqir!""",
         },
     },
     {
+        "name": "insta_download_media",
+        "description": "Instagramdan Reels, Video yoki Foto havolasi (URL) berilganda uni yuklab olib foydalanuvchiga yuboradi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "url": {"type": "STRING", "description": "Instagram media havolasi (URL)"}
+            },
+            "required": ["url"],
+        },
+    },
+    {
         "name": "gmail_read_unread",
         "description": "Gmail dan so'nggi o'qilmagan xatlarni o'qib keladi.",
         "parameters": {

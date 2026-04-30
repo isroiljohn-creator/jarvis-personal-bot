@@ -233,6 +233,20 @@ class UserBot:
             logger.error(f"Ovozli xabar xatosi: {e}")
             raise
 
+    async def send_file(self, chat_id: int, file_path: str, caption: str = "") -> None:
+        """Fayl yuborish (Video, Rasm, Dokument)."""
+        try:
+            await self.client.send_file(
+                chat_id,
+                file_path,
+                caption=caption,
+                parse_mode="md"
+            )
+            logger.info(f"📁 Fayl yuborildi → {chat_id}")
+        except Exception as e:
+            logger.error(f"Fayl yuborish xatosi: {e}")
+            raise
+
     # ─────────────────── O'qilmagan xabarlar ───────────────────
 
     async def get_unread(self) -> list[dict[str, Any]]:

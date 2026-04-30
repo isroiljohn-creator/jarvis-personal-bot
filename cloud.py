@@ -285,6 +285,43 @@ class CloudHub:
         except Exception as e:
             return f"❌ Instagram qidiruvida xato: {e}"
 
+    async def insta_download_media(self, url: str) -> str | None:
+        """Instagramdan video yoki rasmni yuklab oladi va fayl yo'lini qaytaradi."""
+        cl = await self._init_instagram()
+        if not cl:
+            return None
+            
+        try:
+            import tempfile
+            from pathlib import Path
+            
+            # Vaqtinchalik papka yaratamiz
+            temp_dir = Path(tempfile.gettempdir()) / "jarvis_insta"
+            temp_dir.mkdir(exist_ok=True)
+            
+            def download():
+                # instagrapi avtomatik video yoki photo ekanligini aniqlaydi va yuklaydi
+                # video_download_by_url video yuklaydi, lekin agar rasta bo'lsa xato berishi mumkin
+                # Shuning uchun media_info orqali tekshirish yaxshiroq, lekin by_url qulayroq.
+                
+                # Reels/Video uchun:
+                if "/reels/" in url or "/p/" in url or "/tv/" in url:
+                    try:
+                        # video_download_by_url returns Path
+                        path = cl.video_download_by_url(url, folder=temp_dir)
+                        return str(path)
+                    except Exception as e:
+                        logger.warning(f"Video download xatosi, rasm sifatida urinib ko'ramiz: {e}")
+                        path = cl.photo_download_by_url(url, folder=temp_dir)
+                        return str(path)
+                return None
+                
+            file_path = await asyncio.to_thread(download)
+            return file_path
+        except Exception as e:
+            logger.error(f"❌ Instagram yuklashda xato: {e}")
+            return None
+
     # ─────────────────── GMAIL (IMAP / SMTP) ───────────────────
 
     async def gmail_read_unread(self, limit: int = 5) -> str:
