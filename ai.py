@@ -290,7 +290,7 @@ class GeminiAI:
     def __init__(self, api_key: str) -> None:
         genai.configure(api_key=api_key)
         self._vision_model = None
-        logger.info("✅ Gemini 2.0 Flash tayyor")
+        logger.info("✅ Gemini 1.5 Pro tayyor")
 
     def _create_model(self, system_prompt: str = ""):
         return genai.GenerativeModel(
