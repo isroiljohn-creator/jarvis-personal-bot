@@ -294,7 +294,7 @@ class GeminiAI:
 
     def _create_model(self, system_prompt: str = ""):
         return genai.GenerativeModel(
-            model_name="gemini-2.5-pro",
+            model_name="gemini-1.5-pro",
             system_instruction=system_prompt or None,
             generation_config={"temperature": 0.5, "max_output_tokens": 8192},
             tools=[{"function_declarations": TOOL_DECLARATIONS}],
