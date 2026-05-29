@@ -519,6 +519,174 @@ Har doim bu toolni telefon bilan bog'liq so'rovlarda chaqir!""",
             },
         },
     },
+
+    # ── MONITORING TOOLLAR ──
+    {
+        "name": "add_monitor_url",
+        "description": "Sayt yoki API URL ni uptime kuzatuvga qo'shish. 'bu saytni kuzat', 'uptime tekshir' so'rovlarida.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "url": {"type": "STRING", "description": "Kuzatiladigan URL (https://...)"},
+                "name": {"type": "STRING", "description": "Sayt nomi (masalan: Nuvi Academy)"},
+            },
+            "required": ["url", "name"],
+        },
+    },
+    {
+        "name": "list_monitor_urls",
+        "description": "Kuzatilayotgan saytlar ro'yxati va ularning holati.",
+        "parameters": {"type": "OBJECT", "properties": {}},
+    },
+    {
+        "name": "remove_monitor_url",
+        "description": "URL ni kuzatuvdan olib tashlash.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "url": {"type": "STRING", "description": "Olib tashlanadigan URL"},
+            },
+            "required": ["url"],
+        },
+    },
+    {
+        "name": "add_competitor",
+        "description": "Raqobatchi saytni haftalik kuzatuvga qo'shish.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "url": {"type": "STRING", "description": "Raqobatchi sayt URL"},
+                "name": {"type": "STRING", "description": "Raqobatchi nomi"},
+            },
+            "required": ["url", "name"],
+        },
+    },
+    {
+        "name": "add_price_tracker",
+        "description": "Mahsulot narxini kuzatuvga qo'shish. Narx o'zgarganda xabar keladi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "url": {"type": "STRING", "description": "Mahsulot sahifasi URL"},
+                "product_name": {"type": "STRING", "description": "Mahsulot nomi"},
+                "current_price": {"type": "STRING", "description": "Hozirgi narx (ixtiyoriy)"},
+            },
+            "required": ["url", "product_name"],
+        },
+    },
+
+    # ── HUJJAT TOOLLAR ──
+    {
+        "name": "generate_qr_code",
+        "description": "URL, matn yoki kontakt uchun QR kod rasmini yaratish. 'QR kod yarat', 'QR yarat' so'rovlarida.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "content": {"type": "STRING", "description": "QR kod ichidagi ma'lumot (URL, matn, raqam)"},
+                "title": {"type": "STRING", "description": "QR kod ostidagi sarlavha (ixtiyoriy)"},
+            },
+            "required": ["content"],
+        },
+    },
+    {
+        "name": "generate_invoice",
+        "description": "Professional PDF hisob-faktura yaratish. 'faktura yarat', 'hisob-faktura', 'invoice' so'rovlarida.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "client_name": {"type": "STRING", "description": "Mijoz ismi"},
+                "services": {
+                    "type": "ARRAY",
+                    "items": {"type": "OBJECT"},
+                    "description": "Xizmatlar ro'yxati: [{name, qty, price}]",
+                },
+                "currency": {"type": "STRING", "description": "Valyuta: USD, UZS, EUR (default: USD)"},
+                "note": {"type": "STRING", "description": "Qo'shimcha izoh (ixtiyoriy)"},
+            },
+            "required": ["client_name", "services"],
+        },
+    },
+
+    # ── REJALASHTIRUVCHI TOOLLAR ──
+    {
+        "name": "schedule_post",
+        "description": "Telegram chat, guruh yoki kanalga post rejalash. 'ertaga yubor', 'soat 10 da yubor', 'rejala' so'rovlarida.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "chat_id": {"type": "STRING", "description": "Chat ID yoki username (@kanal)"},
+                "chat_name": {"type": "STRING", "description": "Chat nomi"},
+                "text": {"type": "STRING", "description": "Yuboriladigan xabar matni"},
+                "send_at": {"type": "STRING", "description": "ISO vaqt: '2026-05-30T10:00:00'"},
+            },
+            "required": ["chat_id", "chat_name", "text", "send_at"],
+        },
+    },
+    {
+        "name": "list_scheduled_posts",
+        "description": "Rejalashtirilgan postlar ro'yxati.",
+        "parameters": {"type": "OBJECT", "properties": {}},
+    },
+
+    # ── CRM TOOLLAR ──
+    {
+        "name": "analyze_lead",
+        "description": "Mijoz suhbatini tahlil qilish — lead darajasi, e'tirozlar, tavsiya. 'suhbatni tahlil qil', 'lead qanday' so'rovlarida.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "conversation": {"type": "STRING", "description": "Suhbat matni"},
+                "contact_name": {"type": "STRING", "description": "Mijoz ismi (ixtiyoriy)"},
+            },
+            "required": ["conversation"],
+        },
+    },
+    {
+        "name": "save_crm_contact",
+        "description": "Kontakt va suhbat xulosasini Notion CRM ga saqlash. 'CRM ga qo'sh', 'eslatma qoldir', 'follow-up' so'rovlarida.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "name": {"type": "STRING", "description": "Kontakt ismi"},
+                "summary": {"type": "STRING", "description": "Nima haqida gaplashildi"},
+                "next_action": {"type": "STRING", "description": "Keyingi qadam"},
+                "follow_up_days": {"type": "INTEGER", "description": "Necha kundan keyin qayta aloqa (default: 3)"},
+                "status": {"type": "STRING", "description": "Lead holati: Sovuq/Iliq/Issiq"},
+            },
+            "required": ["name", "summary", "next_action"],
+        },
+    },
+
+    # ── DASTURCHI TOOLLAR (qo'shimcha) ──
+    {
+        "name": "review_code",
+        "description": "Kodni tekshirib, xatolar, zaif joylar va yaxshilanishlarni topish. 'kodni tekshir', 'review qil' so'rovlarida.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "code": {"type": "STRING", "description": "Tekshiriladigan kod matni"},
+                "language": {"type": "STRING", "description": "Dasturlash tili (python, js, ...)"},
+            },
+            "required": ["code"],
+        },
+    },
+    {
+        "name": "generate_tests",
+        "description": "Funksiya yoki modul uchun unit testlar yaratish.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "code": {"type": "STRING", "description": "Test yoziladigan kod"},
+                "framework": {"type": "STRING", "description": "Test framework: pytest, unittest (default: pytest)"},
+            },
+            "required": ["code"],
+        },
+    },
+    {
+        "name": "check_env_vars",
+        "description": "Railway loyihalaridagi muhit o'zgaruvchilarini tekshirish. 'tokenlar joyidami', 'env vars' so'rovlarida.",
+        "parameters": {"type": "OBJECT", "properties": {}},
+    },
 ]
 
 

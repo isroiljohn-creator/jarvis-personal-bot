@@ -25,3 +25,9 @@ google-auth>=2.23.0
 google-auth-httplib2>=0.1.1
 google-auth-oauthlib>=1.1.0
 PyGithub>=2.1.0
+
+# Yangi funksiyalar
+pdfplumber>=0.10.0
+pypdf>=3.0.0
+qrcode[pil]>=7.4.0
+reportlab>=4.0.0

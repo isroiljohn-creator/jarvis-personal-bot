@@ -25,6 +25,11 @@ from userbot import UserBot
 from cloud import CloudHub
 from obsidian import ObsidianVault
 import developer as dev
+import monitor as mon
+import document as doc
+import scheduler_tools as sched
+import crm_tools as crm
+
 from memory import load_memory, update_memory, format_memory_for_prompt, search_memory
 from session import add_to_history, get_history, clear_history as clear_shared_history
 
@@ -445,6 +450,96 @@ async def execute_tool(name: str, args: dict) -> str:
                 info = dev.get_project_info(args["project_name"])
                 service_id = info["service"] if info else ""
             return await asyncio.to_thread(dev.railway_get_status, service_id)
+
+        # ── MONITORING TOOLLAR ──
+        elif name == "add_monitor_url":
+            return await asyncio.to_thread(mon.add_monitor_url, args["url"], args["name"])
+        elif name == "list_monitor_urls":
+            return await asyncio.to_thread(mon.list_monitor_urls)
+        elif name == "remove_monitor_url":
+            return await asyncio.to_thread(mon.remove_monitor_url, args["url"])
+        elif name == "add_competitor":
+            return await asyncio.to_thread(mon.add_competitor, args["url"], args["name"])
+        elif name == "add_price_tracker":
+            return await asyncio.to_thread(
+                mon.add_price_tracker,
+                args["url"], args["product_name"], args.get("current_price", "")
+            )
+
+        # ── HUJJAT TOOLLAR ──
+        elif name == "generate_qr_code":
+            qr_bytes = await asyncio.to_thread(
+                doc.generate_qr_code, args["content"], args.get("title", "")
+            )
+            import tempfile
+            tmp = tempfile.mktemp(suffix=".png")
+            with open(tmp, "wb") as f:
+                f.write(qr_bytes)
+            return f"__QR_FILE__:{tmp}"
+        elif name == "generate_invoice":
+            services = args.get("services", [])
+            pdf_bytes = await asyncio.to_thread(
+                doc.generate_invoice,
+                args["client_name"], services,
+                args.get("currency", "USD"), None, "Isroiljon Abdullayev",
+                "isroiljohnabdullayev@gmail.com", args.get("note", "")
+            )
+            import tempfile
+            tmp = tempfile.mktemp(suffix=".pdf")
+            with open(tmp, "wb") as f:
+                f.write(pdf_bytes)
+            return f"__PDF_FILE__:{tmp}"
+
+        # ── REJALASHTIRUVCHI TOOLLAR ──
+        elif name == "schedule_post":
+            return await asyncio.to_thread(
+                sched.schedule_post,
+                args["chat_id"], args["chat_name"], args["text"], args["send_at"]
+            )
+        elif name == "list_scheduled_posts":
+            return await asyncio.to_thread(sched.list_scheduled_posts)
+
+        # ── CRM TOOLLAR ──
+        elif name == "analyze_lead":
+            prompt = crm.prepare_lead_analysis_prompt(
+                args["conversation"], args.get("contact_name", "")
+            )
+            return await ai.process_message(prompt, "", use_tools=False)
+        elif name == "save_crm_contact":
+            return await crm.save_crm_contact(
+                cloud,
+                args["name"], args["summary"], args["next_action"],
+                int(args.get("follow_up_days", 3)),
+                args.get("status", "Iliq"), args.get("tags", [])
+            )
+
+        # ── DASTURCHI TOOLLAR (qo'shimcha) ──
+        elif name == "review_code":
+            code = args.get("code", "")
+            lang = args.get("language", "python")
+            prompt = (
+                f"Sen tajribali {lang} dasturchi va code reviewer'san.\n"
+                f"Quyidagi kodni ko'rib chiq va O'zbek tilida quyidagilarni ko'rsat:\n"
+                f"1. XATOLAR: (agar bo'lsa — qaysi qator, nima xato)\n"
+                f"2. XAVFSIZLIK: (SQL injection, token leak, boshqa xatarlar)\n"
+                f"3. UNUMDORLIK: (sekin yoki yaxshilanishi mumkin joylar)\n"
+                f"4. YAXSHILANISHLAR: (kod sifatini oshirish uchun)\n"
+                f"5. UMUMIY BAHO: (5 dan necha ball)\n\n"
+                f"KOD:\n```{lang}\n{code}\n```"
+            )
+            return await ai.process_message(prompt, "", use_tools=False)
+        elif name == "generate_tests":
+            code = args.get("code", "")
+            framework = args.get("framework", "pytest")
+            prompt = (
+                f"Quyidagi Python kodi uchun {framework} yordamida to'liq unit testlar yoz.\n"
+                f"Har bir funksiya uchun kamida 2-3 test holat bo'lsin (normal, xatolik, chegara).\n"
+                f"Faqat test kodi qaytarilsin, boshqa izoh emas.\n\n"
+                f"KOD:\n```python\n{code}\n```"
+            )
+            return await ai.process_message(prompt, "", use_tools=False)
+        elif name == "check_env_vars":
+            return await asyncio.to_thread(_check_all_env_vars)
 
         else:
             return f"❌ Noma'lum tool: {name}"
@@ -1104,11 +1199,59 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def _send_reply(update: Update, text: str) -> None:
+    # QR kod fayli
+    if text.startswith("__QR_FILE__:"):
+        path = text.split(":", 1)[1]
+        try:
+            with open(path, "rb") as f:
+                await update.message.reply_photo(photo=f, caption="QR Kod")
+        except Exception as e:
+            await update.message.reply_text(f"QR saqlandi: {path}")
+        finally:
+            try: os.unlink(path)
+            except OSError: pass
+        return
+    # PDF fayli
+    if text.startswith("__PDF_FILE__:"):
+        path = text.split(":", 1)[1]
+        try:
+            with open(path, "rb") as f:
+                await update.message.reply_document(document=f, filename="invoice.pdf")
+        except Exception as e:
+            await update.message.reply_text(f"PDF saqlandi: {path}")
+        finally:
+            try: os.unlink(path)
+            except OSError: pass
+        return
+    # Oddiy matn
     safe_text = text.replace("**", "*")
     try: await update.message.reply_text(safe_text, parse_mode="Markdown")
     except Exception:
         try: await update.message.reply_text(safe_text)
         except Exception as e: await update.message.reply_text(f"❌ Xato: {e}")
+
+
+def _check_all_env_vars() -> str:
+    """Muhim muhit o'zgaruvchilarini tekshirish."""
+    import developer as dev
+    required = {
+        "BOT_TOKEN": os.environ.get("BOT_TOKEN"),
+        "GEMINI_API_KEY": os.environ.get("GEMINI_API_KEY"),
+        "NOTION_TOKEN": os.environ.get("NOTION_TOKEN"),
+        "GITHUB_TOKEN": os.environ.get("GITHUB_TOKEN"),
+        "RAILWAY_API_TOKEN": os.environ.get("RAILWAY_API_TOKEN"),
+        "TG_API_ID": os.environ.get("TG_API_ID"),
+        "TG_SESSION_STRING": os.environ.get("TG_SESSION_STRING"),
+        "GOOGLE_CALENDAR_ID": os.environ.get("GOOGLE_CALENDAR_ID"),
+        "INSTAGRAM_USER": os.environ.get("INSTAGRAM_USER"),
+    }
+    lines = ["Muhit o'zgaruvchilari holati:"]
+    for key, val in required.items():
+        if val:
+            lines.append(f"✅ {key}: mavjud")
+        else:
+            lines.append(f"❌ {key}: YO'Q — bu funksiya ishlamaydi!")
+    return "\n".join(lines)
 
 
 async def _send_voice_reply(update: Update, text: str) -> None:
@@ -1567,6 +1710,106 @@ async def gmail_draft_job(context: ContextTypes.DEFAULT_TYPE) -> None:
                 logger.warning(f"bot gmail report xato: {e}")
     except Exception as e:
         logger.error(f"Gmail job xatosi: {e}")
+
+
+async def uptime_monitor_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Har 10 daqiqada saytlarni tekshirish."""
+    try:
+        alerts = await asyncio.to_thread(mon.check_all_urls)
+        for alert in alerts:
+            msg = f"{'🔴 SAYT TUSHDI' if alert['type']=='down' else '🟢 Sayt qayta ishlayapti'}\n{alert['message']}"
+            try:
+                await context.bot.send_message(OWNER_ID, msg)
+            except Exception as e:
+                logger.error(f"Uptime alert yuborish xatosi: {e}")
+    except Exception as e:
+        logger.error(f"Uptime monitor xatosi: {e}")
+
+
+async def railway_crash_monitor_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Har 5 daqiqada Railway crashlarni tekshirish."""
+    try:
+        alerts = await asyncio.to_thread(mon.check_railway_crashes)
+        for alert in alerts:
+            msg = (
+                f"💥 RAILWAY CRASH\n"
+                f"Loyiha: {alert['project']}\n"
+                f"Servis: {alert['service']}\n"
+                f"Holat: {alert['status']}\n\n"
+                f"Loglarni ko'rish uchun: /logs {alert['service'][:8]}"
+            )
+            try:
+                await context.bot.send_message(OWNER_ID, msg)
+            except Exception as e:
+                logger.error(f"Crash alert yuborish xatosi: {e}")
+    except Exception as e:
+        logger.error(f"Railway crash monitor xatosi: {e}")
+
+
+async def scheduled_posts_sender_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Har daqiqada rejalashtirilgan postlarni yuborish."""
+    try:
+        due_posts = await asyncio.to_thread(sched.get_pending_posts)
+        for post in due_posts:
+            try:
+                chat_id = post["chat_id"]
+                text = post["text"]
+                # chat_id raqammi yoki @username mi?
+                if chat_id.lstrip("-").isdigit():
+                    target = int(chat_id)
+                else:
+                    target = chat_id
+                await context.bot.send_message(target, text)
+                await asyncio.to_thread(sched.mark_sent, post["id"])
+                logger.info(f"Rejalashtirilgan post yuborildi: {post['chat_name']}")
+            except Exception as e:
+                logger.error(f"Rejalashtirilgan post xatosi ({post.get('id')}): {e}")
+    except Exception as e:
+        logger.error(f"Scheduled posts sender xatosi: {e}")
+
+
+async def competitor_check_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Har dushanba raqobatchilarni tekshirish."""
+    try:
+        changes = await asyncio.to_thread(mon.check_competitors)
+        if not changes:
+            return
+        msg = "🔍 RAQOBATCHILAR YANGILIGI:\n\n"
+        for ch in changes:
+            msg += f"• {ch['message']}\n"
+        msg += "\nBatafsil tahlil uchun: 'raqobatchilarni tahlil qil' dang."
+        await context.bot.send_message(OWNER_ID, msg)
+    except Exception as e:
+        logger.error(f"Competitor check xatosi: {e}")
+
+
+async def smart_kundalik_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Har kuni kechki 21:45 da smart kundalik xisoboti."""
+    try:
+        import database
+        import datetime as dt
+        tz = pytz.timezone("Asia/Tashkent")
+        today = dt.datetime.now(tz).strftime("%Y-%m-%d")
+
+        plan_summary = await database.db_get_plan_summary(today)
+        rejalashtirilgan = await asyncio.to_thread(sched.list_scheduled_posts)
+
+        prompt = (
+            f"Bugun ({today}) quyidagi ma'lumotlar mavjud:\n\n"
+            f"VAZIFALAR HOLATI:\n{plan_summary}\n\n"
+            f"REJALASHTIRILGAN POSTLAR:\n{rejalashtirilgan}\n\n"
+            f"Sen J.A.R.V.I.S. sifatida quyidagi formatda QISQA kundalik hisobot yoz:\n"
+            f"BUGUN BAJARILDI: [ro'yxat]\n"
+            f"BAJARILMADI: [ro'yxat]\n"
+            f"ERTAGA USTUVOR: [top 3 vazifa]\n"
+            f"MASLAHAT: [1 jumlali motivatsion maslax]\n\n"
+            f"Til: O'zbek. Ixcham bo'l."
+        )
+        response = await ai.process_message(prompt, "", use_tools=False)
+        safe = response.replace("**", "").replace("*", "").replace("#", "")
+        await context.bot.send_message(OWNER_ID, f"JARVIS KUNDALIK ({today}):\n\n{safe}")
+    except Exception as e:
+        logger.error(f"Smart kundalik xatosi: {e}")
 
 async def life_coach_job(context: ContextTypes.DEFAULT_TYPE) -> None:
     global PLAN_COLLECTION_MODE
@@ -2340,6 +2583,13 @@ def main() -> None:
     app.job_queue.run_repeating(calendar_alert_checker_job, interval=900, first=15)
     app.job_queue.run_daily(weekly_finance_report_job, time=datetime.time(hour=18, minute=0, tzinfo=tz), days=(6,))
     app.job_queue.run_daily(burnout_check_job, time=datetime.time(hour=21, minute=30, tzinfo=tz), days=(6,))
+
+    # Yangi monitoring joblar
+    app.job_queue.run_repeating(uptime_monitor_job, interval=600, first=30)       # har 10 daqiqa
+    app.job_queue.run_repeating(railway_crash_monitor_job, interval=300, first=60) # har 5 daqiqa
+    app.job_queue.run_repeating(scheduled_posts_sender_job, interval=60, first=10) # har 1 daqiqa
+    app.job_queue.run_daily(competitor_check_job, time=datetime.time(hour=9, minute=0, tzinfo=tz), days=(1,))  # Dushanba
+    app.job_queue.run_daily(smart_kundalik_job, time=datetime.time(hour=21, minute=45, tzinfo=tz))  # Har kuni
 
     logger.info("✅ J.A.R.V.I.S tayyor! Polling boshlandi.")
     app.run_polling(
