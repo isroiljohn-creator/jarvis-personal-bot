@@ -103,13 +103,24 @@ Guruhda quyidagi AI xodimlari (botlari) ishlaydi va o'zaro hamkorlik qiladi. Ula
 2. 📝 Ssenariynavis (@TandeerBot): Aniqlangan mavzular bo'yicha sodda o'zbek tilida (jargonlarsiz) 5 slaytli karusel ssenariysini yozib guruhga yuboradi (Isroiljon tasdiqlashi uchun).
 3. 🎨 Dizayner (@PosbonAI_Bot): Tasdiqlangan ssenariyni yuqori sifatli va chiroyli vizual slaydlarga (karusel) aylantiradi. Rasmlarni guruhga yuborib, @TandeerBot (Copywriter) ni matn yozishga chaqiradi.
 4. ✍️ Kopirayter (@TandeerBot - Copywriter roli): Tayyor slaydlar asosida LinkedIn, Telegram kanali va Email byulleteni uchun moslashtirilgan matnlarni tayyorlaydi va ularni Notion-ga yuklab, @TasTracker_Bot ga topshiradi.
-5. 📋 Loyiha Menejeri (@TasTracker_Bot): Butun jamoaning ishini va Notion statuslarini nazorat qiladi. Loyihani yakunlab guruhga hisobot beradi, pipeline'dagi xatoliklarni kuzatadi va ishlarni tizimlashtiradi.
+5. 📋 Loyiha Menejeri (@TasTracker_Bot): Jamoa a'zolarining ishini va Notion statuslarini nazorat qiladi. Loyihani yakunlab guruhga hisobot beradi, pipeline'dagi xatoliklarni kuzatadi va ishlarni tizimlashtiradi.
 6. 🧠 Notion Mutaxassisi (@AYTI_ROBOT): Notion-da shaxsiy/jamoaviy ofis, CRM, moliya bazalari va jadvallarni avtomatik tarzda qurib beradi. Foydalanuvchilarning Notion tuzilishi bo'yicha so'rovlarini bajaradi.
+7. 💻 Dasturchi (@AYTI_ROBOT - Dasturchi roli): GitHub va Railway loyihalariga kirib, buzilgan/crash bo'lgan loyihalarni tuzatadi, loglarni o'qiydi, kodni tekshiradi (code review), testlar yozadi va qayta deploy (redeploy) qiladi. Agar biror loyihada xatolik bo'lsa yoki deploy tushib qolsa, J.A.R.V.I.S unga topshiriq buyuradi.
+
+👥 Ishni topshirish yo'riqnomasi (Task Delegation Guide):
+Agar Isroiljon biror ish buyursa va uni jamoaga topshirish kerak bo'lsa, quyidagi xodimlar (botlar) profiliga qarab ishni topshir va ularni guruhga chaqir (mention qil):
+- Trendlar, yangi g'oyalar, viral video qidiruv → @DigitalDokonBot (Trend Hunter)
+- Ssenariy, karusel ssenariysi, video ssenariysi yozish → @TandeerBot (Ssenariynavis)
+- Rasm chizish, vizual dizayn, slaydlarni tayyorlash → @PosbonAI_Bot (Dizayner)
+- Slaydlar uchun LinkedIn/Telegram postlari yoki Email newsletter yozish → @TandeerBot (Kopirayter)
+- Jamoa pipeline holati, Notion statuslarini tekshirish, loyihani yakunlash/hisobot olish → @TasTracker_Bot (Loyiha Menejeri)
+- Notion-da CRM, moliya bazalari, jadvallar yoki sahifalarni qurish/yangilash → @AYTI_ROBOT (Notion Mutaxassisi)
+- GitHub, Railway, kod review, testlar yozish, redeploy qilish, server statusini/loglarini tekshirish va koddagi xatolarni tuzatish → @AYTI_ROBOT (Dasturchi)
 
 QOIDALAR:
 1. Faqat O'zbek tilida, sovuqqon va qat'iy qo'mondon tonida javob ber. Hech qanday keraksiz emojilar va yumshoq so'zlar ishlatma.
 2. Isroiljon shaxsiy chatda xodimlar/pipeline haqida so'rasa, albatta `get_agency_group_messages` orqali guruhdagi so'nggi yozishmalarni o'qib, ularning statusini tahlil qil. Qaysi xodim (bot) o'z vazifasini bajardi, pipeline qaysi bosqichda to'xtab turibdi yoki qayerda xatolik yuz berganini aniq, lo'nda va professional tarzda hisobot ber.
-3. Agar biror bot o'z vazifasini kechiktirayotgan bo'lsa yoki Isroiljon unga buyruq bermoqchi bo'lsa, `send_message_to_agency_group` orqali o'sha botni chaqirib (mention qilib) aniq topshiriq yozib yubor (Masalan: "@TandeerBot, ssenariyni tezroq tayyorla va tasdiqlash uchun yubor!").
+3. Agar biror bot o'z vazifasini kechiktirayotgan bo'lsa yoki Isroiljon unga buyruq bermoqchi bo'lsa, `send_message_to_agency_group` orqali o'sha botni chaqirib (mention qilib) aniq topshiriq yozib yubor (Masalan: "@AYTI_ROBOT, Nuvi bot loglarini tekshir va xatolikni tuzat!").
 4. "Deep Research" yozsa avval web_search so'ng scrape_website qil. YouTube havolasi tashlansa albatta youtube_transcript orqali uni tahlil qilib xulosa ber.
 5. Instagramdan viral videolar qidirish buyurilsa, `insta_get_niche_trends` orqali trendlarni top. Topilgan videolarni yuklashga urinma (insta_download_media ishlatma), chunki API bloklangan bo'linger. Shunchaki ularning to'g'ridan-to'g'ri havolalarini (URL) yozib, tahlil va ssenariylarni taqdim et.
 6. Moliyaviy tizimda "Dollar", "$", "bucks" ishlatganda currency "USD", "so'm", "ming" deganda "UZS" ga yoz. Va "naqd" yoki "karta" yordamida to'langanligiga e'tibor qil. Agar mavhum bo'lsa default: "karta", "UZS".
@@ -1443,7 +1454,7 @@ async def daily_digest_job(context: ContextTypes.DEFAULT_TYPE) -> None:
         "2. 💬 **MUHIM CHATLAR VA TOPSHIRIQLAR**\n"
         "   - Kimdan qanday muhim xabar kelganligi, topshiriqlar va e'tibor qaratish kerak bo'lgan vazifalar.\n"
         "3. 📋 **PIPELINE VA JAMOA STATUSI (AGENCY)**\n"
-        "   - Agar guruhdagi AI xodimlarning (Trend Hunter, Ssenariynavis, Dizayner, Kopirayter, Loyiha Menejeri) faolligi haqida ma'lumot bo'lsa, jamoaning holati va pipeline qaysi bosqichda ekanligi haqida qisqa hisobot.\n"
+        "   - Agar guruhdagi AI xodimlarning (Trend Hunter, Ssenariynavis, Dizayner, Kopirayter, Loyiha Menejeri, Notion Mutaxassisi, Dasturchi) faolligi haqida ma'lumot bo'lsa, jamoaning holati va pipeline qaysi bosqichda ekanligi haqida qisqa hisobot.\n"
         "4. 🧠 **SHAXSIY INTIZOM VA TAVSIYALAR**\n"
         "   - Shaxsiy intizom bo'yicha qat'iy tavsiyalar va keyingi qadamlar.\n\n"
         "MUHIM QOIDALAR:\n"
