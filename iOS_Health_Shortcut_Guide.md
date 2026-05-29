@@ -13,7 +13,7 @@ Har kuni ertalab avtomatik ravishda iPhone sog'liq ma'lumotlaringiz Jasminaga yu
 ## Server URL
 
 ```
-https://jarvis-personal-bot.up.railway.app/ios-health
+https://jarvis-personal-bot-production.up.railway.app/ios-health
 ```
 
 ---
@@ -54,7 +54,7 @@ iPhone da **Shortcuts (Qisqartirishlar)** ilovasini oching.
 
 ### Qadam 3: URL va JSON sozlash
 
-**URL:** `https://jarvis-personal-bot.up.railway.app/ios-health`
+**URL:** `https://jarvis-personal-bot-production.up.railway.app/ios-health`
 
 **Method:** POST
 
@@ -102,7 +102,7 @@ Shortcut ichida ketma-ket bu amallarni bajaring:
    }
 
 8. "Web" → "Get Contents of URL":
-   URL: https://jarvis-personal-bot.up.railway.app/ios-health
+   URL: https://jarvis-personal-bot-production.up.railway.app/ios-health
    Method: POST
    Headers: Content-Type = application/json
    Body: [Text from step 7]
@@ -122,7 +122,7 @@ Shortcuts → **Automation** tab → **"+"** → **Personal Automation**:
 ## Test qilish (Curl bilan)
 
 ```bash
-curl -X POST https://jarvis-personal-bot.up.railway.app/ios-health \
+curl -X POST https://jarvis-personal-bot-production.up.railway.app/ios-health \
   -H "Content-Type: application/json" \
   -d '{
     "steps": 8500,

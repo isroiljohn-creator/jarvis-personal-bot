@@ -50,6 +50,24 @@ class CloudHub:
             logger.info("ℹ️ Notion sozlanmagan (NOTION_TOKEN yo'q).")
 
     def _init_google(self):
+        google_json = os.environ.get("GOOGLE_CREDENTIALS_JSON")
+        if google_json:
+            try:
+                from google.oauth2.service_account import Credentials
+                from googleapiclient.discovery import build
+                import json
+                
+                info = json.loads(google_json)
+                creds = Credentials.from_service_account_info(
+                    info, 
+                    scopes=['https://www.googleapis.com/auth/calendar']
+                )
+                self._calendar = build('calendar', 'v3', credentials=creds)
+                logger.info("✅ Google Calendar ulandi (environment variable orqali).")
+                return
+            except Exception as e:
+                logger.error(f"❌ Google ulanishida xatolik (env): {e}")
+
         if os.path.exists(GOOGLE_CRED_PATH):
             try:
                 from google.oauth2.service_account import Credentials
@@ -66,7 +84,7 @@ class CloudHub:
             except Exception as e:
                 logger.error(f"❌ Google ulanishida xatolik: {e}")
         else:
-            logger.info("ℹ️ Google Calendar sozlanmagan (credentials.json yo'q).")
+            logger.info("ℹ️ Google Calendar sozlanmagan (credentials.json yoki GOOGLE_CREDENTIALS_JSON yo'q).")
 
     # Instagrapi har doim birdan ulanishni yomon ko'radi (block bo'lishi mumkin). 
     # Shuning uchun uni alohida async tarzda chaqirganimiz ma'qul.
