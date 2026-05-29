@@ -18,7 +18,7 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
-from telegram.constants import ChatAction
+from telegram.constants import ChatAction, ParseMode
 
 from ai import GeminiAI
 from userbot import UserBot
@@ -2115,7 +2115,12 @@ def main() -> None:
     app.add_handler(CommandHandler("brainstorm", cmd_brainstorm))
     app.add_handler(CommandHandler("finish_brainstorm", cmd_finish_brainstorm))
     app.add_handler(CommandHandler("leadmagnet", cmd_lead_magnet))
-    # Guruh handler BIRINCHI bo'lishi shart — handle_message dan oldin
+    # /ping — guruhda ishlashini tekshirish uchun
+    async def ping_cmd(upd: Update, ctx: ContextTypes.DEFAULT_TYPE):
+        await upd.message.reply_text("Pong! Bot ishlayapti.")
+    app.add_handler(CommandHandler("ping", ping_cmd))
+
+    # Guruh handler BIRINCHI — handle_message dan oldin
     app.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND & (filters.ChatType.GROUP | filters.ChatType.SUPERGROUP),
         handle_group_message
@@ -2148,13 +2153,7 @@ def main() -> None:
     logger.info("✅ J.A.R.V.I.S tayyor! Polling boshlandi.")
     app.run_polling(
         drop_pending_updates=True,
-        allowed_updates=[
-            "message",
-            "edited_message",
-            "callback_query",
-            "message_reaction",
-            "chat_member",
-        ]
+        allowed_updates=Update.ALL_TYPES,
     )
 
 if __name__ == "__main__":
