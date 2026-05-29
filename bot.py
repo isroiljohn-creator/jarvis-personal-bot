@@ -50,6 +50,7 @@ cloud = CloudHub()
 obsidian = ObsidianVault()
 GLOBAL_JOB_QUEUE = None
 GLOBAL_BOT = None
+BOT_USERNAME: str = ""          # post_init da to'ldiriladi
 PLAN_COLLECTION_MODE = False
 BRAINSTORM_SESSIONS = {}
 
@@ -738,69 +739,86 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Guruh chatlaridagi xabarlarga javob berish.
-    
-    - Har bir xabarga emoji reaksiya qo'yadi
-    - Bot @mention qilinsa yoki xabariga reply qilinsa to'liq AI javob beradi
-    """
+    """Guruh chatlaridagi xabarlarga javob berish."""
     if not update.message or not update.message.text:
         return
 
     chat_id = update.effective_chat.id
     user_text = update.message.text.strip()
-    bot_info = await context.bot.get_me()
-    bot_username = bot_info.username or ""
+
+    # Loglash — guruh xabari kelganini ko'rish uchun
+    sender = getattr(update.effective_user, 'first_name', 'Noma\'lum')
+    chat_title = getattr(update.effective_chat, 'title', 'Guruh')
+    logger.info(f"👥 Guruh xabari: [{chat_title}] {sender}: {user_text[:60]}")
 
     # --- Emoji reaksiya (har bir xabarga) ---
-    REACTIONS = ["👍", "❤", "🔥", "🤩", "👏", "✅", "💯", "🎯"]
     import random
+    REACTIONS = ["👍", "❤", "🔥", "🤩", "👏", "✅", "💯", "🎯"]
     try:
-        reaction_emoji = random.choice(REACTIONS)
         from telegram import ReactionTypeEmoji
         await context.bot.set_message_reaction(
             chat_id=chat_id,
             message_id=update.message.message_id,
-            reaction=[ReactionTypeEmoji(emoji=reaction_emoji)],
+            reaction=[ReactionTypeEmoji(emoji=random.choice(REACTIONS))],
             is_big=False
         )
+        logger.info("✅ Reaksiya qo'yildi")
     except Exception as e:
-        logger.debug(f"Reaksiya qo'ya olmadi (normal): {e}")
+        logger.warning(f"⚠️ Reaksiya qo'ya olmadi: {e}")
 
     # --- Bot mention yoki reply tekshiruvi ---
-    is_mentioned = f"@{bot_username}" in user_text
+    # 1. Matn ichida @username bor
+    is_mentioned_text = BOT_USERNAME and (f"@{BOT_USERNAME}".lower() in user_text.lower())
+
+    # 2. Telegram entities orqali mention (rasmiysiga)
+    is_mentioned_entity = False
+    if update.message.entities:
+        for entity in update.message.entities:
+            if entity.type == "mention":
+                mention_text = user_text[entity.offset: entity.offset + entity.length]
+                if BOT_USERNAME and mention_text.lower() == f"@{BOT_USERNAME}".lower():
+                    is_mentioned_entity = True
+                    break
+
+    # 3. Bot xabariga reply
     is_reply_to_bot = (
-        update.message.reply_to_message and
-        update.message.reply_to_message.from_user and
-        update.message.reply_to_message.from_user.id == bot_info.id
+        update.message.reply_to_message is not None
+        and update.message.reply_to_message.from_user is not None
+        and update.message.reply_to_message.from_user.is_bot
+        and (not BOT_USERNAME or
+             update.message.reply_to_message.from_user.username == BOT_USERNAME)
     )
 
+    is_mentioned = is_mentioned_text or is_mentioned_entity
+
     if not is_mentioned and not is_reply_to_bot:
-        return  # Faqat reaction qo'yib, AI javobi yo'q
+        logger.info("Mention yoki reply yo'q — faqat reaksiya qo'yildi")
+        return
+
+    logger.info(f"🤖 AI javob berilmoqda: mention={is_mentioned}, reply={is_reply_to_bot}")
 
     # Bot username'ini xabardan olib tashlash
-    clean_text = user_text.replace(f"@{bot_username}", "").strip()
+    clean_text = user_text
+    if BOT_USERNAME:
+        clean_text = clean_text.replace(f"@{BOT_USERNAME}", "").strip()
     if not clean_text:
         clean_text = "Salom"
 
-    # Guruh konteksti uchun system prompt
-    chat_title = update.effective_chat.title or "guruh"
-    sender_name = update.effective_user.first_name or "Foydalanuvchi"
-
     group_system_prompt = (
-        f"Sen J.A.R.V.I.S. — Isroiljon Abdullayevning shaxsiy AI yordamchisisan. "
-        f"Hozir '{chat_title}' guruhida {sender_name} bilan suhbatlashyapsan. "
-        f"Qisqa, aniq va foydali javob ber. Til: O'zbek."
+        f"Sen J.A.R.V.I.S. — Isroiljon Abdullayevning AI yordamchisisan. "
+        f"'{chat_title}' guruhida {sender} bilan suhbatlashyapsan. "
+        f"Qisqa va foydali javob ber. Til: O'zbek."
     )
 
     await update.message.chat.send_action(ChatAction.TYPING)
     try:
-        response = await ai.process_message(clean_text, group_system_prompt, execute_tool, use_tools=False)
-        # Guruh javobini markdown tekshirmasdan oddiy matn sifatida yuboramiz
+        response = await ai.process_message(clean_text, group_system_prompt, use_tools=False)
         safe = response.replace("**", "").replace("*", "").replace("`", "").replace("#", "")
         await update.message.reply_text(safe)
+        logger.info("✅ Guruh AI javobi yuborildi")
     except Exception as e:
         logger.error(f"Guruh AI javob xatosi: {e}")
-        await update.message.reply_text("Texnik xatolik yuz berdi. Qayta urinib ko'ring.")
+        await update.message.reply_text("Xatolik yuz berdi. Qayta urinib ko'ring.")
 
 
 
@@ -1135,9 +1153,14 @@ async def clear_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def post_init(application: Application) -> None:
-    global userbot, GLOBAL_JOB_QUEUE, GLOBAL_BOT
+    global userbot, GLOBAL_JOB_QUEUE, GLOBAL_BOT, BOT_USERNAME
     GLOBAL_JOB_QUEUE = application.job_queue
     GLOBAL_BOT = application.bot
+
+    # Bot username ni kesh qilamiz (har xabarda get_me() qilmaslik uchun)
+    bot_me = await application.bot.get_me()
+    BOT_USERNAME = bot_me.username or ""
+    logger.info(f"✅ Bot username: @{BOT_USERNAME}")
 
     from api import BOT_CONTEXT
     BOT_CONTEXT["bot"] = application.bot
@@ -2168,7 +2191,16 @@ def main() -> None:
     app.job_queue.run_daily(burnout_check_job, time=datetime.time(hour=21, minute=30, tzinfo=tz), days=(6,))
 
     logger.info("✅ J.A.R.V.I.S tayyor! Polling boshlandi.")
-    app.run_polling(drop_pending_updates=True)
+    app.run_polling(
+        drop_pending_updates=True,
+        allowed_updates=[
+            "message",
+            "edited_message",
+            "callback_query",
+            "message_reaction",
+            "chat_member",
+        ]
+    )
 
 if __name__ == "__main__":
     main()
