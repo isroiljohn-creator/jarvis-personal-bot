@@ -140,23 +140,58 @@ def check_railway_crashes() -> list[dict]:
     if not RAILWAY_TOKEN:
         return []
     try:
-        query = """
-        query {
-          me {
-            projects {
-              edges {
-                node {
-                  name
-                  services {
-                    edges {
-                      node {
-                        id
-                        name
-                        deployments(first: 1) {
-                          edges {
-                            node {
-                              status
-                              createdAt
+        project_id = os.environ.get("RAILWAY_PROJECT_ID")
+        projects = []
+        
+        if project_id:
+            query = """
+            query($projectId: String!) {
+              project(id: $projectId) {
+                name
+                services {
+                  edges {
+                    node {
+                      id
+                      name
+                      deployments(first: 1) {
+                        edges {
+                          node {
+                            status
+                            createdAt
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """
+            data = _railway_query(query, {"projectId": project_id})
+            project_node = data.get("data", {}).get("project")
+            if project_node:
+                projects = [{"node": project_node}]
+                
+        if not projects:
+            query = """
+            query {
+              me {
+                projects {
+                  edges {
+                    node {
+                      name
+                      services {
+                        edges {
+                          node {
+                            id
+                            name
+                            deployments(first: 1) {
+                              edges {
+                                node {
+                                  status
+                                  createdAt
+                                }
+                              }
                             }
                           }
                         }
@@ -166,11 +201,10 @@ def check_railway_crashes() -> list[dict]:
                 }
               }
             }
-          }
-        }
-        """
-        data = _railway_query(query)
-        projects = data.get("data", {}).get("me", {}).get("projects", {}).get("edges", [])
+            """
+            data = _railway_query(query)
+            projects = data.get("data", {}).get("me", {}).get("projects", {}).get("edges", [])
+            
         alerts = []
         monitor_data = _load_data()
 
