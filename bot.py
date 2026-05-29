@@ -24,6 +24,7 @@ from ai import GeminiAI
 from userbot import UserBot
 from cloud import CloudHub
 from obsidian import ObsidianVault
+import developer as dev
 from memory import load_memory, update_memory, format_memory_for_prompt, search_memory
 from session import add_to_history, get_history, clear_history as clear_shared_history
 
@@ -395,6 +396,54 @@ async def execute_tool(name: str, args: dict) -> str:
                 "wifi":     f"🛜 Wi-Fi boshqaruvi: {payload or 'off'}",
             }
             return action_labels.get(action, f"✅ Telefon buyrug'i yuborildi: {action}")
+
+        # ── DASTURCHI TOOLLAR ──
+        elif name == "github_list_repos":
+            limit = int(args.get("limit", 15))
+            return await asyncio.to_thread(dev.github_list_repos, limit)
+        elif name == "github_read_file":
+            return await asyncio.to_thread(
+                dev.github_read_file,
+                args.get("repo", ""),
+                args.get("path", ""),
+                args.get("branch", "main")
+            )
+        elif name == "github_write_file":
+            return await asyncio.to_thread(
+                dev.github_write_file,
+                args.get("repo", ""),
+                args.get("path", ""),
+                args.get("content", ""),
+                args.get("commit_message", "Jarvis tomonidan yangilandi"),
+                args.get("branch", "main")
+            )
+        elif name == "github_recent_commits":
+            return await asyncio.to_thread(
+                dev.github_get_recent_commits,
+                args.get("repo", ""),
+                int(args.get("limit", 5))
+            )
+        elif name == "railway_list_projects":
+            return await asyncio.to_thread(dev.railway_list_projects)
+        elif name == "railway_get_logs":
+            service_id = args.get("service_id", "")
+            if not service_id and args.get("project_name"):
+                info = dev.get_project_info(args["project_name"])
+                service_id = info["service"] if info else ""
+            return await asyncio.to_thread(dev.railway_get_logs, service_id)
+        elif name == "railway_redeploy":
+            service_id = args.get("service_id", "")
+            if not service_id and args.get("project_name"):
+                info = dev.get_project_info(args["project_name"])
+                service_id = info["service"] if info else ""
+            return await asyncio.to_thread(dev.railway_redeploy, service_id)
+        elif name == "railway_get_status":
+            service_id = args.get("service_id", "")
+            if not service_id and args.get("project_name"):
+                info = dev.get_project_info(args["project_name"])
+                service_id = info["service"] if info else ""
+            return await asyncio.to_thread(dev.railway_get_status, service_id)
+
         else:
             return f"❌ Noma'lum tool: {name}"
 
@@ -2102,6 +2151,100 @@ async def cmd_lead_magnet(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 def main() -> None:
     app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
+
+
+# ─────────────────────────────────────────────────────────────
+# DASTURCHI KOMANDALAR
+# ─────────────────────────────────────────────────────────────
+
+async def cmd_dev(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Barcha Railway loyihalar va ularning holati."""
+    if not await check_auth(update): return
+    await update.message.reply_text("Loyihalar yuklanmoqda...")
+    await update.message.chat.send_action(ChatAction.TYPING)
+    result = await asyncio.to_thread(dev.railway_list_projects)
+    # GitHub repolari ham
+    repos = await asyncio.to_thread(dev.github_list_repos, 10)
+    full = "RAILWAY PROYEKTLAR:\n" + result + "\n\nGITHUB REPOLAR:\n" + repos
+    # 4096 belgi limitiga bo'lamiz
+    for i in range(0, len(full), 4000):
+        await update.message.reply_text(full[i:i+4000])
+
+
+async def cmd_logs(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Loyiha loglarini ko'rish: /logs <loyiha_nomi>"""
+    if not await check_auth(update): return
+    args = context.args
+    if not args:
+        names = ", ".join(dev.KNOWN_PROJECTS.keys())
+        await update.message.reply_text(f"Loyiha nomini kiriting.\nMavjudlar: {names}\nMisol: /logs jarvis-personal-bot")
+        return
+    project_name = " ".join(args)
+    info = dev.get_project_info(project_name)
+    if not info:
+        await update.message.reply_text(f"❌ '{project_name}' topilmadi. /dev orqali ro'yxatni ko'ring.")
+        return
+    await update.message.reply_text(f"📋 {info['name']} loglari yuklanmoqda...")
+    await update.message.chat.send_action(ChatAction.TYPING)
+    result = await asyncio.to_thread(dev.railway_get_logs, info["service"])
+    for i in range(0, len(result), 4000):
+        await update.message.reply_text(result[i:i+4000])
+
+
+async def cmd_deploy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Loyihani qayta deploy qilish: /deploy <loyiha_nomi>"""
+    if not await check_auth(update): return
+    args = context.args
+    if not args:
+        await update.message.reply_text("Misol: /deploy jarvis-personal-bot")
+        return
+    project_name = " ".join(args)
+    info = dev.get_project_info(project_name)
+    if not info:
+        await update.message.reply_text(f"❌ '{project_name}' topilmadi.")
+        return
+    await update.message.reply_text(f"🔄 {info['name']} redeploy qilinmoqda...")
+    result = await asyncio.to_thread(dev.railway_redeploy, info["service"])
+    await update.message.reply_text(result)
+
+
+async def cmd_fix(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """AI yordamida buzilgan loyihani tuzatish: /fix <loyiha_nomi>"""
+    if not await check_auth(update): return
+    args = context.args
+    if not args:
+        await update.message.reply_text("Misol: /fix jarvis-personal-bot")
+        return
+    project_name = " ".join(args)
+    info = dev.get_project_info(project_name)
+    if not info:
+        await update.message.reply_text(f"❌ '{project_name}' topilmadi. /dev orqali ro'yxatni ko'ring.")
+        return
+
+    await update.message.reply_text(f"🔍 {info['name']} loglari tahlil qilinmoqda...")
+    await update.message.chat.send_action(ChatAction.TYPING)
+
+    # Loglarni ol
+    logs = await asyncio.to_thread(dev.railway_get_logs, info["service"])
+
+    # AI ga xatolikni tahlil qildir
+    fix_prompt = (
+        f"Sen tajribali Python dasturchi va DevOps mutaxasssissan.\n"
+        f"Quyida '{info['name']}' loyihasining Railway deployment loglari:\n\n"
+        f"{logs[:3000]}\n\n"
+        f"Vazifang:\n"
+        f"1. Xatolik sababini aniq tushuntir (qaysi fayl, qaysi qator, nima sabab)\n"
+        f"2. Qanday tuzatish kerakligini ayt (konkret kod yoki komanda)\n"
+        f"3. Agar GitHub repoga o'zgartirish kerak bo'lsa ayt\n"
+        f"Til: O'zbek. Qisqa va aniq bo'l."
+    )
+    response = await ai.process_message(fix_prompt, "", use_tools=False)
+    safe = response.replace("**", "").replace("#", "").replace("`", "'")
+    await update.message.reply_text(f"AI TAHLIL ({info['name']}):\n\n{safe}")
+
+
+def main() -> None:
+    app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", start))
     app.add_handler(CommandHandler("clear", clear_history))
@@ -2115,6 +2258,10 @@ def main() -> None:
     app.add_handler(CommandHandler("brainstorm", cmd_brainstorm))
     app.add_handler(CommandHandler("finish_brainstorm", cmd_finish_brainstorm))
     app.add_handler(CommandHandler("leadmagnet", cmd_lead_magnet))
+    app.add_handler(CommandHandler("dev", cmd_dev))
+    app.add_handler(CommandHandler("logs", cmd_logs))
+    app.add_handler(CommandHandler("deploy", cmd_deploy))
+    app.add_handler(CommandHandler("fix", cmd_fix))
     # /ping — guruhda ishlashini tekshirish uchun
     async def ping_cmd(upd: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await upd.message.reply_text("Pong! Bot ishlayapti.")
