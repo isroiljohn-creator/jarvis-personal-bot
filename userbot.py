@@ -57,6 +57,31 @@ class UserBot:
 
         @self.client.on(events.NewMessage(incoming=True))
         async def handler(event):
+            # ── SILENT GROUP MONITOR ──
+            if event.is_group:
+                try:
+                    chat = await event.get_chat()
+                    chat_title = getattr(chat, "title", "")
+                    target_group = os.environ.get("AGENCY_GROUP_NAME", "AI Marketing Agency")
+                    
+                    if chat_title and target_group.lower() in chat_title.lower():
+                        msg_text = event.message.text or ""
+                        if msg_text.strip():
+                            sender = await event.get_sender()
+                            sender_name = getattr(sender, "first_name", getattr(sender, "title", "Noma'lum")) or "Noma'lum"
+                            sender_username = getattr(sender, "username", "")
+                            sender_label = f"{sender_name} (@{sender_username})" if sender_username else sender_name
+                            
+                            from database import db_add_message
+                            await db_add_message(
+                                role=sender_label,
+                                content=msg_text,
+                                source="telegram_group"
+                            )
+                            logger.info(f"👥 Guruh xabari log qilindi ({chat_title} | {sender_label}): {msg_text[:50]}")
+                except Exception as ex:
+                    logger.warning(f"Group monitor logging error: {ex}")
+
             if not self.auto_reply:
                 return
             if event.is_group or event.is_channel:
@@ -177,9 +202,38 @@ class UserBot:
         return "\n".join(output) if output else ""
 
 
-    async def send_message(self, chat_id: int, text: str) -> None:
-        """Xabar yuborish (chat_id bo'yicha)."""
-        await self.client.send_message(chat_id, text, parse_mode="md")
+    @staticmethod
+    def _clean_for_telegram(text: str) -> str:
+        """Telegram plain-text uchun markdown belgilarini tozalaydi."""
+        import re
+        # **bold** → BOLD (Telethon md parse_mode bilan ham muammo bo'lgani uchun plain text ishlatamiz)
+        text = re.sub(r'\*\*(.+?)\*\*', r'\1', text, flags=re.DOTALL)
+        # *italic* → oddiy matn
+        text = re.sub(r'\*(.+?)\*', r'\1', text, flags=re.DOTALL)
+        # `code` → oddiy matn
+        text = re.sub(r'`(.+?)`', r'\1', text, flags=re.DOTALL)
+        # [text](url) → text (url)
+        text = re.sub(r'\[(.+?)\]\((.+?)\)', r'\1 (\2)', text)
+        # ### Heading → Heading
+        text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+        # ___underline___ → oddiy matn
+        text = re.sub(r'_{1,3}(.+?)_{1,3}', r'\1', text, flags=re.DOTALL)
+        # Qolgan yolg'iz yulduzchalarni tozalash
+        text = text.replace('**', '').replace('*', '')
+        return text.strip()
+
+    async def send_message(self, chat_id, text: str) -> None:
+        """Xabar yuborish — markdown tozalangan oddiy matn sifatida."""
+        clean_text = self._clean_for_telegram(text)
+        try:
+            await self.client.send_message(chat_id, clean_text)
+        except Exception as e:
+            logger.warning(f"send_message xatosi ({chat_id}): {e}")
+            # Fallback: raw matnni yuborish
+            try:
+                await self.client.send_message(chat_id, text[:4096])
+            except Exception as e2:
+                logger.error(f"send_message fallback ham ishlamadi: {e2}")
         logger.info(f"📤 Xabar → {chat_id}")
 
     # ─────────────────── Kontakt qidirish ───────────────────

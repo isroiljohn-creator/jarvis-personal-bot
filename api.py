@@ -13,7 +13,8 @@ import logging, os, asyncio
 logger = logging.getLogger("jarvis.api")
 
 app = FastAPI(title="Jarvis AI Gateway")
-app.mount("/static", StaticFiles(directory="static"), name="static")
+if os.path.isdir("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -371,12 +372,18 @@ async def get_finance_data(force: bool = False):
 
 @app.post("/api/finance/ai-analyze")
 async def ai_analyze(request: Request):
-    from ai import get_gemini_response
+    from ai import GeminiAI
+    gemini_key = os.environ.get("GEMINI_API_KEY", "")
+    _ai = GeminiAI(gemini_key)
     body = await request.json()
     question = body.get("question", "")
-    
-    res = await get_gemini_response(f"Siz AI Finansist qismisiz. Quyidagi foydalanuvchi moliyaviy savoliga qisqa va aniq vizual formatda (grafik belgilardan foydalanib) javob bering, html emas. Savol: {question}. Database moliyalari bor deb hisoblang.")
-    return {"answer": res.replace("**", "<strong>").replace("\n", "<br>"), "generated_at": datetime.now().isoformat()}
+    prompt = (
+        f"Siz AI Finansist qismisiz. Quyidagi foydalanuvchi moliyaviy savoliga qisqa va aniq javob bering. "
+        f"Savol: {question}. Database moliyalari bor deb hisoblang."
+    )
+    res = await _ai.process_message(prompt, "Sen moliyaviy tahlilchi AI yordamchisisan.", use_tools=False)
+    safe_res = res.replace("**", "").replace("*", "")
+    return {"answer": safe_res.replace("\n", "<br>"), "generated_at": datetime.now().isoformat()}
 
 @app.get("/api/finance/report/{period}")
 async def report_period(period: str):
@@ -538,6 +545,35 @@ def _clean(text: str) -> str:
         text = text.replace(ch, "")
     return text.strip()
 
+async def adjust_daily_note_sleep(obsidian_client, date_str: str, sleep_hours: float) -> None:
+    filepath = f"Journal/Daily-Notes/{date_str}.md"
+    try:
+        content = await asyncio.to_thread(obsidian_client.read_note, filepath)
+        
+        if sleep_hours < 6.5:
+            banner = f"> ⚠️ **Sog'liq Eslatmasi (Kam uyqu)**: Bugun atigi {sleep_hours} soat uxlandingiz. Aqliy zo'riqish talab qiladigan vazifalarni 14:00 gacha yakunlang, keyinroq yengilroq ishlarni rejalashtiring.\n\n"
+        elif sleep_hours >= 7.5:
+            banner = f"> ⚡ **Sog'liq Eslatmasi (Yaxshi uyqu)**: Bugun {sleep_hours} soat uxlandingiz. Energiya yuqori. Bugun eng qiyin loyihalarni boshlash uchun ajoyib kun!\n\n"
+        else:
+            banner = f"> 😴 **Sog'liq Eslatmasi (O'rtacha uyqu)**: Bugun {sleep_hours} soat uxlandingiz. Kun davomida barqaror sur'atda harakat qiling.\n\n"
+            
+        if "Sog'liq Eslatmasi" in content:
+            return
+            
+        if "❌ Qayd topilmadi" in content:
+            new_content = f"# Daily Note — {date_str}\n\n{banner}## Vazifalar (Tasks)\n- [ ] Bugungi reja\n"
+        else:
+            lines = content.split("\n")
+            if lines and lines[0].startswith("# "):
+                lines.insert(1, "\n" + banner.strip())
+            else:
+                lines.insert(0, banner.strip() + "\n")
+            new_content = "\n".join(lines)
+            
+        await asyncio.to_thread(obsidian_client.add_note, filepath, new_content, False)
+        logger.info(f"Daily note sleep focus banner injected: {filepath}")
+    except Exception as e:
+        logger.error(f"Error adjusting daily note for sleep: {e}")
 
 @app.post("/ios-health")
 async def ios_health_report(data: HealthData):
@@ -621,6 +657,37 @@ async def ios_health_report(data: HealthData):
             f"💬 {clean_resp}"
         )
 
+        # Obsidianga saqlash
+        obsidian_client = BOT_CONTEXT.get("obsidian")
+        if obsidian_client:
+            clean_health_text = health_text.replace('  ', '\n')
+            obsidian_content = (
+                f"# Apple Health Report — {date_str}\n\n"
+                f"## Ko'rsatkichlar (Metrics)\n"
+                f"{clean_health_text}\n\n"
+                f"## AI Baholash (AI Assessment)\n"
+                f"{response}\n"
+            )
+            try:
+                obs_res = await asyncio.to_thread(
+                    obsidian_client.add_note,
+                    f"Health/Reports/{date_str}.md",
+                    obsidian_content,
+                    False
+                )
+                logger.info(f"Health report saved to Obsidian: {obs_res}")
+            except Exception as e:
+                logger.error(f"Error saving health report to Obsidian: {e}")
+
+        # Sleep score task adjustment
+        sleep_val = raw.get("sleep_hours")
+        if sleep_val is not None and obsidian_client:
+            try:
+                await adjust_daily_note_sleep(obsidian_client, date_str, float(sleep_val))
+            except Exception as ex:
+                logger.error(f"Error calling adjust_daily_note_sleep: {ex}")
+
+
         # Telegramga ODDIY MATN sifatida yuboramiz (parse_mode yo'q)
         sent = False
         if userbot and getattr(userbot, "connected", False):
@@ -649,7 +716,7 @@ async def ios_health_report(data: HealthData):
 @app.get("/ios-health/last")
 async def get_last_health():
     """Oxirgi kelgan Health ma'lumotini qaytaradi (bot_data ichida)."""
-    last = BOT_CONTEXT.get("last_health_data")
+    last = BOT_CONTEXT.get("last_health")
     if not last:
         return {"status": "empty", "message": "Hali iOS dan hech qanday ma'lumot kelmagan."}
     return {"status": "ok", "data": last}

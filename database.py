@@ -179,7 +179,7 @@ async def db_get_history(limit: int = 30) -> list:
         pool = await get_pool()
         async with pool.acquire() as conn:
             rows = await conn.fetch(
-                "SELECT role, content, source, created_at FROM messages ORDER BY created_at DESC LIMIT $1",
+                "SELECT role, content, source, created_at FROM messages WHERE source != 'telegram_group' ORDER BY created_at DESC LIMIT $1",
                 limit
             )
         return [{"role": r["role"], "parts": [r["content"]], "source": r["source"]} for r in reversed(rows)]
@@ -193,7 +193,7 @@ async def db_get_history_display(limit: int = 50) -> list:
         pool = await get_pool()
         async with pool.acquire() as conn:
             rows = await conn.fetch(
-                "SELECT role, content, source, created_at FROM messages ORDER BY created_at DESC LIMIT $1",
+                "SELECT role, content, source, created_at FROM messages WHERE source != 'telegram_group' ORDER BY created_at DESC LIMIT $1",
                 limit
             )
         return [
@@ -207,6 +207,27 @@ async def db_get_history_display(limit: int = 50) -> list:
     except Exception as e:
         logger.error(f"db_get_history_display xatosi: {e}")
         return []
+
+async def db_get_group_messages(limit: int = 50) -> list:
+    """Tizimda saqlangan telegram_group xabarlarini qaytaradi."""
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT role, content, created_at FROM messages WHERE source = 'telegram_group' ORDER BY created_at DESC LIMIT $1",
+                limit
+            )
+        return [
+            {
+                "sender": r["role"],
+                "content": r["content"],
+                "time": r["created_at"].strftime("%Y-%m-%d %H:%M")
+            } for r in reversed(rows)
+        ]
+    except Exception as e:
+        logger.error(f"db_get_group_messages xatosi: {e}")
+        return []
+
 
 async def db_clear_history():
     """Barcha suhbat tarixini o'chiradi."""
@@ -365,7 +386,7 @@ async def db_get_plan_summary(plan_date: str) -> dict:
     """Reja holati: nechta bajarildi, nechta qoldi."""
     tasks = await db_get_plan(plan_date)
     if not tasks:
-        return {"total": 0, "done": 0, "remaining": 0, "tasks": []}
+        return {"total": 0, "done": 0, "remaining": 0, "tasks": [], "completion_pct": 0}
     done  = sum(1 for t in tasks if t.get("done"))
     return {
         "total": len(tasks),

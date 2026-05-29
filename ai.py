@@ -162,6 +162,22 @@ Har doim bu toolni telefon bilan bog'liq so'rovlarda chaqir!""",
         },
     },
     {
+        "name": "notion_get_inactive_leads",
+        "description": "Notion CRM ma'lumotlar bazasidan 7 kundan beri yangilanmagan, faol bo'lmagan leadlar/mijozlar ro'yxatini qaytaradi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {},
+        },
+    },
+    {
+        "name": "notion_get_active_projects",
+        "description": "Notiondan barcha faol (bajarilayotgan va kutilayotgan) loyihalar va vazifalar ro'yxatini qaytaradi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {},
+        },
+    },
+    {
         "name": "log_finance",
         "description": "Moliyaviy kirim yoki chiqimlarni (daromad yoki xarajatlarni) ma'lumotlar bazasiga yozish. 'xarajat' yoki 'kirdi-chiqdi' haqida gapirganda FOYDALANLADI.",
         "parameters": {
@@ -224,6 +240,18 @@ Har doim bu toolni telefon bilan bog'liq so'rovlarda chaqir!""",
         },
     },
     {
+        "name": "set_reminder",
+        "description": "Aniq belgilangan kelajakdagi vaqtga Telegram/iOS orqali eslatma (Reminder) o'rnatadi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "time": {"type": "STRING", "description": "ISO formatdagi eslatma vaqti. Misol: '2026-05-29T14:30:00'"},
+                "message": {"type": "STRING", "description": "Eslatma matni"}
+            },
+            "required": ["time", "message"],
+        },
+    },
+    {
         "name": "insta_send_dm",
         "description": "Instagram orqali ko'rsatilgan akkauntga to'g'ridan-to'g'ri DM (xabar) yuboradi.",
         "parameters": {
@@ -281,6 +309,127 @@ Har doim bu toolni telefon bilan bog'liq so'rovlarda chaqir!""",
             "required": ["to_email", "subject", "body"],
         },
     },
+    {
+        "name": "gmail_get_newsletters",
+        "description": "Foydalanuvchining Gmail inboxidagi oxirgi 30 ta xatni skanerlab reklama byulletenlari (newsletters) ro'yxatini va ulardan chiqish havolalarini qaytaradi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {},
+        },
+    },
+    {
+        "name": "gmail_unsubscribe_sender",
+        "description": "Berilgan sender email manzilidan kelgan reklama yoki newsletter obunasini avtomatik bekor qiladi (unsubscribe).",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "sender_email": {"type": "STRING", "description": "Obunadan chiqiladigan jo'natuvchi email manzili. Misol: 'newsletter@company.com'"}
+            },
+            "required": ["sender_email"],
+        },
+    },
+    {
+        "name": "obsidian_add_note",
+        "description": "Obsidian vaultdagi markdown faylga qayd yozadi yoki qo'shadi. Agar to'liq yo'l ko'rsatilsa (masalan: Notes/Reja.md) o'sha yerda, aks holda default ravishda Inbox/ papkasida yaratadi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "filepath": {"type": "STRING", "description": "Fayl yo'li, masalan: 'Reja.md' yoki 'Notes/Loyiha.md'"},
+                "content": {"type": "STRING", "description": "Qayd matni (markdown formatida)"},
+                "append": {"type": "BOOLEAN", "description": "Eski qayd oxiriga qo'shish (true) yoki butunlay yangidan yozish (false)"}
+            },
+            "required": ["filepath", "content"],
+        },
+    },
+    {
+        "name": "obsidian_read_note",
+        "description": "Obsidian vaultdagi belgilangan markdown faylni o'qiydi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "filepath": {"type": "STRING", "description": "Fayl yo'li, masalan: 'Reja.md' yoki 'Notes/Loyiha.md'"}
+            },
+            "required": ["filepath"],
+        },
+    },
+    {
+        "name": "obsidian_search_notes",
+        "description": "Obsidian vaultdagi qaydlar orasidan qidiruv so'zi bo'yicha qidiradi va mos kelgan fayllar ro'yxatini chiqaradi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "query": {"type": "STRING", "description": "Qidiruv kalit so'zi"}
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "calendar_timebox_tasks",
+        "description": "Foydalanuvchining vazifalar ro'yxatini Google Calendardagi bo'sh vaqtlarga avtomatik joylashtiradi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "tasks": {
+                    "type": "ARRAY",
+                    "items": {"type": "STRING"},
+                    "description": "Rejalashtirilishi kerak bo'lgan vazifalar ro'yxati (masalan, ['Dars qilish', 'Sport zali'])"
+                },
+                "start_date": {
+                    "type": "STRING",
+                    "description": "Qaysi kundan boshlab rejalashtirish kerak (YYYY-MM-DD formatida). Agar bo'sh bo'lsa bugun."
+                }
+            },
+            "required": ["tasks"],
+        },
+    },
+    {
+        "name": "gmail_create_draft",
+        "description": "Gmail'da foydalanuvchi nomidan yangi javob xati qoralamasini (Draft) yaratadi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "to_email": {"type": "STRING", "description": "Kimga yuborilishi kerak bo'lgan email manzili"},
+                "subject": {"type": "STRING", "description": "Mavzu"},
+                "body": {"type": "STRING", "description": "Draft xat matni"}
+            },
+            "required": ["to_email", "subject", "body"],
+        },
+    },
+    {
+        "name": "update_habit_tracker",
+        "description": "Obsidian vaultdagi Discipline/Habit-Tracker.md faylida bugun bajarilgan odatlarni belgilaydi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "habits": {
+                    "type": "OBJECT",
+                    "description": "Odatlar va ularning holati. Misol: {'Sport': true, 'Kitob': false, 'Uyqu': true}"
+                }
+            },
+            "required": ["habits"],
+        },
+    },
+    {
+        "name": "get_agency_group_messages",
+        "description": "Agentlik guruhidagi oxirgi yozishmalarni ma'lumotlar bazasidan o'qib keladi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "limit": {"type": "INTEGER", "description": "Nechta xabarni o'qish (default: 50)"}
+            },
+        },
+    },
+    {
+        "name": "send_message_to_agency_group",
+        "description": "Agentlik Telegram guruhiga shaxsan foydalanuvchi nomidan xabar yozadi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "message": {"type": "STRING", "description": "Guruhga yuboriladigan xabar matni"}
+            },
+            "required": ["message"],
+        },
+    },
 ]
 
 
@@ -292,12 +441,13 @@ class GeminiAI:
         self._vision_model = None
         logger.info("✅ Gemini 2.5 Pro tayyor")
 
-    def _create_model(self, system_prompt: str = ""):
+    def _create_model(self, system_prompt: str = "", use_tools: bool = True):
+        tools = [{"function_declarations": TOOL_DECLARATIONS}] if use_tools else None
         return genai.GenerativeModel(
             model_name="gemini-2.5-pro",
             system_instruction=system_prompt or None,
             generation_config={"temperature": 0.5, "max_output_tokens": 8192},
-            tools=[{"function_declarations": TOOL_DECLARATIONS}],
+            tools=tools,
         )
 
     @property
@@ -310,12 +460,13 @@ class GeminiAI:
         self,
         prompt: str,
         system_prompt: str,
-        tool_executor,
+        tool_executor = None,
         images: list[tuple[str, bytes]] | None = None,
+        use_tools: bool = True,
     ) -> str:
         """Xabarni qayta ishlash — function calling loop."""
         try:
-            model = self._create_model(system_prompt)
+            model = self._create_model(system_prompt, use_tools)
             chat = model.start_chat()
 
             parts = []
@@ -343,7 +494,10 @@ class GeminiAI:
                 for fc in fn_calls:
                     logger.info(f"🔧 Tool: {fc['name']}({fc['args']})")
                     try:
-                        result = await tool_executor(fc["name"], fc["args"])
+                        if tool_executor is None:
+                            result = f"Tool executor mavjud emas: {fc['name']}"
+                        else:
+                            result = await tool_executor(fc["name"], fc["args"])
                     except Exception as e:
                         result = f"❌ Tool xatosi: {e}"
                     fn_results.append({"name": fc["name"], "result": str(result)})
