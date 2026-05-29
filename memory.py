@@ -76,7 +76,7 @@ def format_memory_for_prompt(memories: dict) -> str:
     """Xotirani system prompt uchun tekst formatiga o'tkazadi."""
     if not memories:
         return ""
-    lines = ["[JARVIS UZOQ MUDDATLI XOTIRA]:"]
+    lines = ["[AZIZA UZOQ MUDDATLI XOTIRA]:"]
     for cat, items in memories.items():
         lines.append(f"\n📂 {cat.upper()}:")
         if isinstance(items, dict):

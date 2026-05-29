@@ -12,8 +12,8 @@ class ObsidianVault:
         self.vault_path = Path("/app/obsidian_vault")
         
         # Configure git user details
-        self.git_name = "Jarvis Assistant"
-        self.git_email = "jarvis@assistant.internal"
+        self.git_name = "Aziza Assistant"
+        self.git_email = "aziza@assistant.internal"
 
     def _get_auth_url(self) -> str:
         if not self.repo_url or not self.github_token:
@@ -101,7 +101,7 @@ class ObsidianVault:
             # Add, commit, and push
             self._run_git(["add", clean_path])
             try:
-                commit_msg = f"Jarvis: {'Updated' if append else 'Created'} note {clean_path}"
+                commit_msg = f"Aziza: {'Updated' if append else 'Created'} note {clean_path}"
                 self._run_git(["commit", "-m", commit_msg])
                 self._run_git(["push"])
                 return f"✅ Qayd muvaffaqiyatli saqlandi: `{clean_path}`"

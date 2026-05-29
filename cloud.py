@@ -444,7 +444,7 @@ class CloudHub:
                         summary=task_to_schedule,
                         start_time=start_str,
                         end_time=end_str,
-                        description="Auto-scheduled by Jarvis Timeboxing"
+                        description="Auto-scheduled by Aziza Timeboxing"
                     )
                     if "✅" in res:
                         scheduled.append(f"• {target_date_str} {hour:02d}:00-{hour+1:02d}:00: {task_to_schedule}")
@@ -454,7 +454,7 @@ class CloudHub:
             
             day_offset += 1
             
-        summary_msg = "📅 **Jarvis Timeboxing Natijasi:**\n\n"
+        summary_msg = "📅 **Aziza Timeboxing Natijasi:**\n\n"
         if scheduled:
             summary_msg += "✅ Muvaffaqiyatli rejalashtirildi:\n" + "\n".join(scheduled) + "\n\n"
         if unresolved:

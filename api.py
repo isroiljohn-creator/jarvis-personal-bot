@@ -12,7 +12,7 @@ import logging, os, asyncio
 
 logger = logging.getLogger("jarvis.api")
 
-app = FastAPI(title="Jarvis AI Gateway")
+app = FastAPI(title="Aziza AI Gateway")
 if os.path.isdir("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
 app.add_middleware(

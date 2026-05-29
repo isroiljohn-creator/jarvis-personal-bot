@@ -112,7 +112,7 @@ class UserBot:
                 if sender_username in ["paymeuz_bot", "clickuz", "apelsin_bot", "uzumbank_bot", "plum_uz_bot"] or sender_name.lower() in ["click", "payme", "uzum bank"]:
                     logger.info(f"💰 Moliya xabari tushdi ({sender_name}): {msg_text[:50]}")
                     if self.ai_callback:
-                        system = "Sen Jarvis - aqlli moliya yordamchisisan. Berilgan to'lov/xarajat xabaridan summani aniqla va albatta 'log_finance' vositasi orqali bazaga kirit. 'payment_method'='karta'. So'ngra faqatgina bitta gap bilan (masalan: '15,000 UZS Uzum orqali xarajat bazaga yozildi') xabar ber."
+                        system = "Sen Aziza - aqlli moliya yordamchisisan. Berilgan to'lov/xarajat xabaridan summani aniqla va albatta 'log_finance' vositasi orqali bazaga kirit. 'payment_method'='karta'. So'ngra faqatgina bitta gap bilan (masalan: '15,000 UZS Uzum orqali xarajat bazaga yozildi') xabar ber."
                         reply = await self.ai_callback(f"Quyidagi tranzaksiyani log_finance orqali bazaga kirit:\n\n{msg_text}", [], system)
                         if self.notify_callback:
                             await self.notify_callback(f"🏦 **Avto-Moliya ({sender_name}):**\n{reply}")
@@ -134,7 +134,7 @@ class UserBot:
                     if self.notify_callback:
                         await self.notify_callback(
                             f"💬 **{sender_name}** yozdi:\n{msg_text}\n\n"
-                            f"🤖 **Jarvis javob berdi:**\n{reply}"
+                            f"🤖 **Aziza javob berdi:**\n{reply}"
                         )
             except Exception as e:
                 logger.error(f"Auto-reply xatosi: {e}")
