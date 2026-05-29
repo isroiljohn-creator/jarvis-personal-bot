@@ -124,6 +124,9 @@ def is_owner(update: Update) -> bool:
 async def check_auth(update: Update) -> bool:
     if is_owner(update):
         return True
+    # Guruh chatlarida owner bo'lmasa ham ruxsat beriladi (guruh handleri alohida)
+    if update.effective_chat and update.effective_chat.type in ("group", "supergroup"):
+        return True
     if update.effective_chat and update.effective_chat.type == "private":
         try:
             await update.message.reply_text("Assalomu alaykum. Men Xususiy AI Yordamchisiman va mendan faqatgina Isroiljon Abdullayev foydalana oladilar. Uzr, sizga xizmat ko'rsata olmayman 🤖")
@@ -731,6 +734,73 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     await add_to_history("model", response, source="telegram")
     await _send_reply(update, response)
+
+
+
+async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Guruh chatlaridagi xabarlarga javob berish.
+    
+    - Har bir xabarga emoji reaksiya qo'yadi
+    - Bot @mention qilinsa yoki xabariga reply qilinsa to'liq AI javob beradi
+    """
+    if not update.message or not update.message.text:
+        return
+
+    chat_id = update.effective_chat.id
+    user_text = update.message.text.strip()
+    bot_info = await context.bot.get_me()
+    bot_username = bot_info.username or ""
+
+    # --- Emoji reaksiya (har bir xabarga) ---
+    REACTIONS = ["👍", "❤", "🔥", "🤩", "👏", "✅", "💯", "🎯"]
+    import random
+    try:
+        reaction_emoji = random.choice(REACTIONS)
+        from telegram import ReactionTypeEmoji
+        await context.bot.set_message_reaction(
+            chat_id=chat_id,
+            message_id=update.message.message_id,
+            reaction=[ReactionTypeEmoji(emoji=reaction_emoji)],
+            is_big=False
+        )
+    except Exception as e:
+        logger.debug(f"Reaksiya qo'ya olmadi (normal): {e}")
+
+    # --- Bot mention yoki reply tekshiruvi ---
+    is_mentioned = f"@{bot_username}" in user_text
+    is_reply_to_bot = (
+        update.message.reply_to_message and
+        update.message.reply_to_message.from_user and
+        update.message.reply_to_message.from_user.id == bot_info.id
+    )
+
+    if not is_mentioned and not is_reply_to_bot:
+        return  # Faqat reaction qo'yib, AI javobi yo'q
+
+    # Bot username'ini xabardan olib tashlash
+    clean_text = user_text.replace(f"@{bot_username}", "").strip()
+    if not clean_text:
+        clean_text = "Salom"
+
+    # Guruh konteksti uchun system prompt
+    chat_title = update.effective_chat.title or "guruh"
+    sender_name = update.effective_user.first_name or "Foydalanuvchi"
+
+    group_system_prompt = (
+        f"Sen J.A.R.V.I.S. — Isroiljon Abdullayevning shaxsiy AI yordamchisisan. "
+        f"Hozir '{chat_title}' guruhida {sender_name} bilan suhbatlashyapsan. "
+        f"Qisqa, aniq va foydali javob ber. Til: O'zbek."
+    )
+
+    await update.message.chat.send_action(ChatAction.TYPING)
+    try:
+        response = await ai.process_message(clean_text, group_system_prompt, execute_tool, use_tools=False)
+        # Guruh javobini markdown tekshirmasdan oddiy matn sifatida yuboramiz
+        safe = response.replace("**", "").replace("*", "").replace("`", "").replace("#", "")
+        await update.message.reply_text(safe)
+    except Exception as e:
+        logger.error(f"Guruh AI javob xatosi: {e}")
+        await update.message.reply_text("Texnik xatolik yuz berdi. Qayta urinib ko'ring.")
 
 
 
@@ -2071,6 +2141,11 @@ def main() -> None:
     app.add_handler(MessageHandler(filters.VOICE, handle_voice))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
+    # Guruh xabarlari (alohida handler, barcha guruh/supergroup chatlari uchun)
+    app.add_handler(MessageHandler(
+        filters.TEXT & ~filters.COMMAND & (filters.ChatType.GROUP | filters.ChatType.SUPERGROUP),
+        handle_group_message
+    ))
     app.add_handler(CallbackQueryHandler(button_callback))
 
     tz = pytz.timezone("Asia/Tashkent")
