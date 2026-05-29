@@ -60,7 +60,7 @@ BOT_USERNAME: str = ""          # post_init da to'ldiriladi
 PLAN_COLLECTION_MODE = False
 BRAINSTORM_SESSIONS = {}
 GROUP_HISTORY: dict[int, list[dict]] = {}  # {chat_id: [{role, content}]}
-GROUP_HISTORY_LIMIT = 20  # har guruh uchun max xabarlar soni
+GROUP_HISTORY_LIMIT = 40  # har guruh uchun max xabarlar soni
 
 DICTATOR_PROMPT = """You are J.A.R.V.I.S, Isroiljon's Personal Productivity Partner and Discipline Commander.
 Your mission is to ensure Isroiljon achieves his goals with maximum discipline and focus.
@@ -674,11 +674,11 @@ def build_system_prompt(history: list | None = None, query: str = "") -> str:
 
     if history:
         parts.append("\n[SO'NGGI SUHBAT]:")
-        for msg in history[-10:]:
+        for msg in history[-25:]:
             role = "Isroiljon" if msg["role"] == "user" else "J.A.R.V.I.S"
             text = msg.get("parts", [""])[0]
             if text:
-                parts.append(f"{role}: {text[:300]}")
+                parts.append(f"{role}: {text[:5000]}")
 
     return "\n".join(parts)
 
@@ -951,12 +951,11 @@ async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYP
         logger.info("Guruh a'zosi — javob yo'q, faqat xotiraga saqlandi")
         return
 
-    # ─── Suhbat tarixini satr sifatida tayyorlaymiz ───
     history_lines = []
     for msg in GROUP_HISTORY[chat_id][:-1]:  # oxirgi xabar (hozirgi) dan tashqari
         prefix = "Sen" if msg["role"] == "user" else msg["name"]
         history_lines.append(f"{prefix}: {msg['content']}")
-    history_text = "\n".join(history_lines[-15:]) if history_lines else ""
+    history_text = "\n".join(history_lines[-30:]) if history_lines else ""
 
     # Bot username'ini matndan olib tashlash
     clean_text = user_text
@@ -982,11 +981,11 @@ async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYP
         safe = response.replace("**", "").replace("*", "").replace("`", "").replace("#", "")
         await update.message.reply_text(safe)
 
-        # Bot javobini ham xotiraga qo'shamiz
+        # Bot javobini ham xotiraga qo'shamiz (qisqartirmasdan)
         GROUP_HISTORY[chat_id].append({
             "role": "assistant",
             "name": "JARVIS",
-            "content": response[:200],
+            "content": response[:4000],
         })
         logger.info("✅ Guruh javobi yuborildi")
     except Exception as e:
