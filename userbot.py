@@ -62,9 +62,19 @@ class UserBot:
                 try:
                     chat = await event.get_chat()
                     chat_title = getattr(chat, "title", "")
-                    target_group = os.environ.get("AGENCY_GROUP_NAME", "AI Marketing Agency")
+                    target_group = os.environ.get("AGENCY_GROUP_NAME", "AI Marketing Agency").strip()
                     
-                    if chat_title and target_group.lower() in chat_title.lower():
+                    is_match = False
+                    # Check if target_group is a numeric ID (with optional leading minus)
+                    clean_id = target_group.lstrip('-')
+                    if clean_id.isdigit():
+                        # Telethon chat IDs can be matched directly or converted
+                        is_match = (chat.id == int(target_group) or 
+                                    getattr(chat, "migrated_to", None) == int(target_group))
+                    else:
+                        is_match = chat_title and (target_group.lower() in chat_title.lower())
+                    
+                    if is_match:
                         msg_text = event.message.text or ""
                         if msg_text.strip():
                             sender = await event.get_sender()
@@ -257,7 +267,7 @@ class UserBot:
                 pass
 
         # 3. Ism bo'yicha qidirish (dialoglardan)
-        async for dialog in self.client.iter_dialogs(limit=50):
+        async for dialog in self.client.iter_dialogs(limit=150):
             dialog_name = (dialog.name or "").lower()
             if name_lower in dialog_name or dialog_name in name_lower:
                 logger.info(f"🔍 Topildi: {dialog.name} → {dialog.id}")
