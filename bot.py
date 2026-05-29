@@ -54,6 +54,8 @@ GLOBAL_BOT = None
 BOT_USERNAME: str = ""          # post_init da to'ldiriladi
 PLAN_COLLECTION_MODE = False
 BRAINSTORM_SESSIONS = {}
+GROUP_HISTORY: dict[int, list[dict]] = {}  # {chat_id: [{role, content}]}
+GROUP_HISTORY_LIMIT = 20  # har guruh uchun max xabarlar soni
 
 DICTATOR_PROMPT = """You are J.A.R.V.I.S, Isroiljon's Personal Productivity Partner and Discipline Commander.
 Your mission is to ensure Isroiljon achieves his goals with maximum discipline and focus.
@@ -788,7 +790,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Guruh chatlaridagi BARCHA xabarlarga AI bilan javob berish."""
+    """Guruh chatlarida FAQAT Isroiljon xabarlariga javob berish (xotira bilan)."""
+    global GROUP_HISTORY
+
     if not update.message or not update.message.text:
         return
 
@@ -796,11 +800,40 @@ async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYP
     if not user_text:
         return
 
-    sender = getattr(update.effective_user, 'first_name', 'Foydalanuvchi')
+    chat_id = update.effective_chat.id
     chat_title = getattr(update.effective_chat, 'title', 'Guruh')
-    logger.info(f"👥 Guruh xabari: [{chat_title}] {sender}: {user_text[:80]}")
+    sender_id = update.effective_user.id if update.effective_user else 0
+    sender_name = getattr(update.effective_user, 'first_name', 'Noma\'lum')
 
-    # Bot username'ini matndan olib tashlash (agar mention bo'lsa)
+    # ─── Boshqa a'zolarning xabarlarini xotiraga saqlaymiz, lekin javob BERMAYMIZ ───
+    if chat_id not in GROUP_HISTORY:
+        GROUP_HISTORY[chat_id] = []
+
+    GROUP_HISTORY[chat_id].append({
+        "role": "user" if sender_id == OWNER_ID else "other",
+        "name": sender_name,
+        "content": user_text,
+    })
+    # Xotira limitini ushlaymiz
+    if len(GROUP_HISTORY[chat_id]) > GROUP_HISTORY_LIMIT:
+        GROUP_HISTORY[chat_id] = GROUP_HISTORY[chat_id][-GROUP_HISTORY_LIMIT:]
+
+    logger.info(f"👥 [{chat_title}] {sender_name}({sender_id}): {user_text[:60]}")
+
+    # ─── FAQAT owner (Isroiljon) xabariga javob ───
+    owner_id = int(os.environ.get("OWNER_TELEGRAM_ID", str(OWNER_ID)))
+    if sender_id != owner_id:
+        logger.info("Guruh a'zosi — javob yo'q, faqat xotiraga saqlandi")
+        return
+
+    # ─── Suhbat tarixini satr sifatida tayyorlaymiz ───
+    history_lines = []
+    for msg in GROUP_HISTORY[chat_id][:-1]:  # oxirgi xabar (hozirgi) dan tashqari
+        prefix = "Sen" if msg["role"] == "user" else msg["name"]
+        history_lines.append(f"{prefix}: {msg['content']}")
+    history_text = "\n".join(history_lines[-15:]) if history_lines else ""
+
+    # Bot username'ini matndan olib tashlash
     clean_text = user_text
     if BOT_USERNAME:
         clean_text = clean_text.replace(f"@{BOT_USERNAME}", "").strip()
@@ -808,21 +841,32 @@ async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYP
         clean_text = "Salom"
 
     group_system_prompt = (
-        f"Sen J.A.R.V.I.S. — Isroiljon Abdullayevning shaxsiy AI yordamchisisan. "
-        f"Hozir '{chat_title}' guruhida {sender} bilan suhbatlashyapsan. "
-        f"Har bir xabarga qisqa, aniq va foydali javob ber. Til: O'zbek. "
-        f"Markdown belgilarini ishlatma."
+        f"Sen J.A.R.V.I.S. — Isroiljon Abdullayevning shaxsiy AI yordamchisisan.\n"
+        f"Hozir '{chat_title}' guruhidasiz. Guruhda boshqa a'zolar ham bor.\n"
+        f"Quyida guruhda bo'lgan so'nggi suhbat tarixi (kontekst uchun):\n"
+        f"{history_text}\n\n"
+        f"Qoidalar: Qisqa va aniq javob. Markdown ishlatma. Til: O'zbek."
     )
 
     await update.message.chat.send_action(ChatAction.TYPING)
     try:
-        response = await ai.process_message(clean_text, group_system_prompt, use_tools=False)
+        response = await ai.process_message(
+            clean_text, group_system_prompt,
+            tool_executor=execute_tool, use_tools=True
+        )
         safe = response.replace("**", "").replace("*", "").replace("`", "").replace("#", "")
         await update.message.reply_text(safe)
-        logger.info("✅ Guruh AI javobi yuborildi")
+
+        # Bot javobini ham xotiraga qo'shamiz
+        GROUP_HISTORY[chat_id].append({
+            "role": "assistant",
+            "name": "JARVIS",
+            "content": response[:200],
+        })
+        logger.info("✅ Guruh javobi yuborildi")
     except Exception as e:
-        logger.error(f"Guruh AI javob xatosi: {e}")
-        await update.message.reply_text("Xatolik yuz berdi. Qayta urinib ko'ring.")
+        logger.error(f"Guruh AI xatosi: {e}")
+        await update.message.reply_text("Xatolik yuz berdi.")
 
 
 
