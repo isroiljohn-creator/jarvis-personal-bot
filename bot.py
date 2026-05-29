@@ -2137,15 +2137,19 @@ def main() -> None:
     app.add_handler(CommandHandler("brainstorm", cmd_brainstorm))
     app.add_handler(CommandHandler("finish_brainstorm", cmd_finish_brainstorm))
     app.add_handler(CommandHandler("leadmagnet", cmd_lead_magnet))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    app.add_handler(MessageHandler(filters.VOICE, handle_voice))
-    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
-    app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
-    # Guruh xabarlari (alohida handler, barcha guruh/supergroup chatlari uchun)
+    # Guruh handler BIRINCHI bo'lishi shart — handle_message dan oldin
     app.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND & (filters.ChatType.GROUP | filters.ChatType.SUPERGROUP),
         handle_group_message
     ))
+    # Shaxsiy chat handler (faqat PRIVATE)
+    app.add_handler(MessageHandler(
+        filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE,
+        handle_message
+    ))
+    app.add_handler(MessageHandler(filters.VOICE, handle_voice))
+    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+    app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
     app.add_handler(CallbackQueryHandler(button_callback))
 
     tz = pytz.timezone("Asia/Tashkent")
