@@ -2,6 +2,7 @@ import os
 import subprocess
 import logging
 from pathlib import Path
+from typing import Optional
 
 logger = logging.getLogger("jarvis.obsidian")
 
@@ -9,7 +10,10 @@ class ObsidianVault:
     def __init__(self):
         self.repo_url = os.environ.get("OBSIDIAN_REPO_URL")
         self.github_token = os.environ.get("GITHUB_TOKEN")
-        self.vault_path = Path("/app/obsidian_vault")
+        if os.path.exists("/app"):
+            self.vault_path = Path("/app/obsidian_vault")
+        else:
+            self.vault_path = Path("/tmp/obsidian_vault")
         
         # Configure git user details
         self.git_name = "Aziza Assistant"
@@ -23,7 +27,7 @@ class ObsidianVault:
             return self.repo_url.replace("https://", f"https://{self.github_token}@")
         return self.repo_url
 
-    def _run_git(self, args: list[str], cwd: Path | None = None) -> str:
+    def _run_git(self, args: list[str], cwd: Optional[Path] = None) -> str:
         """Executes a git command and returns stdout."""
         try:
             # Set GIT_TERMINAL_PROMPT=0 to prevent hanging on prompts
