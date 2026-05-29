@@ -739,65 +739,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Guruh chatlaridagi xabarlarga javob berish."""
+    """Guruh chatlaridagi BARCHA xabarlarga AI bilan javob berish."""
     if not update.message or not update.message.text:
         return
 
-    chat_id = update.effective_chat.id
     user_text = update.message.text.strip()
-
-    # Loglash — guruh xabari kelganini ko'rish uchun
-    sender = getattr(update.effective_user, 'first_name', 'Noma\'lum')
-    chat_title = getattr(update.effective_chat, 'title', 'Guruh')
-    logger.info(f"👥 Guruh xabari: [{chat_title}] {sender}: {user_text[:60]}")
-
-    # --- Emoji reaksiya (har bir xabarga) ---
-    import random
-    REACTIONS = ["👍", "❤", "🔥", "🤩", "👏", "✅", "💯", "🎯"]
-    try:
-        from telegram import ReactionTypeEmoji
-        await context.bot.set_message_reaction(
-            chat_id=chat_id,
-            message_id=update.message.message_id,
-            reaction=[ReactionTypeEmoji(emoji=random.choice(REACTIONS))],
-            is_big=False
-        )
-        logger.info("✅ Reaksiya qo'yildi")
-    except Exception as e:
-        logger.warning(f"⚠️ Reaksiya qo'ya olmadi: {e}")
-
-    # --- Bot mention yoki reply tekshiruvi ---
-    # 1. Matn ichida @username bor
-    is_mentioned_text = BOT_USERNAME and (f"@{BOT_USERNAME}".lower() in user_text.lower())
-
-    # 2. Telegram entities orqali mention (rasmiysiga)
-    is_mentioned_entity = False
-    if update.message.entities:
-        for entity in update.message.entities:
-            if entity.type == "mention":
-                mention_text = user_text[entity.offset: entity.offset + entity.length]
-                if BOT_USERNAME and mention_text.lower() == f"@{BOT_USERNAME}".lower():
-                    is_mentioned_entity = True
-                    break
-
-    # 3. Bot xabariga reply
-    is_reply_to_bot = (
-        update.message.reply_to_message is not None
-        and update.message.reply_to_message.from_user is not None
-        and update.message.reply_to_message.from_user.is_bot
-        and (not BOT_USERNAME or
-             update.message.reply_to_message.from_user.username == BOT_USERNAME)
-    )
-
-    is_mentioned = is_mentioned_text or is_mentioned_entity
-
-    if not is_mentioned and not is_reply_to_bot:
-        logger.info("Mention yoki reply yo'q — faqat reaksiya qo'yildi")
+    if not user_text:
         return
 
-    logger.info(f"🤖 AI javob berilmoqda: mention={is_mentioned}, reply={is_reply_to_bot}")
+    sender = getattr(update.effective_user, 'first_name', 'Foydalanuvchi')
+    chat_title = getattr(update.effective_chat, 'title', 'Guruh')
+    logger.info(f"👥 Guruh xabari: [{chat_title}] {sender}: {user_text[:80]}")
 
-    # Bot username'ini xabardan olib tashlash
+    # Bot username'ini matndan olib tashlash (agar mention bo'lsa)
     clean_text = user_text
     if BOT_USERNAME:
         clean_text = clean_text.replace(f"@{BOT_USERNAME}", "").strip()
@@ -805,9 +759,10 @@ async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYP
         clean_text = "Salom"
 
     group_system_prompt = (
-        f"Sen J.A.R.V.I.S. — Isroiljon Abdullayevning AI yordamchisisan. "
-        f"'{chat_title}' guruhida {sender} bilan suhbatlashyapsan. "
-        f"Qisqa va foydali javob ber. Til: O'zbek."
+        f"Sen J.A.R.V.I.S. — Isroiljon Abdullayevning shaxsiy AI yordamchisisan. "
+        f"Hozir '{chat_title}' guruhida {sender} bilan suhbatlashyapsan. "
+        f"Har bir xabarga qisqa, aniq va foydali javob ber. Til: O'zbek. "
+        f"Markdown belgilarini ishlatma."
     )
 
     await update.message.chat.send_action(ChatAction.TYPING)
