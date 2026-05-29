@@ -430,6 +430,95 @@ Har doim bu toolni telefon bilan bog'liq so'rovlarda chaqir!""",
             "required": ["message"],
         },
     },
+    # ── DASTURCHI TOOLLAR ──
+    {
+        "name": "github_list_repos",
+        "description": "GitHub'dagi barcha repolarni ko'rish. 'repolarim', 'GitHub loyihalarim', 'qanday repolarim bor' deyilganda ishlatiladi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "limit": {"type": "INTEGER", "description": "Nechta repo (default: 15)"}
+            },
+        },
+    },
+    {
+        "name": "github_read_file",
+        "description": "GitHub repodagi faylni o'qish. 'kod ko'rsat', 'faylni o'qi', 'requirements.txt ni ko'rsat' kabi so'rovlarda ishlatiladi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "repo": {"type": "STRING", "description": "Repo nomi (masalan: jarvis-personal-bot)"},
+                "path": {"type": "STRING", "description": "Fayl yo'li (masalan: bot.py, requirements.txt)"},
+                "branch": {"type": "STRING", "description": "Branch nomi (default: main)"},
+            },
+            "required": ["repo", "path"],
+        },
+    },
+    {
+        "name": "github_write_file",
+        "description": "GitHub repodagi faylni o'zgartirish va commit qilish. 'kodni tuzat', 'faylga yoz', 'commit qil' so'rovlarida ishlatiladi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "repo": {"type": "STRING", "description": "Repo nomi"},
+                "path": {"type": "STRING", "description": "Fayl yo'li"},
+                "content": {"type": "STRING", "description": "Yangi fayl mazmuni (to'liq)"},
+                "commit_message": {"type": "STRING", "description": "Commit izohi"},
+                "branch": {"type": "STRING", "description": "Branch (default: main)"},
+            },
+            "required": ["repo", "path", "content", "commit_message"],
+        },
+    },
+    {
+        "name": "github_recent_commits",
+        "description": "GitHub repodagi so'nggi commitlarni ko'rish. 'oxirgi o'zgarishlar', 'commitlar', 'kim nima qildi' so'rovlarida ishlatiladi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "repo": {"type": "STRING", "description": "Repo nomi"},
+                "limit": {"type": "INTEGER", "description": "Nechta commit (default: 5)"},
+            },
+            "required": ["repo"],
+        },
+    },
+    {
+        "name": "railway_list_projects",
+        "description": "Barcha Railway loyihalar va ularning deployment holati. 'loyihalarim', 'Railway projectlar', 'qaysi botlar ishlayapti' so'rovlarida ishlatiladi.",
+        "parameters": {"type": "OBJECT", "properties": {}},
+    },
+    {
+        "name": "railway_get_logs",
+        "description": "Railway loyihasining so'nggi deployment loglarini olish. 'loglarni ko'rsat', 'xatolik bormi', 'nima bo'lyapti' so'rovlarida ishlatiladi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "project_name": {"type": "STRING", "description": "Loyiha nomi (masalan: nuvi-academy-bot, sendly, jarvis-personal-bot)"},
+                "service_id": {"type": "STRING", "description": "Railway servis ID (ixtiyoriy, project_name berilsa shart emas)"},
+            },
+        },
+    },
+    {
+        "name": "railway_get_status",
+        "description": "Railway loyihasining hozirgi holati (ishlayaptimi, crashmi, deployingmi). 'status', 'ishlayaptimi', 'holati qanday' so'rovlarida ishlatiladi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "project_name": {"type": "STRING", "description": "Loyiha nomi"},
+                "service_id": {"type": "STRING", "description": "Railway servis ID (ixtiyoriy)"},
+            },
+        },
+    },
+    {
+        "name": "railway_redeploy",
+        "description": "Railway loyihasini qayta deploy qilish. 'redeploy qil', 'qayta ishga tushir', 'restart qil' so'rovlarida ishlatiladi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "project_name": {"type": "STRING", "description": "Loyiha nomi"},
+                "service_id": {"type": "STRING", "description": "Railway servis ID (ixtiyoriy)"},
+            },
+        },
+    },
 ]
 
 
