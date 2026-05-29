@@ -141,14 +141,22 @@ def _railway_query(query: str, variables: dict = None) -> dict:
     payload = {"query": query}
     if variables:
         payload["variables"] = variables
-    resp = requests.post(
-        RAILWAY_API_URL,
-        headers=_rl_headers(),
-        json=payload,
-        timeout=20,
-    )
-    resp.raise_for_status()
-    return resp.json()
+    try:
+        resp = requests.post(
+            RAILWAY_API_URL,
+            headers=_rl_headers(),
+            json=payload,
+            timeout=20,
+        )
+        resp.raise_for_status()
+        res_json = resp.json()
+        if "errors" in res_json and not res_json.get("data"):
+            logger.warning(f"Railway GraphQL error: {res_json['errors']}")
+            return {"data": {}}
+        return res_json
+    except Exception as e:
+        logger.error(f"Railway query failed: {e}")
+        return {"data": {}}
 
 
 def railway_list_projects() -> str:
