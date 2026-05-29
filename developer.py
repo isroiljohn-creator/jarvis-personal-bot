@@ -164,24 +164,60 @@ def railway_list_projects() -> str:
     if not RAILWAY_TOKEN:
         return "❌ RAILWAY_API_TOKEN sozlanmagan."
     try:
-        query = """
-        query {
-          me {
-            projects {
-              edges {
-                node {
-                  id
-                  name
-                  services {
-                    edges {
-                      node {
-                        id
-                        name
-                        deployments(first: 1) {
-                          edges {
-                            node {
-                              status
-                              createdAt
+        project_id = os.environ.get("RAILWAY_PROJECT_ID")
+        projects = []
+        
+        if project_id:
+            query = """
+            query($projectId: String!) {
+              project(id: $projectId) {
+                id
+                name
+                services {
+                  edges {
+                    node {
+                      id
+                      name
+                      deployments(first: 1) {
+                        edges {
+                          node {
+                            status
+                            createdAt
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """
+            data = _railway_query(query, {"projectId": project_id})
+            project_node = data.get("data", {}).get("project")
+            if project_node:
+                projects = [{"node": project_node}]
+
+        if not projects:
+            query = """
+            query {
+              me {
+                projects {
+                  edges {
+                    node {
+                      id
+                      name
+                      services {
+                        edges {
+                          node {
+                            id
+                            name
+                            deployments(first: 1) {
+                              edges {
+                                node {
+                                  status
+                                  createdAt
+                                }
+                              }
                             }
                           }
                         }
@@ -191,11 +227,10 @@ def railway_list_projects() -> str:
                 }
               }
             }
-          }
-        }
-        """
-        data = _railway_query(query)
-        projects = data.get("data", {}).get("me", {}).get("projects", {}).get("edges", [])
+            """
+            data = _railway_query(query)
+            projects = data.get("data", {}).get("me", {}).get("projects", {}).get("edges", [])
+
         if not projects:
             return "Proyektlar topilmadi."
 
@@ -293,29 +328,55 @@ def railway_get_service_id_by_name(project_name: str, service_name: str) -> Opti
     if not RAILWAY_TOKEN:
         return None
     try:
-        query = """
-        query {
-          me {
-            projects {
-              edges {
-                node {
-                  name
-                  services {
-                    edges {
-                      node {
-                        id
-                        name
+        project_id = os.environ.get("RAILWAY_PROJECT_ID")
+        projects = []
+        
+        if project_id:
+            query = """
+            query($projectId: String!) {
+              project(id: $projectId) {
+                name
+                services {
+                  edges {
+                    node {
+                      id
+                      name
+                    }
+                  }
+                }
+              }
+            }
+            """
+            data = _railway_query(query, {"projectId": project_id})
+            project_node = data.get("data", {}).get("project")
+            if project_node:
+                projects = [{"node": project_node}]
+
+        if not projects:
+            query = """
+            query {
+              me {
+                projects {
+                  edges {
+                    node {
+                      name
+                      services {
+                        edges {
+                          node {
+                            id
+                            name
+                          }
+                        }
                       }
                     }
                   }
                 }
               }
             }
-          }
-        }
-        """
-        data = _railway_query(query)
-        projects = data.get("data", {}).get("me", {}).get("projects", {}).get("edges", [])
+            """
+            data = _railway_query(query)
+            projects = data.get("data", {}).get("me", {}).get("projects", {}).get("edges", [])
+
         for p in projects:
             proj = p["node"]
             if project_name.lower() in proj["name"].lower():
