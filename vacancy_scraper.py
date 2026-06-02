@@ -70,7 +70,29 @@ class VacancyScraper:
             return res
             
         # Fallback to dialog filter
-        return await self.get_channels_from_folder(folder_name)
+        channels = await self.get_channels_from_folder(folder_name)
+        if channels:
+            return channels
+            
+        # Automatic channel discovery if folder is empty or not found
+        logger.info(f"Folder '{folder_name}' not found or empty. Scanning subscribed dialogs for vacancy channels...")
+        auto_channels = []
+        try:
+            async for dialog in self.client.iter_dialogs(limit=100):
+                if dialog.is_channel:
+                    title = dialog.name.lower()
+                    username = getattr(dialog.entity, 'username', '') or ''
+                    username = username.lower()
+                    keywords = ['job', 'vacancy', 'vakansiya', 'ish', 'work', 'toshkent', 'uzbekistan']
+                    if any(kw in title or kw in username for kw in keywords):
+                        # Avoid scraping our own target channel
+                        target_channel = os.environ.get("VACANCY_TARGET_CHANNEL", "@nuvi_jobs").lower().replace("@", "")
+                        if username != target_channel:
+                            auto_channels.append(dialog.entity.id)
+            logger.info(f"Auto-discovered {len(auto_channels)} vacancy source channels.")
+        except Exception as e:
+            logger.error(f"Error scanning dialogs for fallback: {e}")
+        return auto_channels
 
     async def get_latest_vacancies(self, channels: list, limit: int = 5) -> list[dict]:
         """Reads latest messages from sources and filters for potential vacancies."""

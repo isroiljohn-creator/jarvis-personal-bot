@@ -2111,7 +2111,7 @@ async def vacancy_scraper_job(context: ContextTypes.DEFAULT_TYPE) -> None:
                         await context.bot.send_photo(
                             chat_id=target_channel,
                             photo=photo,
-                            caption=formatted,
+                            caption=formatted.replace("_", "\\_"),
                             parse_mode="Markdown"
                         )
                     try:
@@ -2120,7 +2120,7 @@ async def vacancy_scraper_job(context: ContextTypes.DEFAULT_TYPE) -> None:
                         pass
                 else:
                     # Fallback to plain text if image generation fails
-                    await context.bot.send_message(chat_id=target_channel, text=formatted, parse_mode="Markdown")
+                    await context.bot.send_message(chat_id=target_channel, text=formatted.replace("_", "\\_"), parse_mode="Markdown")
                 
                 # Mark as processed in DB
                 await database.db_add_processed_vacancy(vac["channel_id"], vac["msg_id"])
@@ -2794,7 +2794,7 @@ async def cmd_scrape(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                     await context.bot.send_photo(
                         chat_id=target_channel,
                         photo=photo,
-                        caption=formatted,
+                        caption=formatted.replace("_", "\\_"),
                         parse_mode="Markdown"
                     )
                 try:
@@ -2803,7 +2803,7 @@ async def cmd_scrape(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                     pass
                 await update.message.reply_text(f"✅ Vakansiya muvaffaqiyatli yuborildi: {target_channel}")
             else:
-                await context.bot.send_message(chat_id=target_channel, text=formatted, parse_mode="Markdown")
+                await context.bot.send_message(chat_id=target_channel, text=formatted.replace("_", "\\_"), parse_mode="Markdown")
                 await update.message.reply_text(f"✅ Vakansiya faqat matn ko'rinishida yuborildi (oblojka xatosi): {target_channel}")
                 
             # Mark as processed in DB
