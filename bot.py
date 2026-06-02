@@ -2014,12 +2014,12 @@ async def format_vacancy_with_ai(raw_text: str) -> str:
 Siz professional HR assistentisiz. Vazifangiz quyidagi xabarni o'rganib chiqib, u haqiqiy ish vakansiyasi (ish e'loni) ekanligini aniqlashdir.
 
 MUHIM QOIDALAR:
-1. Agar ushbu xabar HAQIQIY ish vakansiyasi bo'lmasa (masalan: kanaldan e'lon berish bo'yicha ma'lumotnoma, o'quv kursi reklamasi, xizmat ko'rsatish reklamasi, kanalning o'zini rekloma qilish matni yoki shunchaki umumiy xabar bo'lsa), unda faqatgina "XATO_VAKANSIYA_EMAS" yozuvini qaytaring. Boshqa hech qanday izoh qo'shmang.
+1. Agar ushbu xabar HAQIQIY ish vakansiyasi bo'lmasa (masalan: kanaldan e'lon berish bo'yicha ma'lumotnoma, o'quv kursi reklamasi, xizmat ko'rsatish reklamasi, kanalning o'zini reklama qilish matni yoki shunchaki umumiy xabar bo'lsa), unda faqatgina "XATO_VAKANSIYA_EMAS" yozuvini qaytaring. Boshqa hech qanday izoh qo'shmang.
 2. Agar bu haqiqiy vakansiya bo'lsa, uni quyidagi shablonga soling:
 
 {template}
 
-3. Matndagi boshqa telegram kanallarining rekloma havolalarini (masalan: "Kanalimizga a'zo bo'ling: @kanal" yoki "@kanal kanali") butunlay o'chiring. Faqat ish beruvchi recruiterning shaxsiy telegram username yoki telefon raqamini aloqa/kontakt qismida saqlab qoling.
+3. Matndagi barcha raqobatchi telegram kanallari, guruhlari nomlari, reklama matnlari va havolalarini butunlay o'chiring (masalan: @freelance_uzb, @freelancer_uzbek, @rizqimuz, @jobhuntuz va h.k.). Aloqa/kontakt qismida faqatgina ish beruvchi recruiterning shaxsiy telegram username-i (masalan: @ism_admin, @recruiter) yoki telefon raqamini saqlab qoling. Agar haqiqiy shaxsiy kontakt ma'lumoti bo'lmasa, uni "[Ko'rsatilmagan]" deb yozing.
 4. Agar biror ma'lumot matnda bo'lmasa, uni bo'sh qoldirmang, balki "[Ko'rsatilmagan]" deb yozing yoki mos qatorni olib tashlang.
 5. Har doim toza va chiroyli o'zbek tilida javob bering.
 6. Javobingizda faqat tayyorlangan vakansiya matni bo'lsin, ortiqcha izoh yoki gap qo'shmang.
@@ -2035,21 +2035,30 @@ MUHIM QOIDALAR:
 def extract_meta_for_cover(text: str) -> tuple[str, str, str]:
     """Qayd qilingan shablondan kompaniya, lavozim va maoshni ajratib oladi."""
     import re
-    company = "Ko'rsatilmagan"
+    company = "E'lon qilinmagan"
     position = "Yangi Vakansiya"
     salary = "Kelishilgan holda"
     
     m_comp = re.search(r"🏢\s*\*?\*?Kompaniya:\*?\*?\s*(.+)", text)
     if m_comp:
-        company = m_comp.group(1).replace("**", "").replace("*", "").strip()
+        comp_val = m_comp.group(1).replace("**", "").replace("*", "").strip()
+        comp_val = comp_val.replace("[", "").replace("]", "").strip()
+        if comp_val and "ko'rsatilmagan" not in comp_val.lower() and "nomalum" not in comp_val.lower():
+            company = comp_val
         
     m_pos = re.search(r"📌\s*\*?\*?Lavozim:\*?\*?\s*(.+)", text)
     if m_pos:
-        position = m_pos.group(1).replace("**", "").replace("*", "").strip()
+        pos_val = m_pos.group(1).replace("**", "").replace("*", "").strip()
+        pos_val = pos_val.replace("[", "").replace("]", "").strip()
+        if pos_val and "ko'rsatilmagan" not in pos_val.lower() and "nomalum" not in pos_val.lower():
+            position = pos_val
         
     m_sal = re.search(r"💰\s*\*?\*?Maosh:\*?\*?\s*(.+)", text)
     if m_sal:
-        salary = m_sal.group(1).replace("**", "").replace("*", "").strip()
+        sal_val = m_sal.group(1).replace("**", "").replace("*", "").strip()
+        sal_val = sal_val.replace("[", "").replace("]", "").strip()
+        if sal_val and "ko'rsatilmagan" not in sal_val.lower() and "nomalum" not in sal_val.lower():
+            salary = sal_val
         
     return position, company, salary
 
