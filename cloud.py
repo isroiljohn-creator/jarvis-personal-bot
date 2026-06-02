@@ -1,5 +1,7 @@
 """Cloud Services Hub — Barcha onlayn API ulanishlar markazi."""
 
+from __future__ import annotations
+
 import json
 import logging
 import os

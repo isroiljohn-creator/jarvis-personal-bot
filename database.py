@@ -73,6 +73,13 @@ CREATE TABLE IF NOT EXISTS deadlines (
     created_at   TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS processed_vacancies (
+    channel_id  BIGINT NOT NULL,
+    msg_id      INT NOT NULL,
+    sent_at     TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY(channel_id, msg_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_memories_category ON memories(category);
 CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_transactions_created ON transactions(created_at DESC);
@@ -483,5 +490,41 @@ async def db_get_deadline_summary() -> str:
         proj = f" [{d['project']}]" if d["project"] else ""
         lines.append(f"{pri} {d['title']}{proj} — {when}")
     return "\n".join(lines)
+
+
+# ─── VAKANSIYALAR ──────────────────────────────────────────────
+
+async def db_add_processed_vacancy(channel_id: int, msg_id: int) -> bool:
+    """Yuborilgan vakansiyani bazaga yozib qo'yadi."""
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO processed_vacancies (channel_id, msg_id)
+                VALUES ($1, $2)
+                ON CONFLICT (channel_id, msg_id) DO NOTHING
+            """, channel_id, msg_id)
+        return True
+    except Exception as e:
+        logger.error(f"db_add_processed_vacancy xatosi: {e}")
+        return False
+
+
+async def db_is_vacancy_processed(channel_id: int, msg_id: int) -> bool:
+    """Vakansiya allaqachon yuborilganligini tekshiradi."""
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            val = await conn.fetchval("""
+                SELECT EXISTS(
+                    SELECT 1 FROM processed_vacancies 
+                    WHERE channel_id = $1 AND msg_id = $2
+                )
+            """, channel_id, msg_id)
+        return bool(val)
+    except Exception as e:
+        logger.error(f"db_is_vacancy_processed xatosi: {e}")
+        return False
+
 
 

@@ -1,5 +1,7 @@
 """Jarvis Omni-Channel AI Bot — Telegram, Insta, Cloud, Memory integratsiyasi bilan."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import os
@@ -22,6 +24,7 @@ from telegram.constants import ChatAction, ParseMode
 
 from ai import GeminiAI
 from userbot import UserBot
+from vacancy_scraper import VacancyScraper
 from cloud import CloudHub
 from obsidian import ObsidianVault
 import developer as dev
@@ -52,6 +55,7 @@ VOICE_REPLY = os.environ.get("VOICE_REPLY", "true").lower() == "true"
 
 ai = GeminiAI(GEMINI_API_KEY)
 userbot: UserBot | None = None
+vacancy_scraper: VacancyScraper | None = None
 cloud = CloudHub()
 obsidian = ObsidianVault()
 GLOBAL_JOB_QUEUE = None
@@ -1437,7 +1441,25 @@ async def post_init(application: Application) -> None:
                 logger.warning(f"⚠️ Userbot ulana olmadi: {e}")
                 userbot = None
 
+    async def setup_vacancy_scraper():
+        global vacancy_scraper
+        vac_session = os.environ.get("VACANCY_TG_SESSION_STRING") or os.environ.get("TG_SESSION_STRING")
+        vac_api_id = os.environ.get("VACANCY_TG_API_ID") or TG_API_ID
+        vac_api_hash = os.environ.get("VACANCY_TG_API_HASH") or TG_API_HASH
+        
+        if vac_session and vac_api_id and vac_api_hash:
+            try:
+                logger.info("📱 Orqa fonda Vacancy Scraperni ishga tushirish boshlanmoqda...")
+                vs = VacancyScraper(api_id=int(vac_api_id), api_hash=vac_api_hash, session_string=vac_session)
+                await vs.connect()
+                vacancy_scraper = vs
+                logger.info("✅ Vacancy Scraper muvaffaqiyatli ulandi va sozlandi.")
+            except Exception as e:
+                logger.warning(f"⚠️ Vacancy Scraper ulana olmadi: {e}")
+                vacancy_scraper = None
+
     asyncio.create_task(setup_userbot())
+    asyncio.create_task(setup_vacancy_scraper())
 
     try:
         import uvicorn
@@ -1966,6 +1988,106 @@ async def midday_check_job(context: ContextTypes.DEFAULT_TYPE) -> None:
             await userbot.send_message("@abdullayev_ii", report)
     except Exception as e:
         logger.error(f"Midday check xatosi: {e}")
+
+
+async def format_vacancy_with_ai(raw_text: str) -> str:
+    """Vakansiya matnini Gemini yordamida shablonga soladi."""
+    default_template = """
+💼 **Yangi Vakansiya**
+
+🏢 **Kompaniya:** [Kompaniya nomi]
+📌 **Lavozim:** [Lavozim nomi]
+💰 **Maosh:** [Ish haqi miqdori]
+📍 **Lokatsiya:** [Shahar/Masofaviy]
+
+📝 **Talablar:**
+- [Talab 1]
+- [Talab 2]
+- ...
+
+📩 **Aloqa/Kontakt:** [Telegram username yoki telefon]
+"""
+    custom_template = os.environ.get("VACANCY_TEMPLATE")
+    template = custom_template if custom_template else default_template
+
+    system_prompt = f"""
+Siz professional HR assistentisiz. Vazifangiz quyidagi vakansiya matnini o'rganib chiqib, uni chiroyli, tartibli va imloviy xatolarsiz quyidagi shablon ko'rinishiga keltirishdir:
+
+{template}
+
+Qoidalar:
+1. Agar biror ma'lumot matnda bo'lmasa, uni bo'sh qoldirma yoki soxtalashtirma, balki "[Ko'rsatilmagan]" deb yoz yoki mos qatorni olib tashla.
+2. Har doim toza va chiroyli o'zbek tilida javob ber.
+3. Aloqa va kontakt ma'lumotlarini (havolalar, telefon raqamlar, usernamelar) albatta saqlab qol.
+4. Javobingizda faqat tayyorlangan vakansiya matni bo'lsin, ortiqcha izoh yoki gap qo'shmang.
+"""
+    try:
+        formatted = await ai.process_message(raw_text, system_prompt, use_tools=False)
+        return formatted
+    except Exception as e:
+        logger.error(f"Gemini vacancy formatting error: {e}")
+        return ""
+
+
+async def vacancy_scraper_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Har soatda 8:00 dan 22:00 gacha yangi vakansiyalarni tekshiradi."""
+    try:
+        # Check time range (8:00 - 22:00 Tashkent time)
+        tz = pytz.timezone("Asia/Tashkent")
+        now = datetime.datetime.now(tz)
+        if not (8 <= now.hour <= 22):
+            logger.info(f"Vacancy job skipped (outside 8:00-22:00, current: {now.strftime('%H:%M')})")
+            return
+
+        global vacancy_scraper
+        if not vacancy_scraper or not vacancy_scraper.connected:
+            logger.warning("Vacancy scraper is not initialized or not connected.")
+            return
+
+        logger.info("⏱ Vacancy Scraper checking source channels...")
+        folder_name = os.environ.get("VACANCY_HR_FOLDER", "HR")
+        channels = await vacancy_scraper.get_source_channels(folder_name)
+        if not channels:
+            logger.info("Vacancy source channels empty.")
+            return
+
+        # Get latest messages from sources
+        latest_vacancies = await vacancy_scraper.get_latest_vacancies(channels, limit=5)
+        if not latest_vacancies:
+            logger.info("No vacancies found in sources.")
+            return
+
+        import database
+        for vac in latest_vacancies:
+            already_processed = await database.db_is_vacancy_processed(vac["channel_id"], vac["msg_id"])
+            if already_processed:
+                continue
+
+            logger.info(f"Found new vacancy in {vac['channel_name']} (msg_id: {vac['msg_id']})")
+            
+            # Format vacancy
+            formatted = await format_vacancy_with_ai(vac["text"])
+            if not formatted or "xato" in formatted.lower():
+                logger.warning("Empty or error response from AI vacancy formatting.")
+                continue
+
+            # Send post to target channel
+            target_channel = os.environ.get("VACANCY_TARGET_CHANNEL", "@nuvi_jobs")
+            try:
+                # Bot sends the message (since bot is admin)
+                await context.bot.send_message(chat_id=target_channel, text=formatted, parse_mode="Markdown")
+                
+                # Mark as processed in DB
+                await database.db_add_processed_vacancy(vac["channel_id"], vac["msg_id"])
+                logger.info(f"✅ Vacancy yuborildi: {target_channel} (source: {vac['channel_name']})")
+                
+                # Break to send only ONE vacancy per hour
+                break
+            except Exception as e:
+                logger.error(f"Failed to post vacancy to {target_channel}: {e}")
+                
+    except Exception as e:
+        logger.error(f"Vacancy scraper job error: {e}")
 
 
 NOTIFIED_EVENTS = set()
@@ -2624,6 +2746,7 @@ def main() -> None:
     app.job_queue.run_repeating(scheduled_posts_sender_job, interval=60, first=10) # har 1 daqiqa
     app.job_queue.run_daily(competitor_check_job, time=datetime.time(hour=9, minute=0, tzinfo=tz), days=(1,))  # Dushanba
     app.job_queue.run_daily(smart_kundalik_job, time=datetime.time(hour=21, minute=45, tzinfo=tz))  # Har kuni
+    app.job_queue.run_repeating(vacancy_scraper_job, interval=3600, first=60)                      # Har 1 soatda
 
     logger.info("✅ J.A.R.V.I.S tayyor! Polling boshlandi.")
     app.run_polling(

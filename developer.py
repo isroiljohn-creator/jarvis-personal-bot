@@ -47,7 +47,8 @@ def github_list_repos(limit: int = 20) -> str:
         lines = []
         for r in repos:
             status = "🔴 arxivlangan" if r.get("archived") else "🟢 faol"
-            lines.append(f"{status} {r['name']} — {r.get('description') or 'tavsif yo\'q'}")
+            desc = r.get("description") or "tavsif yo'q"
+            lines.append(f"{status} {r['name']} — {desc}")
         return "\n".join(lines) if lines else "Repolar topilmadi."
     except Exception as e:
         return f"❌ GitHub xatosi: {e}"
