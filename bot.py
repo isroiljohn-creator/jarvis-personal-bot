@@ -2011,15 +2011,18 @@ async def format_vacancy_with_ai(raw_text: str) -> str:
     template = custom_template if custom_template else default_template
 
     system_prompt = f"""
-Siz professional HR assistentisiz. Vazifangiz quyidagi vakansiya matnini o'rganib chiqib, uni chiroyli, tartibli va imloviy xatolarsiz quyidagi shablon ko'rinishiga keltirishdir:
+Siz professional HR assistentisiz. Vazifangiz quyidagi xabarni o'rganib chiqib, u haqiqiy ish vakansiyasi (ish e'loni) ekanligini aniqlashdir.
+
+MUHIM QOIDALAR:
+1. Agar ushbu xabar HAQIQIY ish vakansiyasi bo'lmasa (masalan: kanaldan e'lon berish bo'yicha ma'lumotnoma, o'quv kursi reklamasi, xizmat ko'rsatish reklamasi, kanalning o'zini rekloma qilish matni yoki shunchaki umumiy xabar bo'lsa), unda faqatgina "XATO_VAKANSIYA_EMAS" yozuvini qaytaring. Boshqa hech qanday izoh qo'shmang.
+2. Agar bu haqiqiy vakansiya bo'lsa, uni quyidagi shablonga soling:
 
 {template}
 
-Qoidalar:
-1. Agar biror ma'lumot matnda bo'lmasa, uni bo'sh qoldirma yoki soxtalashtirma, balki "[Ko'rsatilmagan]" deb yoz yoki mos qatorni olib tashla.
-2. Har doim toza va chiroyli o'zbek tilida javob ber.
-3. Aloqa va kontakt ma'lumotlarini (havolalar, telefon raqamlar, usernamelar) albatta saqlab qol.
-4. Javobingizda faqat tayyorlangan vakansiya matni bo'lsin, ortiqcha izoh yoki gap qo'shmang.
+3. Matndagi boshqa telegram kanallarining rekloma havolalarini (masalan: "Kanalimizga a'zo bo'ling: @kanal" yoki "@kanal kanali") butunlay o'chiring. Faqat ish beruvchi recruiterning shaxsiy telegram username yoki telefon raqamini aloqa/kontakt qismida saqlab qoling.
+4. Agar biror ma'lumot matnda bo'lmasa, uni bo'sh qoldirmang, balki "[Ko'rsatilmagan]" deb yozing yoki mos qatorni olib tashlang.
+5. Har doim toza va chiroyli o'zbek tilida javob bering.
+6. Javobingizda faqat tayyorlangan vakansiya matni bo'lsin, ortiqcha izoh yoki gap qo'shmang.
 """
     try:
         formatted = await ai.process_message(raw_text, system_prompt, use_tools=False)
@@ -2107,13 +2110,34 @@ async def vacancy_scraper_job(context: ContextTypes.DEFAULT_TYPE) -> None:
                 img_success = generate_vacancy_cover(pos, comp, sal, temp_path)
                 
                 if img_success and os.path.exists(temp_path):
-                    with open(temp_path, "rb") as photo:
-                        await context.bot.send_photo(
-                            chat_id=target_channel,
-                            photo=photo,
-                            caption=formatted.replace("_", "\\_"),
-                            parse_mode="Markdown"
-                        )
+                    try:
+                        with open(temp_path, "rb") as photo:
+                            await context.bot.send_photo(
+                                chat_id=target_channel,
+                                photo=photo,
+                                caption=formatted.replace("_", "\\_"),
+                                parse_mode="Markdown"
+                            )
+                    except Exception as tg_err:
+                        logger.warning(f"Failed to send photo with full caption: {tg_err}. Retrying with split messages.")
+                        short_caption = f"📢 **NUVI JOBS | YANGI VAKANSIYA**\n\n📌 **Lavozim:** {pos}\n🏢 **Kompaniya:** {comp}\n💰 **Maosh:** {sal}"
+                        try:
+                            with open(temp_path, "rb") as photo:
+                                await context.bot.send_photo(
+                                    chat_id=target_channel,
+                                    photo=photo,
+                                    caption=short_caption.replace("_", "\\_"),
+                                    parse_mode="Markdown"
+                                )
+                            await context.bot.send_message(
+                                chat_id=target_channel,
+                                text=formatted.replace("_", "\\_"),
+                                parse_mode="Markdown"
+                            )
+                        except Exception as split_err:
+                            logger.error(f"Failed to send split vacancy messages: {split_err}")
+                            # Final fallback: text only
+                            await context.bot.send_message(chat_id=target_channel, text=formatted.replace("_", "\\_"), parse_mode="Markdown")
                     try:
                         os.unlink(temp_path)
                     except:
@@ -2790,18 +2814,40 @@ async def cmd_scrape(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             img_success = generate_vacancy_cover(pos, comp, sal, temp_path)
             
             if img_success and os.path.exists(temp_path):
-                with open(temp_path, "rb") as photo:
-                    await context.bot.send_photo(
-                        chat_id=target_channel,
-                        photo=photo,
-                        caption=formatted.replace("_", "\\_"),
-                        parse_mode="Markdown"
-                    )
+                try:
+                    with open(temp_path, "rb") as photo:
+                        await context.bot.send_photo(
+                            chat_id=target_channel,
+                            photo=photo,
+                            caption=formatted.replace("_", "\\_"),
+                            parse_mode="Markdown"
+                        )
+                    await update.message.reply_text(f"✅ Vakansiya muvaffaqiyatli yuborildi: {target_channel}")
+                except Exception as tg_err:
+                    logger.warning(f"Failed to send photo with full caption: {tg_err}. Retrying with split messages.")
+                    short_caption = f"📢 **NUVI JOBS | YANGI VAKANSIYA**\n\n📌 **Lavozim:** {pos}\n🏢 **Kompaniya:** {comp}\n💰 **Maosh:** {sal}"
+                    try:
+                        with open(temp_path, "rb") as photo:
+                            await context.bot.send_photo(
+                                chat_id=target_channel,
+                                photo=photo,
+                                caption=short_caption.replace("_", "\\_"),
+                                parse_mode="Markdown"
+                            )
+                        await context.bot.send_message(
+                            chat_id=target_channel,
+                            text=formatted.replace("_", "\\_"),
+                            parse_mode="Markdown"
+                        )
+                        await update.message.reply_text(f"✅ Vakansiya muvaffaqiyatli yuborildi (surat va matn alohida): {target_channel}")
+                    except Exception as split_err:
+                        logger.error(f"Failed to send split vacancy messages in cmd_scrape: {split_err}")
+                        await context.bot.send_message(chat_id=target_channel, text=formatted.replace("_", "\\_"), parse_mode="Markdown")
+                        await update.message.reply_text(f"✅ Vakansiya faqat matn ko'rinishida yuborildi: {target_channel}")
                 try:
                     os.unlink(temp_path)
                 except:
                     pass
-                await update.message.reply_text(f"✅ Vakansiya muvaffaqiyatli yuborildi: {target_channel}")
             else:
                 await context.bot.send_message(chat_id=target_channel, text=formatted.replace("_", "\\_"), parse_mode="Markdown")
                 await update.message.reply_text(f"✅ Vakansiya faqat matn ko'rinishida yuborildi (oblojka xatosi): {target_channel}")
