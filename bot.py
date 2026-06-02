@@ -2029,6 +2029,28 @@ Qoidalar:
         return ""
 
 
+def extract_meta_for_cover(text: str) -> tuple[str, str, str]:
+    """Qayd qilingan shablondan kompaniya, lavozim va maoshni ajratib oladi."""
+    import re
+    company = "Ko'rsatilmagan"
+    position = "Yangi Vakansiya"
+    salary = "Kelishilgan holda"
+    
+    m_comp = re.search(r"🏢\s*\*?\*?Kompaniya:\*?\*?\s*(.+)", text)
+    if m_comp:
+        company = m_comp.group(1).replace("**", "").replace("*", "").strip()
+        
+    m_pos = re.search(r"📌\s*\*?\*?Lavozim:\*?\*?\s*(.+)", text)
+    if m_pos:
+        position = m_pos.group(1).replace("**", "").replace("*", "").strip()
+        
+    m_sal = re.search(r"💰\s*\*?\*?Maosh:\*?\*?\s*(.+)", text)
+    if m_sal:
+        salary = m_sal.group(1).replace("**", "").replace("*", "").strip()
+        
+    return position, company, salary
+
+
 async def vacancy_scraper_job(context: ContextTypes.DEFAULT_TYPE) -> None:
     """Har soatda 8:00 dan 22:00 gacha yangi vakansiyalarni tekshiradi."""
     try:
@@ -2074,8 +2096,31 @@ async def vacancy_scraper_job(context: ContextTypes.DEFAULT_TYPE) -> None:
             # Send post to target channel
             target_channel = os.environ.get("VACANCY_TARGET_CHANNEL", "@nuvi_jobs")
             try:
-                # Bot sends the message (since bot is admin)
-                await context.bot.send_message(chat_id=target_channel, text=formatted, parse_mode="Markdown")
+                # Generate cover image
+                from image_generator import generate_vacancy_cover
+                import tempfile
+                
+                pos, comp, sal = extract_meta_for_cover(formatted)
+                temp_dir = tempfile.gettempdir()
+                temp_path = os.path.join(temp_dir, f"vacancy_{vac['msg_id']}.png")
+                
+                img_success = generate_vacancy_cover(pos, comp, sal, temp_path)
+                
+                if img_success and os.path.exists(temp_path):
+                    with open(temp_path, "rb") as photo:
+                        await context.bot.send_photo(
+                            chat_id=target_channel,
+                            photo=photo,
+                            caption=formatted,
+                            parse_mode="Markdown"
+                        )
+                    try:
+                        os.unlink(temp_path)
+                    except:
+                        pass
+                else:
+                    # Fallback to plain text if image generation fails
+                    await context.bot.send_message(chat_id=target_channel, text=formatted, parse_mode="Markdown")
                 
                 # Mark as processed in DB
                 await database.db_add_processed_vacancy(vac["channel_id"], vac["msg_id"])
