@@ -41,7 +41,7 @@ class VacancyScraper:
         try:
             r = await self.client(GetDialogFiltersRequest())
             for f in r.filters:
-                if isinstance(f, DialogFilter) and f.title and f.title.lower() == folder_name.lower():
+                if isinstance(f, DialogFilter) and f.title and str(f.title).lower() == folder_name.lower():
                     channel_ids = []
                     for peer in f.include_peers:
                         if hasattr(peer, 'channel_id'):

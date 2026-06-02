@@ -2741,12 +2741,16 @@ async def cmd_scrape(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if not vacancy_scraper or not vacancy_scraper.connected:
         await update.message.reply_text("❌ Scraper Telegram akkauntiga ulanmagan. Bir ozdan keyin qayta urining.")
         return
-        
     try:
-        folder_name = "HR"
+        folder_name = os.environ.get("VACANCY_HR_FOLDER", "HR")
         channels = await vacancy_scraper.get_source_channels(folder_name)
         if not channels:
-            await update.message.reply_text("⚠️ 'HR' papkasi topilmadi yoki bo'sh. Qidiruv bekor qilindi.")
+            await update.message.reply_text(
+                f"⚠️ '{folder_name}' nomli papka (dialog filter) ikkinchi Telegram akkauntingizda topilmadi yoki bo'sh.\n\n"
+                f"Tuzatish yo'llari:\n"
+                f"1. Ikkinchi Telegram akkauntingizda (@soma_support) Telegram sozlamalaridan '{folder_name}' nomli papka yarating va unga vakansiya o'qiladigan kanallarni qo'shing.\n"
+                f"2. Yoki Railway orqali `VACANCY_SOURCES` o'zgaruvchisiga kanallarni vergul bilan yozib qo'ying (masalan: `@channel1,@channel2`)."
+            )
             return
             
         await update.message.reply_text(f"📁 {len(channels)} ta kanal topildi. Yangi xabarlarni tekshirmoqdaman...")
