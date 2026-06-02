@@ -2731,6 +2731,89 @@ async def cmd_fix(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(f"AI TAHLIL ({info['name']}):\n\n{safe}")
 
 
+async def cmd_scrape(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Manual vacancy scraper trigger for testing."""
+    if not await check_auth(update): return
+    await update.message.reply_text("🔍 Vakansiyalarni skanerlash boshlandi, biroz kuting...")
+    await update.message.chat.send_action(ChatAction.TYPING)
+    
+    global vacancy_scraper
+    if not vacancy_scraper or not vacancy_scraper.connected:
+        await update.message.reply_text("❌ Scraper Telegram akkauntiga ulanmagan. Bir ozdan keyin qayta urining.")
+        return
+        
+    try:
+        folder_name = "HR"
+        channels = await vacancy_scraper.get_source_channels(folder_name)
+        if not channels:
+            await update.message.reply_text("⚠️ 'HR' papkasi topilmadi yoki bo'sh. Qidiruv bekor qilindi.")
+            return
+            
+        await update.message.reply_text(f"📁 {len(channels)} ta kanal topildi. Yangi xabarlarni tekshirmoqdaman...")
+        latest_vacancies = await vacancy_scraper.get_latest_vacancies(channels, limit=5)
+        
+        if not latest_vacancies:
+            await update.message.reply_text("ℹ️ Kanallarda yangi vakansiyalar topilmadi.")
+            return
+            
+        import database
+        found_any = False
+        for vac in latest_vacancies:
+            already_processed = await database.db_is_vacancy_processed(vac["channel_id"], vac["msg_id"])
+            if already_processed:
+                continue
+                
+            found_any = True
+            await update.message.reply_text(f"💡 Yangi vakansiya topildi: {vac['channel_name']}. Formatlanmoqda...")
+            
+            # Format vacancy
+            formatted = await format_vacancy_with_ai(vac["text"])
+            if not formatted or "xato" in formatted.lower():
+                await update.message.reply_text("⚠️ AI formatlashda xatolik yuz berdi.")
+                continue
+                
+            # Send post to target channel
+            target_channel = os.environ.get("VACANCY_TARGET_CHANNEL", "@nuvi_jobs")
+            
+            # Generate cover image
+            from image_generator import generate_vacancy_cover
+            import tempfile
+            
+            pos, comp, sal = extract_meta_for_cover(formatted)
+            temp_dir = tempfile.gettempdir()
+            temp_path = os.path.join(temp_dir, f"vacancy_manual_{vac['msg_id']}.png")
+            
+            img_success = generate_vacancy_cover(pos, comp, sal, temp_path)
+            
+            if img_success and os.path.exists(temp_path):
+                with open(temp_path, "rb") as photo:
+                    await context.bot.send_photo(
+                        chat_id=target_channel,
+                        photo=photo,
+                        caption=formatted,
+                        parse_mode="Markdown"
+                    )
+                try:
+                    os.unlink(temp_path)
+                except:
+                    pass
+                await update.message.reply_text(f"✅ Vakansiya muvaffaqiyatli yuborildi: {target_channel}")
+            else:
+                await context.bot.send_message(chat_id=target_channel, text=formatted, parse_mode="Markdown")
+                await update.message.reply_text(f"✅ Vakansiya faqat matn ko'rinishida yuborildi (oblojka xatosi): {target_channel}")
+                
+            # Mark as processed in DB
+            await database.db_add_processed_vacancy(vac["channel_id"], vac["msg_id"])
+            break
+            
+        if not found_any:
+            await update.message.reply_text("ℹ️ Barcha topilgan vakansiyalar oldin qayta ishlangan. Yangisi yo'q.")
+            
+    except Exception as e:
+        logger.error(f"Manual scrape error: {e}")
+        await update.message.reply_text(f"❌ Xatolik yuz berdi: {e}")
+
+
 def main() -> None:
     app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
     app.add_handler(CommandHandler("start", start))
@@ -2750,6 +2833,7 @@ def main() -> None:
     app.add_handler(CommandHandler("logs", cmd_logs))
     app.add_handler(CommandHandler("deploy", cmd_deploy))
     app.add_handler(CommandHandler("fix", cmd_fix))
+    app.add_handler(CommandHandler("scrape", cmd_scrape))
     # /ping — guruhda ishlashini tekshirish uchun
     async def ping_cmd(upd: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await upd.message.reply_text("Pong! Bot ishlayapti.")
