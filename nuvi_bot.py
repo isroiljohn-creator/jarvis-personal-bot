@@ -73,11 +73,11 @@ async def get_tariff_price(tariff: str) -> int:
         except ValueError:
             pass
     defaults = {
-        "pro": 30000,
-        "premium": 50000,
-        "vip": 80000
+        "pro": 20000,
+        "premium": 35000,
+        "vip": 50000
     }
-    return defaults.get(tariff, 30000)
+    return defaults.get(tariff, 20000)
 
 async def get_vacancy_price() -> int:
     """Tizimdagi joriy e'lon narxini bazadan oladi, bo'lmasa env/default qaytaradi (Legacy fallback)."""
@@ -1725,6 +1725,18 @@ def main():
     # DB initialization
     loop = asyncio.get_event_loop()
     loop.run_until_complete(database.init_db())
+    
+    # Align database settings with new approved defaults
+    async def update_db_prices():
+        try:
+            await database.db_set_nuvi_setting("tariff_pro_price", "20000")
+            await database.db_set_nuvi_setting("tariff_premium_price", "35000")
+            await database.db_set_nuvi_setting("tariff_vip_price", "50000")
+            logger.info("✅ Database prices aligned to new defaults: Pro=20k, Premium=35k, VIP=50k")
+        except Exception as e:
+            logger.error(f"Failed to align database prices: {e}")
+            
+    loop.run_until_complete(update_db_prices())
     
     app = Application.builder().token(NUVI_BOT_TOKEN).post_init(post_init).build()
     
