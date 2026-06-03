@@ -50,7 +50,7 @@ logger = logging.getLogger("nuvi_bot")
 
 # ──────────────────────── SOZLAMALAR ─────────────────────────
 
-NUVI_BOT_TOKEN = os.environ.get("NUVI_BOT_TOKEN", "8713575188:AAERwI20zYqVdbIYaiLCUdXSNEjFAskf_rM")
+NUVI_BOT_TOKEN = os.environ.get("NUVI_BOT_TOKEN", "8713575188:AAH0Cc65Cnpn5KwsEIhOe75_FZAXUSGoaco")
 OWNER_ID = int(os.environ.get("OWNER_TELEGRAM_ID", "1392501306"))
 ADMIN_CHANNEL_ID = int(os.environ.get("NUVI_ADMIN_CHANNEL_ID", str(OWNER_ID)))
 TARGET_CHANNEL = os.environ.get("NUVI_TARGET_CHANNEL", "-1003705561421")
