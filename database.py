@@ -851,7 +851,9 @@ async def db_get_nuvi_detailed_stats() -> dict:
                 price = pro_price if tariff == 'pro' else (prem_price if tariff == 'premium' else vip_price)
                 monthly_turnover[m_str] = monthly_turnover.get(m_str, 0) + price
                 
-            monthly_turnover_sorted = [{"month": k, "amount": v} for k, v in sorted(monthly_turnover.items())]
+            # 8. Referral & Promo Stats
+            referral_signups = await conn.fetchval("SELECT COUNT(*) FROM nuvi_users WHERE referred_by IS NOT NULL") or 0
+            promocodes_used = await conn.fetchval("SELECT SUM(uses_count) FROM nuvi_promocodes") or 0
             
             return {
                 "total_users": total_users or 0,
@@ -859,6 +861,8 @@ async def db_get_nuvi_detailed_stats() -> dict:
                 "total_posted": total_posted or 0,
                 "total_pending": total_pending or 0,
                 "total_turnover": total_turnover,
+                "referral_signups": referral_signups,
+                "promocodes_used": promocodes_used,
                 "prices": {
                     "pro": pro_price,
                     "premium": prem_price,
