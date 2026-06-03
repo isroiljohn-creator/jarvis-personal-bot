@@ -255,6 +255,13 @@ async def get_nuvi_stats_api():
     stats = await db_get_nuvi_detailed_stats()
     return stats
 
+@app.get("/api/nuvi/queue")
+async def get_nuvi_queue_api():
+    """Nuvi Jobs upcoming vacancy queue endpoint."""
+    from database import db_get_nuvi_queue
+    queue = await db_get_nuvi_queue()
+    return {"queue": queue}
+
 @app.post("/api/finance/transactions")
 async def save_transaction(request: Request):
     """Yangi tranzaksiya saqlash (Mini App orqali)."""

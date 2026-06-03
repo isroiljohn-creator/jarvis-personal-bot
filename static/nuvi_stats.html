@@ -37,99 +37,139 @@
       </div>
     </header>
 
-    <!-- Metrics Cards Grid -->
-    <section class="metrics-grid">
-      <!-- Card 1: Turnover -->
-      <div class="metric-card card-revenue">
-        <div class="card-glow"></div>
-        <div class="metric-header">
-          <span class="metric-title">Umumiy Tushum</span>
-          <span class="metric-icon">💰</span>
-        </div>
-        <div class="metric-value" id="turnoverVal">0 so'm</div>
-        <div class="metric-sub" id="turnoverSub">Tasdiqlangan to'lovlar aylanmasi</div>
-      </div>
+    <!-- Tabs Navigation -->
+    <div class="tab-navigation">
+      <button class="tab-btn active" id="tab-dashboard" onclick="switchTab('dashboard')">📊 Boshqaruv</button>
+      <button class="tab-btn" id="tab-queue" onclick="switchTab('queue')">⏰ Chop Etish Navbati</button>
+    </div>
 
-      <!-- Card 2: Total Vacancies -->
-      <div class="metric-card">
-        <div class="card-glow"></div>
-        <div class="metric-header">
-          <span class="metric-title">Jami E'lonlar</span>
-          <span class="metric-icon">💼</span>
+    <!-- Tab 1: Dashboard -->
+    <div id="dashboardTab" class="tab-content active">
+      <!-- Metrics Cards Grid -->
+      <section class="metrics-grid">
+        <!-- Card 1: Turnover -->
+        <div class="metric-card card-revenue">
+          <div class="card-glow"></div>
+          <div class="metric-header">
+            <span class="metric-title">Umumiy Tushum</span>
+            <span class="metric-icon">💰</span>
+          </div>
+          <div class="metric-value" id="turnoverVal">0 so'm</div>
+          <div class="metric-sub" id="turnoverSub">Tasdiqlangan to'lovlar aylanmasi</div>
         </div>
-        <div class="metric-value" id="totalVacanciesVal">0</div>
-        <div class="metric-sub">Kiritilgan barcha arizalar</div>
-      </div>
 
-      <!-- Card 3: Pending Approval -->
-      <div class="metric-card card-pending">
-        <div class="card-glow"></div>
-        <div class="metric-header">
-          <span class="metric-title">Kutilayotgan Arizalar</span>
-          <span class="metric-icon">⏱️</span>
+        <!-- Card 2: Total Vacancies -->
+        <div class="metric-card">
+          <div class="card-glow"></div>
+          <div class="metric-header">
+            <span class="metric-title">Jami E'lonlar</span>
+            <span class="metric-icon">💼</span>
+          </div>
+          <div class="metric-value" id="totalVacanciesVal">0</div>
+          <div class="metric-sub">Kiritilgan barcha arizalar</div>
         </div>
-        <div class="metric-value" id="pendingVal">0</div>
-        <div class="metric-sub">Tasdiqlash navbatidagi vakansiyalar</div>
-      </div>
 
-      <!-- Card 4: Registered Users -->
-      <div class="metric-card">
-        <div class="card-glow"></div>
-        <div class="metric-header">
-          <span class="metric-title">Faol Foydalanuvchilar</span>
-          <span class="metric-icon">👥</span>
+        <!-- Card 3: Pending Approval -->
+        <div class="metric-card card-pending">
+          <div class="card-glow"></div>
+          <div class="metric-header">
+            <span class="metric-title">Kutilayotgan Arizalar</span>
+            <span class="metric-icon">⏱️</span>
+          </div>
+          <div class="metric-value" id="pendingVal">0</div>
+          <div class="metric-sub">Tasdiqlash navbatidagi vakansiyalar</div>
         </div>
-        <div class="metric-value" id="totalUsersVal">0</div>
-        <div class="metric-sub">Bot a'zolari soni</div>
-      </div>
-    </section>
 
-    <!-- Charts and Table Section -->
-    <section class="dashboard-content">
-      <!-- Left: Charts -->
-      <div class="charts-column">
-        <div class="content-card">
-          <h2>Tariflar Taqsimoti</h2>
-          <div class="chart-container">
-            <canvas id="tariffChart"></canvas>
+        <!-- Card 4: Registered Users -->
+        <div class="metric-card">
+          <div class="card-glow"></div>
+          <div class="metric-header">
+            <span class="metric-title">Faol Foydalanuvchilar</span>
+            <span class="metric-icon">👥</span>
+          </div>
+          <div class="metric-value" id="totalUsersVal">0</div>
+          <div class="metric-sub">Bot a'zolari soni</div>
+        </div>
+      </section>
+
+      <!-- Charts and Table Section -->
+      <section class="dashboard-content" style="margin-top: 24px;">
+        <!-- Left: Charts -->
+        <div class="charts-column">
+          <div class="content-card">
+            <h2>Tariflar Taqsimoti</h2>
+            <div class="chart-container">
+              <canvas id="tariffChart"></canvas>
+            </div>
+          </div>
+
+          <div class="content-card">
+            <h2>Pul Aylanmasi Dinamikasi</h2>
+            <div class="chart-container">
+              <canvas id="revenueChart"></canvas>
+            </div>
           </div>
         </div>
 
-        <div class="content-card">
-          <h2>Pul Aylanmasi Dinamikasi</h2>
-          <div class="chart-container">
-            <canvas id="revenueChart"></canvas>
+        <!-- Right: Recent Submissions -->
+        <div class="table-column">
+          <div class="content-card full-height">
+            <div class="card-title-row">
+              <h2>So'nggi Kelgan Arizalar</h2>
+            </div>
+            <div class="table-wrapper">
+              <table class="submissions-table">
+                <thead>
+                  <tr>
+                    <th>Lavozim</th>
+                    <th>Kompaniya</th>
+                    <th>Tarif</th>
+                    <th>To'lov</th>
+                    <th>Holat</th>
+                  </tr>
+                </thead>
+                <tbody id="submissionsBody">
+                  <tr>
+                    <td colspan="5" class="loading-cell">Ma'lumotlar yuklanmoqda...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
+    </div>
 
-      <!-- Right: Recent Submissions -->
-      <div class="table-column">
-        <div class="content-card full-height">
-          <div class="card-title-row">
-            <h2>So'nggi Kelgan Arizalar</h2>
-          </div>
-          <div class="table-wrapper">
-            <table class="submissions-table">
-              <thead>
-                <tr>
-                  <th>Lavozim</th>
-                  <th>Kompaniya</th>
-                  <th>Tarif</th>
-                  <th>To'lov</th>
-                  <th>Holat</th>
-                </tr>
-              </thead>
-              <tbody id="submissionsBody">
-                <tr>
-                  <td colspan="5" class="loading-cell">Ma'lumotlar yuklanmoqda...</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+    <!-- Tab 2: Queue -->
+    <div id="queueTab" class="tab-content">
+      <div class="content-card">
+        <div class="card-title-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <h2>Chop Etish Navbati</h2>
+          <span class="badge status-approved" id="queueCountVal">0 e'lon</span>
+        </div>
+        <p class="queue-desc" style="color:var(--text-secondary); font-size:13px; margin-bottom:24px;">
+          Tasdiqlangan barcha e'lonlar Toshkent vaqti bilan har 30 daqiqada (09:00 - 22:00) navbat bo'yicha chop etiladi. Tarif darajasi (`VIP` > `Premium` > `Pro` > `Tekin`) va kelgan vaqti bo'yicha tartiblangan.
+        </p>
+        <div class="table-wrapper">
+          <table class="submissions-table">
+            <thead>
+              <tr>
+                <th>Vaqt</th>
+                <th>Lavozim</th>
+                <th>Kompaniya</th>
+                <th>Tarif</th>
+                <th>Foydalanuvchi</th>
+              </tr>
+            </thead>
+            <tbody id="queueBody">
+              <tr>
+                <td colspan="5" class="loading-cell">Navbat yuklanmoqda...</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
-    </section>
+    </div>
   </div>
 
   <!-- Detail Modal -->

@@ -836,6 +836,101 @@ async def db_get_nuvi_detailed_stats() -> dict:
         logger.error(f"db_get_nuvi_detailed_stats xatosi: {e}")
         return {}
 
+async def db_align_vacancy_queue() -> bool:
+    try:
+        import pytz
+        import datetime
+        
+        tz = pytz.timezone("Asia/Tashkent")
+        now_tz = datetime.datetime.now(tz)
+        
+        # Align now_tz to the next 30-minute boundary
+        minutes = now_tz.minute
+        if minutes == 0 and now_tz.second == 0:
+            next_slot = now_tz
+        elif minutes <= 30:
+            next_slot = now_tz.replace(minute=30, second=0, microsecond=0)
+        else:
+            next_slot = (now_tz + datetime.timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+            
+        # Ensure within active hours (09:00 - 21:30)
+        if next_slot.hour < 9:
+            next_slot = next_slot.replace(hour=9, minute=0, second=0, microsecond=0)
+        elif next_slot.hour >= 22 or (next_slot.hour == 21 and next_slot.minute > 30):
+            next_slot = (next_slot + datetime.timedelta(days=1)).replace(hour=9, minute=0, second=0, microsecond=0)
+            
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT id, tariff, created_at, scheduled_for 
+                FROM nuvi_vacancies 
+                WHERE status = 'approved' AND posted_at IS NULL
+                ORDER BY 
+                  CASE tariff 
+                    WHEN 'vip' THEN 0 
+                    WHEN 'premium' THEN 1 
+                    WHEN 'pro' THEN 2 
+                    ELSE 3 
+                  END ASC, 
+                  created_at ASC
+            """)
+            
+            if not rows:
+                return True
+                
+            current_slot = next_slot
+            async with conn.transaction():
+                for r in rows:
+                    await conn.execute(
+                        "UPDATE nuvi_vacancies SET scheduled_for = $1, updated_at = NOW() WHERE id = $2",
+                        current_slot, r["id"]
+                    )
+                    
+                    # Advance to next slot
+                    current_slot += datetime.timedelta(minutes=30)
+                    if current_slot.hour < 9:
+                        current_slot = current_slot.replace(hour=9, minute=0, second=0, microsecond=0)
+                    elif current_slot.hour >= 22 or (current_slot.hour == 21 and current_slot.minute > 30):
+                        current_slot = (current_slot + datetime.timedelta(days=1)).replace(hour=9, minute=0, second=0, microsecond=0)
+                        
+            logger.info(f"✅ Vacancy queue aligned successfully for {len(rows)} vacancies.")
+            return True
+    except Exception as e:
+        logger.error(f"db_align_vacancy_queue xatosi: {e}")
+        return False
+
+async def db_get_nuvi_queue() -> list[dict]:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT v.id, v.title, v.company, v.salary, v.status, v.payment_status, v.tariff, v.scheduled_for, u.first_name as user_name
+                FROM nuvi_vacancies v
+                LEFT JOIN nuvi_users u ON v.user_id = u.user_id
+                WHERE v.status = 'approved' AND v.posted_at IS NULL
+                ORDER BY v.scheduled_for ASC
+            """)
+            queue = []
+            for r in rows:
+                s_time = r['scheduled_for']
+                s_time_str = s_time.strftime("%Y-%m-%d %H:%M") if s_time else "Kutilmoqda"
+                queue.append({
+                    "id": r['id'],
+                    "title": r['title'],
+                    "company": r['company'],
+                    "salary": r['salary'],
+                    "status": r['status'],
+                    "payment_status": r['payment_status'],
+                    "tariff": r['tariff'],
+                    "user_name": r['user_name'] or "Moma'lum",
+                    "scheduled_for": s_time_str
+                })
+            return queue
+    except Exception as e:
+        logger.error(f"db_get_nuvi_queue xatosi: {e}")
+        return []
+
+
 
 
 

@@ -900,12 +900,12 @@ async def admin_buttons_callback(update: Update, context: ContextTypes.DEFAULT_T
         
     elif data.startswith("admin_approve_"):
         vac_id = int(data.split("_")[-1])
-        vac = await database.db_get_nuvi_vacancy(vac_id)
-        tariff = vac.get("tariff", "pro") if vac else "pro"
-        scheduled_for = await calculate_next_post_time(tariff)
-        
         # Bazani yangilaymiz
-        await database.db_update_nuvi_vacancy(vac_id, status="approved", scheduled_for=scheduled_for)
+        await database.db_update_nuvi_vacancy(vac_id, status="approved")
+        await database.db_align_vacancy_queue()
+        
+        vac = await database.db_get_nuvi_vacancy(vac_id)
+        scheduled_for = vac["scheduled_for"] if (vac and vac["scheduled_for"]) else datetime.datetime.now()
         
         # Tashkent vaqti formatida ko'rsatish
         tz = pytz.timezone("Asia/Tashkent")
@@ -1563,8 +1563,49 @@ def extract_meta_for_cover(text: str) -> tuple[str, str, str]:
     return position, company, salary
 
 
+async def save_scraped_vacancy_to_db(formatted_text: str) -> Optional[int]:
+    """Scraped vakansiyani bazaga saqlaydi va navbatni tekislaydi."""
+    try:
+        import database
+        pos, comp, sal = extract_meta_for_cover(formatted_text)
+        
+        # System scraper userini yaratish/tekshirish
+        await database.db_upsert_nuvi_user(1, "system_scraper", "Scraper")
+        
+        # Vakansiya yaratish
+        vac_id = await database.db_create_nuvi_vacancy(
+            user_id=1,
+            title=pos,
+            company=comp,
+            salary=sal,
+            location="Toshkent",
+            working_hours="Shart emas",
+            requirements="Shart emas",
+            skills="Shart emas",
+            benefits="Shart emas",
+            contact="Kanalda ko'rsatilgan",
+            formatted_text=formatted_text,
+            tariff="scraped"
+        )
+        
+        if vac_id:
+            # Statusni tasdiqlangan va to'lovni free qilamiz
+            await database.db_update_nuvi_vacancy(
+                vac_id,
+                status="approved",
+                payment_status="free"
+            )
+            # Navbatni tekislaymiz
+            await database.db_align_vacancy_queue()
+            return vac_id
+        return None
+    except Exception as e:
+        logger.error(f"save_scraped_vacancy_to_db error: {e}")
+        return None
+
+
 async def vacancy_scraper_job(context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Har soatda 8:00 dan 22:00 gacha yangi vakansiyalarni tekshiradi."""
+    """Har soatda 8:00 dan 22:00 gacha yangi vakansiyalarni tekshiradi va bazadagi navbatga qo'shadi."""
     try:
         # Check time range (8:00 - 22:00 Tashkent time)
         tz = pytz.timezone("Asia/Tashkent")
@@ -1605,59 +1646,13 @@ async def vacancy_scraper_job(context: ContextTypes.DEFAULT_TYPE) -> None:
                 logger.warning("Empty or error response from AI vacancy formatting.")
                 continue
 
-            # Send post to target channel
-            target_channel = os.environ.get("VACANCY_TARGET_CHANNEL", TARGET_CHANNEL)
-            try:
-                # Generate cover image
-                from image_generator import generate_vacancy_cover
-                import tempfile
-                
-                pos, comp, sal = extract_meta_for_cover(formatted)
-                temp_dir = tempfile.gettempdir()
-                temp_path = os.path.join(temp_dir, f"vacancy_{vac['msg_id']}.png")
-                
-                img_success = generate_vacancy_cover(pos, comp, sal, temp_path)
-                
-                if img_success and os.path.exists(temp_path):
-                    try:
-                        with open(temp_path, "rb") as photo:
-                            await context.bot.send_photo(
-                                chat_id=target_channel,
-                                photo=photo,
-                                caption=escape_telegram_markdown(formatted),
-                                parse_mode="Markdown"
-                            )
-                        logger.info(f"✅ Vacancy photo post sent: {target_channel}")
-                    except Exception as photo_err:
-                        logger.warning(f"Failed sending cover photo to {target_channel}: {photo_err}. Falling back to text-only.")
-                        try:
-                            await context.bot.send_message(
-                                chat_id=target_channel,
-                                text=escape_telegram_markdown(formatted),
-                                parse_mode="Markdown"
-                            )
-                        except Exception as txt_err:
-                            logger.error(f"Failed sending text-only fallback: {txt_err}")
-                    try:
-                        os.unlink(temp_path)
-                    except:
-                        pass
-                else:
-                    # Fallback to plain text if image generation fails
-                    await context.bot.send_message(
-                        chat_id=target_channel,
-                        text=escape_telegram_markdown(formatted),
-                        parse_mode="Markdown"
-                    )
-                
+            # Bazaga saqlash va navbatga qo'yish
+            vac_id = await save_scraped_vacancy_to_db(formatted)
+            if vac_id:
                 # Mark as processed in DB
                 await database.db_add_processed_vacancy(vac["channel_id"], vac["msg_id"])
-                logger.info(f"✅ Vacancy yuborildi: {target_channel} (source: {vac['channel_name']})")
-                
-                # Break to send only ONE vacancy per hour
+                logger.info(f"✅ Scraped vacancy #{vac_id} saved to DB and queue aligned.")
                 break
-            except Exception as e:
-                logger.error(f"Failed to post vacancy to {target_channel}: {e}")
                 
     except Exception as e:
         logger.error(f"Vacancy scraper job error: {e}")
@@ -1710,52 +1705,16 @@ async def cmd_scrape(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                 await update.message.reply_text("⚠️ AI formatlashda xatolik yuz berdi.")
                 continue
                 
-            # Send post to target channel
-            target_channel = os.environ.get("VACANCY_TARGET_CHANNEL", TARGET_CHANNEL)
-            
-            # Generate cover image
-            from image_generator import generate_vacancy_cover
-            import tempfile
-            
-            pos, comp, sal = extract_meta_for_cover(formatted)
-            temp_dir = tempfile.gettempdir()
-            temp_path = os.path.join(temp_dir, f"vacancy_manual_{vac['msg_id']}.png")
-            
-            img_success = generate_vacancy_cover(pos, comp, sal, temp_path)
-            
-            if img_success and os.path.exists(temp_path):
-                try:
-                    with open(temp_path, "rb") as photo:
-                        await context.bot.send_photo(
-                            chat_id=target_channel,
-                            photo=photo,
-                            caption=escape_telegram_markdown(formatted),
-                            parse_mode="Markdown"
-                        )
-                    await update.message.reply_text(f"✅ Vakansiya muvaffaqiyatli yuborildi: {target_channel}")
-                except Exception as tg_err:
-                    logger.warning(f"Failed to send photo with full caption: {tg_err}. Falling back to text-only.")
-                    try:
-                        await context.bot.send_message(
-                            chat_id=target_channel,
-                            text=escape_telegram_markdown(formatted),
-                            parse_mode="Markdown"
-                        )
-                        await update.message.reply_text(f"✅ Vakansiya faqat matn ko'rinishida yuborildi: {target_channel}")
-                    except Exception as txt_err:
-                        logger.error(f"Failed to send fallback message in cmd_scrape: {txt_err}")
-                        await update.message.reply_text(f"❌ Vakansiya yuborish butunlay muvaffaqiyatsiz bo'ldi: {txt_err}")
-                try:
-                    os.unlink(temp_path)
-                except:
-                    pass
+            # Bazaga saqlash va navbatga qo'yish
+            vac_id = await save_scraped_vacancy_to_db(formatted)
+            if vac_id:
+                await database.db_add_processed_vacancy(vac["channel_id"], vac["msg_id"])
+                await update.message.reply_text(
+                    f"✅ Vakansiya bazaga saqlandi va navbatga qo'shildi! (ID: #{vac_id})"
+                )
+                break
             else:
-                await context.bot.send_message(chat_id=target_channel, text=escape_telegram_markdown(formatted), parse_mode="Markdown")
-                await update.message.reply_text(f"✅ Vakansiya faqat matn ko'rinishida yuborildi (oblojka xatosi): {target_channel}")
-                
-            # Mark as processed in DB
-            await database.db_add_processed_vacancy(vac["channel_id"], vac["msg_id"])
-            break
+                await update.message.reply_text("❌ Vakansiyani bazaga saqlashda xatolik yuz berdi.")
             
         if not found_any:
             await update.message.reply_text("ℹ️ Barcha topilgan vakansiyalar oldin qayta ishlangan. Yangisi yo'q.")
@@ -1763,6 +1722,69 @@ async def cmd_scrape(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     except Exception as e:
         logger.error(f"Manual scrape error: {e}")
         await update.message.reply_text(f"❌ Xatolik yuz berdi: {e}")
+
+
+async def nuvi_vip_auto_approve_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """VIP tarifda bo'lgan va 15 daqiqa davomida admin ko'rib chiqmagan arizalarni auto-approve qiladi."""
+    try:
+        import database
+        import datetime
+        import pytz
+        
+        pool = await database.get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT id, user_id, title, company 
+                FROM nuvi_vacancies 
+                WHERE tariff = 'vip' 
+                  AND status = 'pending_approval' 
+                  AND payment_status = 'paid' 
+                  AND updated_at <= NOW() - INTERVAL '15 minutes'
+            """)
+            
+            if not rows:
+                return
+                
+            for r in rows:
+                vac_id = r["id"]
+                user_id = r["user_id"]
+                logger.info(f"⏳ VIP Vakansiya #{vac_id} admin tasdiqlovini 15 daqiqa kutdi. Tizim avtomatik tasdiqlaydi...")
+                
+                await database.db_update_nuvi_vacancy(vac_id, status="approved")
+                await database.db_align_vacancy_queue()
+                
+                vac = await database.db_get_nuvi_vacancy(vac_id)
+                tz = pytz.timezone("Asia/Tashkent")
+                scheduled_for = vac["scheduled_for"].astimezone(tz) if (vac and vac.get("scheduled_for")) else datetime.datetime.now(tz)
+                time_str = scheduled_for.strftime("%Y-%m-%d %H:%M")
+                
+                try:
+                    await context.bot.send_message(
+                        chat_id=user_id,
+                        text=(
+                            f"⚡️ Sizning VIP e'lon #{vac_id} 15 daqiqa ichida adminlar tomonidan tasdiqlanmaganligi sababli, "
+                            f"tizim tomonidan **avtomatik tarzda tasdiqlandi** va navbatga qo'yildi!\n"
+                            f"⏰ Taxminiy chop etish vaqti: **{time_str}** (Toshkent vaqti bilan)."
+                        ),
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+                except Exception as user_err:
+                    logger.error(f"Failed to notify user {user_id} of auto-approval: {user_err}")
+                    
+                try:
+                    await context.bot.send_message(
+                        chat_id=OWNER_ID,
+                        text=(
+                            f"⚠️ **VIP Auto-Approval**:\n"
+                            f"E'lon #{vac_id} ({r['title']} - {r['company']}) 15 daqiqa ichida qo'lda ko'rib chiqilmadi.\n"
+                            f"Tizim uni avtomatik tasdiqladi va **{time_str}** ga rejalashtirdi."
+                        )
+                    )
+                except Exception as admin_err:
+                    logger.error(f"Failed to notify admin of auto-approval: {admin_err}")
+                    
+    except Exception as e:
+        logger.error(f"nuvi_vip_auto_approve_job error: {e}")
 
 
 # ──────────────────────── MAIN ASSEMBLY ─────────────────────────
@@ -1790,7 +1812,8 @@ def main():
     app = Application.builder().token(NUVI_BOT_TOKEN).post_init(post_init).build()
     
     # ─── JOB QUEUE FOR AUTO-POSTING ───
-    app.job_queue.run_repeating(nuvi_auto_post_job, interval=600, first=10)
+    app.job_queue.run_repeating(nuvi_auto_post_job, interval=60, first=10)
+    app.job_queue.run_repeating(nuvi_vip_auto_approve_job, interval=60, first=30)
     app.job_queue.run_repeating(vacancy_scraper_job, interval=3600, first=60)
     
     # ─── CONVERSATION HANDLER FOR VACANCY ───

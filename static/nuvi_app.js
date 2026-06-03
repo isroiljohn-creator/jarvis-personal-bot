@@ -76,13 +76,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const payMap = {
         'paid': `<span class="badge status-paid">To'langan</span>`,
-        'unpaid': `<span class="badge status-unpaid">To'lanmagan</span>`
+        'unpaid': `<span class="badge status-unpaid">To'lanmagan</span>`,
+        'free': `<span class="badge badge-free">Tekin</span>`
       };
 
       const tariffMap = {
         'pro': `<span class="badge badge-pro">Pro</span>`,
         'premium': `<span class="badge badge-premium">Premium</span>`,
-        'vip': `<span class="badge badge-vip">VIP</span>`
+        'vip': `<span class="badge badge-vip">VIP</span>`,
+        'scraped': `<span class="badge badge-scraped">Tekin</span>`
       };
 
       tr.innerHTML = `
@@ -201,13 +203,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const payMap = {
       'paid': `<span class="badge status-paid">To'langan</span>`,
-      'unpaid': `<span class="badge status-unpaid">To'lanmagan</span>`
+      'unpaid': `<span class="badge status-unpaid">To'lanmagan</span>`,
+      'free': `<span class="badge badge-free">Tekin</span>`
     };
 
     const tariffMap = {
       'pro': `<span class="badge badge-pro">Pro</span>`,
       'premium': `<span class="badge badge-premium">Premium</span>`,
-      'vip': `<span class="badge badge-vip">VIP</span>`
+      'vip': `<span class="badge badge-vip">VIP</span>`,
+      'scraped': `<span class="badge badge-scraped">Tekin (Scraped)</span>`
     };
 
     modalBody.innerHTML = `
@@ -264,7 +268,84 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Refresh Trigger
-  refreshBtn.addEventListener("click", fetchStats);
+  refreshBtn.addEventListener("click", () => {
+    fetchStats();
+    fetchQueue();
+  });
+
+  // Tab switching logic
+  window.switchTab = function(tabName) {
+    document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
+    document.querySelectorAll(".tab-btn").forEach(el => el.classList.remove("active"));
+    
+    if (tabName === 'dashboard') {
+      document.getElementById("dashboardTab").classList.add("active");
+      document.getElementById("tab-dashboard").classList.add("active");
+      fetchStats();
+    } else if (tabName === 'queue') {
+      document.getElementById("queueTab").classList.add("active");
+      document.getElementById("tab-queue").classList.add("active");
+      fetchQueue();
+    }
+  };
+
+  // Fetch Queue from API
+  async function fetchQueue() {
+    const queueBody = document.getElementById("queueBody");
+    const queueCountVal = document.getElementById("queueCountVal");
+    
+    try {
+      queueBody.innerHTML = `
+        <tr>
+          <td colspan="5" class="loading-cell">Navbat yuklanmoqda...</td>
+        </tr>
+      `;
+      
+      const response = await fetch("/api/nuvi/queue");
+      const data = await response.json();
+      
+      if (data && data.queue) {
+        queueCountVal.textContent = `${data.queue.length} e'lon`;
+        
+        if (data.queue.length === 0) {
+          queueBody.innerHTML = `
+            <tr>
+              <td colspan="5" class="loading-cell">Hozirda hech qanday faol navbat yo'q.</td>
+            </tr>
+          `;
+          return;
+        }
+        
+        queueBody.innerHTML = "";
+        data.queue.forEach(v => {
+          const tr = document.createElement("tr");
+          
+          const tariffMap = {
+            'pro': `<span class="badge badge-pro">Pro</span>`,
+            'premium': `<span class="badge badge-premium">Premium</span>`,
+            'vip': `<span class="badge badge-vip">VIP</span>`,
+            'scraped': `<span class="badge badge-scraped">Tekin</span>`
+          };
+          
+          tr.innerHTML = `
+            <td><strong style="color:var(--success)">${v.scheduled_for}</strong></td>
+            <td><strong>${v.title}</strong></td>
+            <td>${v.company}</td>
+            <td>${tariffMap[v.tariff] || v.tariff}</td>
+            <td>${v.user_name}</td>
+          `;
+          queueBody.appendChild(tr);
+        });
+      }
+    } catch (e) {
+      console.error("Error fetching queue:", e);
+      queueBody.innerHTML = `
+        <tr>
+          <td colspan="5" class="loading-cell" style="color:var(--danger)">Navbatni yuklashda xatolik yuz berdi.</td>
+        </tr>
+      `;
+    }
+  }
 
   // Formatting helpers
   function formatCurrency(val) {
@@ -282,4 +363,5 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Initialize
   fetchStats();
+  fetchQueue();
 });
