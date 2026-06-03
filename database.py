@@ -89,6 +89,7 @@ CREATE TABLE IF NOT EXISTS nuvi_vacancies (
     location       TEXT NOT NULL,
     working_hours  TEXT,
     requirements   TEXT,
+    skills         TEXT,
     benefits       TEXT,
     contact        TEXT NOT NULL,
     formatted_text TEXT,
@@ -99,6 +100,7 @@ CREATE TABLE IF NOT EXISTS nuvi_vacancies (
     rejection_reason TEXT,
     scheduled_for  TIMESTAMPTZ,
     posted_at      TIMESTAMPTZ,
+    tariff         TEXT DEFAULT 'pro',
     created_at     TIMESTAMPTZ DEFAULT NOW(),
     updated_at     TIMESTAMPTZ DEFAULT NOW()
 );
@@ -136,6 +138,11 @@ async def init_db():
                 await conn.execute("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS currency TEXT DEFAULT 'UZS'")
             except Exception:
                 pass
+            try:
+                await conn.execute("ALTER TABLE nuvi_vacancies ADD COLUMN IF NOT EXISTS tariff TEXT DEFAULT 'pro'")
+                await conn.execute("ALTER TABLE nuvi_vacancies ADD COLUMN IF NOT EXISTS skills TEXT")
+            except Exception as e:
+                logger.error(f"Error altering nuvi_vacancies: {e}")
         logger.info("✅ DB jadvallar tayyor")
     except Exception as e:
         logger.error(f"❌ DB init xatosi: {e}")
@@ -593,7 +600,8 @@ async def db_get_all_nuvi_users() -> list[dict]:
 
 async def db_create_nuvi_vacancy(
     user_id: int, title: str, company: str, salary: str, location: str, 
-    working_hours: str, requirements: str, benefits: str, contact: str, formatted_text: str = None
+    working_hours: str, requirements: str, skills: str, benefits: str, contact: str, 
+    formatted_text: str = None, tariff: str = 'pro'
 ) -> Optional[int]:
     try:
         pool = await get_pool()
@@ -601,11 +609,11 @@ async def db_create_nuvi_vacancy(
             row = await conn.fetchrow("""
                 INSERT INTO nuvi_vacancies (
                     user_id, title, company, salary, location, 
-                    working_hours, requirements, benefits, contact, formatted_text
+                    working_hours, requirements, skills, benefits, contact, formatted_text, tariff
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                 RETURNING id
-            """, user_id, title, company, salary, location, working_hours, requirements, benefits, contact, formatted_text)
+            """, user_id, title, company, salary, location, working_hours, requirements, skills, benefits, contact, formatted_text, tariff)
             if row:
                 return row["id"]
         return None
