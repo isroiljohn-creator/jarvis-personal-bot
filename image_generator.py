@@ -85,9 +85,32 @@ def generate_vacancy_cover(position: str, company: str, salary: str, output_path
         # 6. Metadata Columns (Company & Salary)
         y_meta = divider_y + 40
         
-        # Column 1: Company
+        # Column 1: Company (auto-wrap to avoid overlapping with salary)
         draw.text((80, y_meta), "KOMPANIYA", fill=(113, 128, 150, 255), font=font_meta_label)
-        draw.text((80, y_meta + 35), company, fill=(255, 255, 255, 255), font=font_meta_val)
+        
+        max_company_width = 520
+        company_words = company.split()
+        company_lines = []
+        current_comp_line = []
+        
+        for word in company_words:
+            test_line = " ".join(current_comp_line + [word])
+            bbox = draw.textbbox((0, 0), test_line, font=font_meta_val)
+            w = bbox[2] - bbox[0]
+            if w <= max_company_width:
+                current_comp_line.append(word)
+            else:
+                company_lines.append(" ".join(current_comp_line))
+                current_comp_line = [word]
+        if current_comp_line:
+            company_lines.append(" ".join(current_comp_line))
+            
+        y_comp = y_meta + 35
+        for line in company_lines[:2]: # Limit to 2 lines
+            draw.text((80, y_comp), line, fill=(255, 255, 255, 255), font=font_meta_val)
+            bbox = draw.textbbox((0, 0), line, font=font_meta_val)
+            h = bbox[3] - bbox[1]
+            y_comp += h + 8
         
         # Column 2: Salary (Vibrant Mint Green)
         draw.text((650, y_meta), "MAOSH / ISH HAQI", fill=(113, 128, 150, 255), font=font_meta_label)
