@@ -2011,6 +2011,8 @@ async def format_vacancy_with_ai(raw_text: str) -> str:
 — ...
 
 📩 **Aloqa:** [Telegram username yoki telefon]
+
+[Nuvi Jobs](https://t.me/nuvi_jobs) - ish va ishchi topishda bepul yordam beramiz!
 """
     custom_template = os.environ.get("VACANCY_TEMPLATE")
     template = custom_template if custom_template else default_template
@@ -2028,9 +2030,15 @@ MUHIM QOIDALAR:
 4. Agar biror ma'lumot matnda bo'lmasa, uni bo'sh qoldirmang, balki "[Ko'rsatilmagan]" deb yozing yoki mos qatorni olib tashlang.
 5. Har doim toza va chiroyli o'zbek tilida javob bering.
 6. Javobingizda faqat tayyorlangan vakansiya matni bo'lsin, ortiqcha izoh yoki gap qo'shmang.
+7. Shablon oxiridagi "[Nuvi Jobs](https://t.me/nuvi_jobs) - ish va ishchi topishda bepul yordam beramiz!" qismini o'zgarishsiz, aynan qanday yozilgan bo'lsa shunday qoldiring.
 """
     try:
         formatted = await ai.process_message(raw_text, system_prompt, use_tools=False)
+        if formatted:
+            footer_with_excl = "[Nuvi Jobs](https://t.me/nuvi_jobs) - ish va ishchi topishda bepul yordam beramiz!"
+            footer_without_excl = "[Nuvi Jobs](https://t.me/nuvi_jobs) - ish va ishchi topishda bepul yordam beramiz"
+            if footer_without_excl in formatted and footer_with_excl not in formatted:
+                formatted = formatted.replace(footer_without_excl, footer_with_excl)
         return formatted
     except Exception as e:
         logger.error(f"Gemini vacancy formatting error: {e}")
