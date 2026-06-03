@@ -1993,19 +1993,24 @@ async def midday_check_job(context: ContextTypes.DEFAULT_TYPE) -> None:
 async def format_vacancy_with_ai(raw_text: str) -> str:
     """Vakansiya matnini Gemini yordamida shablonga soladi."""
     default_template = """
-💼 **Yangi Vakansiya**
+📌 **[Lavozim nomi]**
 
-🏢 **Kompaniya:** [Kompaniya nomi]
-📌 **Lavozim:** [Lavozim nomi]
-💰 **Maosh:** [Ish haqi miqdori]
+🏢 **Firma:** [Kompaniya nomi]
+💵 **Maosh:** [Ish haqi miqdori]
 📍 **Lokatsiya:** [Shahar/Masofaviy]
+⏱️ **Ish vaqti:** [Ish grafigi/Vaqti]
 
 📝 **Talablar:**
-- [Talab 1]
-- [Talab 2]
-- ...
+— [Talab 1]
+— [Talab 2]
+— ...
 
-📩 **Aloqa/Kontakt:** [Telegram username yoki telefon]
+🎁 **Taklif:**
+— [Taklif 1]
+— [Taklif 2]
+— ...
+
+📩 **Aloqa:** [Telegram username yoki telefon]
 """
     custom_template = os.environ.get("VACANCY_TEMPLATE")
     template = custom_template if custom_template else default_template
@@ -2039,21 +2044,23 @@ def extract_meta_for_cover(text: str) -> tuple[str, str, str]:
     position = "Yangi Vakansiya"
     salary = "Kelishilgan holda"
     
-    m_comp = re.search(r"🏢\s*\*?\*?Kompaniya:\*?\*?\s*(.+)", text)
+    m_comp = re.search(r"🏢\s*\*?\*?(?:Firma|Kompaniya):\*?\*?\s*(.+)", text)
     if m_comp:
         comp_val = m_comp.group(1).replace("**", "").replace("*", "").strip()
         comp_val = comp_val.replace("[", "").replace("]", "").strip()
         if comp_val and "ko'rsatilmagan" not in comp_val.lower() and "nomalum" not in comp_val.lower():
             company = comp_val
         
-    m_pos = re.search(r"📌\s*\*?\*?Lavozim:\*?\*?\s*(.+)", text)
+    m_pos = re.search(r"📌\s*\*?\*?([^\n\r]+)", text)
     if m_pos:
         pos_val = m_pos.group(1).replace("**", "").replace("*", "").strip()
         pos_val = pos_val.replace("[", "").replace("]", "").strip()
+        # Also clean up "Lavozim:" or "Lavozim" if it was matched
+        pos_val = re.sub(r"^[Ll]avozim:\s*", "", pos_val).strip()
         if pos_val and "ko'rsatilmagan" not in pos_val.lower() and "nomalum" not in pos_val.lower():
             position = pos_val
         
-    m_sal = re.search(r"💰\s*\*?\*?Maosh:\*?\*?\s*(.+)", text)
+    m_sal = re.search(r"(?:💵|💰)\s*\*?\*?Maosh:\*?\*?\s*(.+)", text)
     if m_sal:
         sal_val = m_sal.group(1).replace("**", "").replace("*", "").strip()
         sal_val = sal_val.replace("[", "").replace("]", "").strip()
