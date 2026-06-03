@@ -24,7 +24,6 @@ from telegram.constants import ChatAction, ParseMode
 
 from ai import GeminiAI
 from userbot import UserBot
-from vacancy_scraper import VacancyScraper
 from cloud import CloudHub
 from obsidian import ObsidianVault
 import developer as dev
@@ -55,7 +54,6 @@ VOICE_REPLY = os.environ.get("VOICE_REPLY", "true").lower() == "true"
 
 ai = GeminiAI(GEMINI_API_KEY)
 userbot: UserBot | None = None
-vacancy_scraper: VacancyScraper | None = None
 cloud = CloudHub()
 obsidian = ObsidianVault()
 GLOBAL_JOB_QUEUE = None
@@ -1441,25 +1439,7 @@ async def post_init(application: Application) -> None:
                 logger.warning(f"⚠️ Userbot ulana olmadi: {e}")
                 userbot = None
 
-    async def setup_vacancy_scraper():
-        global vacancy_scraper
-        vac_session = os.environ.get("VACANCY_TG_SESSION_STRING") or os.environ.get("TG_SESSION_STRING")
-        vac_api_id = os.environ.get("VACANCY_TG_API_ID") or TG_API_ID
-        vac_api_hash = os.environ.get("VACANCY_TG_API_HASH") or TG_API_HASH
-        
-        if vac_session and vac_api_id and vac_api_hash:
-            try:
-                logger.info("📱 Orqa fonda Vacancy Scraperni ishga tushirish boshlanmoqda...")
-                vs = VacancyScraper(api_id=int(vac_api_id), api_hash=vac_api_hash, session_string=vac_session)
-                await vs.connect()
-                vacancy_scraper = vs
-                logger.info("✅ Vacancy Scraper muvaffaqiyatli ulandi va sozlandi.")
-            except Exception as e:
-                logger.warning(f"⚠️ Vacancy Scraper ulana olmadi: {e}")
-                vacancy_scraper = None
-
     asyncio.create_task(setup_userbot())
-    asyncio.create_task(setup_vacancy_scraper())
 
     try:
         import uvicorn
@@ -2012,201 +1992,6 @@ def escape_telegram_markdown(text: str) -> str:
         
     return text
 
-
-async def format_vacancy_with_ai(raw_text: str) -> str:
-    """Vakansiya matnini Gemini yordamida shablonga soladi."""
-    default_template = """
-📌 *[Lavozim nomi]*
-
-🏢 *Firma:* [Kompaniya nomi]
-💵 *Maosh:* [Ish haqi miqdori]
-📍 *Lokatsiya:* [Shahar/Masofaviy]
-⏱️ *Ish vaqti:* [Ish grafigi/Vaqti]
-
-📝 *Talablar:*
-— [Talab 1]
-— [Talab 2]
-— ...
-
-🎁 *Taklif:*
-— [Taklif 1]
-— [Taklif 2]
-— ...
-
-📩 *Aloqa:* [Telegram username yoki telefon]
-
-[Nuvi Jobs](https://t.me/nuvi_jobs) - *ish va ishchi topishda yordam beramiz!*
-"""
-    custom_template = os.environ.get("VACANCY_TEMPLATE")
-    template = custom_template if custom_template else default_template
-
-    system_prompt = f"""
-Siz professional HR assistentisiz. Vazifangiz quyidagi xabarni o'rganib chiqib, u haqiqiy ish vakansiyasi (ish e'loni) ekanligini aniqlashdir.
-
-MUHIM QOIDALAR:
-1. Agar ushbu xabar HAQIQIY ish vakansiyasi bo'lmasa (masalan: kanaldan e'lon berish bo'yicha ma'lumotnoma, o'quv kursi reklamasi, xizmat ko'rsatish reklamasi, kanalning o'zini reklama qilish matni yoki shunchaki umumiy xabar bo'lsa), unda faqatgina "XATO_VAKANSIYA_EMAS" yozuvini qaytaring. Boshqa hech qanday izoh qo'shmang.
-2. Agar bu haqiqiy vakansiya bo'lsa, uni quyidagi shablonga soling:
-
-{template}
-
-3. Matndagi barcha raqobatchi telegram kanallari, guruhlari nomlari, reklama matnlari va havolalarini butunlay o'chiring (masalan: @freelance_uzb, @freelancer_uzbek, @rizqimuz, @jobhuntuz va h.k.). Aloqa/kontakt qismida faqatgina ish beruvchi recruiterning shaxsiy telegram username-i (masalan: @ism_admin, @recruiter) yoki telefon raqamini saqlab qoling. Agar haqiqiy shaxsiy kontakt ma'lumoti bo'lmasa, uni "[Ko'rsatilmagan]" deb yozing.
-4. Agar biror ma'lumot matnda bo'lmasa, uni bo'sh qoldirmang, balki "[Ko'rsatilmagan]" deb yozing yoki mos qatorni olib tashlang.
-5. Har doim toza va chiroyli o'zbek tilida javob bering.
-6. Javobingizda faqat tayyorlangan vakansiya matni bo'lsin, ortiqcha izoh yoki gap qo'shmang.
-7. Shablon oxiridagi "[Nuvi Jobs](https://t.me/nuvi_jobs) - *ish va ishchi topishda yordam beramiz!*" qismini o'zgarishsiz, aynan qanday yozilgan bo'lsa shunday qoldiring.
-"""
-    try:
-        formatted = await ai.process_message(raw_text, system_prompt, use_tools=False)
-        if formatted:
-            expected_footer = "[Nuvi Jobs](https://t.me/nuvi_jobs) - *ish va ishchi topishda yordam beramiz!*"
-            lines = formatted.split("\n")
-            for idx, line in enumerate(lines):
-                if "[Nuvi Jobs](https://t.me/nuvi_jobs)" in line:
-                    lines[idx] = expected_footer
-                    break
-            formatted = "\n".join(lines)
-        return formatted
-    except Exception as e:
-        logger.error(f"Gemini vacancy formatting error: {e}")
-        return ""
-
-
-def extract_meta_for_cover(text: str) -> tuple[str, str, str]:
-    """Qayd qilingan shablondan kompaniya, lavozim va maoshni ajratib oladi."""
-    import re
-    company = "E'lon qilinmagan"
-    position = "Yangi Vakansiya"
-    salary = "Kelishilgan holda"
-    
-    m_comp = re.search(r"🏢\s*\*?\*?(?:Firma|Kompaniya):\*?\*?\s*(.+)", text)
-    if m_comp:
-        comp_val = m_comp.group(1).replace("**", "").replace("*", "").strip()
-        comp_val = comp_val.replace("[", "").replace("]", "").strip()
-        if comp_val and "ko'rsatilmagan" not in comp_val.lower() and "nomalum" not in comp_val.lower():
-            company = comp_val
-        
-    m_pos = re.search(r"📌\s*\*?\*?([^\n\r]+)", text)
-    if m_pos:
-        pos_val = m_pos.group(1).replace("**", "").replace("*", "").strip()
-        pos_val = pos_val.replace("[", "").replace("]", "").strip()
-        # Also clean up "Lavozim:" or "Lavozim" if it was matched
-        pos_val = re.sub(r"^[Ll]avozim:\s*", "", pos_val).strip()
-        if pos_val and "ko'rsatilmagan" not in pos_val.lower() and "nomalum" not in pos_val.lower():
-            position = pos_val
-        
-    m_sal = re.search(r"(?:💵|💰)\s*\*?\*?Maosh:\*?\*?\s*(.+)", text)
-    if m_sal:
-        sal_val = m_sal.group(1).replace("**", "").replace("*", "").strip()
-        sal_val = sal_val.replace("[", "").replace("]", "").strip()
-        if sal_val and "ko'rsatilmagan" not in sal_val.lower() and "nomalum" not in sal_val.lower():
-            salary = sal_val
-        
-    return position, company, salary
-
-
-async def vacancy_scraper_job(context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Har soatda 8:00 dan 22:00 gacha yangi vakansiyalarni tekshiradi."""
-    try:
-        # Check time range (8:00 - 22:00 Tashkent time)
-        tz = pytz.timezone("Asia/Tashkent")
-        now = datetime.datetime.now(tz)
-        if not (8 <= now.hour <= 22):
-            logger.info(f"Vacancy job skipped (outside 8:00-22:00, current: {now.strftime('%H:%M')})")
-            return
-
-        global vacancy_scraper
-        if not vacancy_scraper or not vacancy_scraper.connected:
-            logger.warning("Vacancy scraper is not initialized or not connected.")
-            return
-
-        logger.info("⏱ Vacancy Scraper checking source channels...")
-        folder_name = os.environ.get("VACANCY_HR_FOLDER", "HR")
-        channels = await vacancy_scraper.get_source_channels(folder_name)
-        if not channels:
-            logger.info("Vacancy source channels empty.")
-            return
-
-        # Get latest messages from sources
-        latest_vacancies = await vacancy_scraper.get_latest_vacancies(channels, limit=5)
-        if not latest_vacancies:
-            logger.info("No vacancies found in sources.")
-            return
-
-        import database
-        for vac in latest_vacancies:
-            already_processed = await database.db_is_vacancy_processed(vac["channel_id"], vac["msg_id"])
-            if already_processed:
-                continue
-
-            logger.info(f"Found new vacancy in {vac['channel_name']} (msg_id: {vac['msg_id']})")
-            
-            # Format vacancy
-            formatted = await format_vacancy_with_ai(vac["text"])
-            if not formatted or "xato" in formatted.lower():
-                logger.warning("Empty or error response from AI vacancy formatting.")
-                continue
-
-            # Send post to target channel
-            target_channel = os.environ.get("VACANCY_TARGET_CHANNEL", "@nuvi_jobs")
-            try:
-                # Generate cover image
-                from image_generator import generate_vacancy_cover
-                import tempfile
-                
-                pos, comp, sal = extract_meta_for_cover(formatted)
-                temp_dir = tempfile.gettempdir()
-                temp_path = os.path.join(temp_dir, f"vacancy_{vac['msg_id']}.png")
-                
-                img_success = generate_vacancy_cover(pos, comp, sal, temp_path)
-                
-                if img_success and os.path.exists(temp_path):
-                    try:
-                        with open(temp_path, "rb") as photo:
-                            await context.bot.send_photo(
-                                chat_id=target_channel,
-                                photo=photo,
-                                caption=escape_telegram_markdown(formatted),
-                                parse_mode="Markdown"
-                            )
-                    except Exception as tg_err:
-                        logger.warning(f"Failed to send photo with full caption: {tg_err}. Retrying with split messages.")
-                        short_caption = f"📢 **NUVI JOBS | YANGI VAKANSIYA**\n\n📌 **Lavozim:** {pos}\n🏢 **Kompaniya:** {comp}\n💰 **Maosh:** {sal}"
-                        try:
-                            with open(temp_path, "rb") as photo:
-                                await context.bot.send_photo(
-                                    chat_id=target_channel,
-                                    photo=photo,
-                                    caption=escape_telegram_markdown(short_caption),
-                                    parse_mode="Markdown"
-                                )
-                            await context.bot.send_message(
-                                chat_id=target_channel,
-                                text=escape_telegram_markdown(formatted),
-                                parse_mode="Markdown"
-                            )
-                        except Exception as split_err:
-                            logger.error(f"Failed to send split vacancy messages: {split_err}")
-                            # Final fallback: text only
-                            await context.bot.send_message(chat_id=target_channel, text=escape_telegram_markdown(formatted), parse_mode="Markdown")
-                    try:
-                        os.unlink(temp_path)
-                    except:
-                        pass
-                else:
-                    # Fallback to plain text if image generation fails
-                    await context.bot.send_message(chat_id=target_channel, text=escape_telegram_markdown(formatted), parse_mode="Markdown")
-                
-                # Mark as processed in DB
-                await database.db_add_processed_vacancy(vac["channel_id"], vac["msg_id"])
-                logger.info(f"✅ Vacancy yuborildi: {target_channel} (source: {vac['channel_name']})")
-                
-                # Break to send only ONE vacancy per hour
-                break
-            except Exception as e:
-                logger.error(f"Failed to post vacancy to {target_channel}: {e}")
-                
-    except Exception as e:
-        logger.error(f"Vacancy scraper job error: {e}")
 
 
 NOTIFIED_EVENTS = set()
@@ -2805,113 +2590,6 @@ async def cmd_fix(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(f"AI TAHLIL ({info['name']}):\n\n{safe}")
 
 
-async def cmd_scrape(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Manual vacancy scraper trigger for testing."""
-    if not await check_auth(update): return
-    await update.message.reply_text("🔍 Vakansiyalarni skanerlash boshlandi, biroz kuting...")
-    await update.message.chat.send_action(ChatAction.TYPING)
-    
-    global vacancy_scraper
-    if not vacancy_scraper or not vacancy_scraper.connected:
-        await update.message.reply_text("❌ Scraper Telegram akkauntiga ulanmagan. Bir ozdan keyin qayta urining.")
-        return
-    try:
-        folder_name = os.environ.get("VACANCY_HR_FOLDER", "HR")
-        channels = await vacancy_scraper.get_source_channels(folder_name)
-        if not channels:
-            await update.message.reply_text(
-                f"⚠️ '{folder_name}' nomli papka (dialog filter) ikkinchi Telegram akkauntingizda topilmadi yoki bo'sh.\n\n"
-                f"Tuzatish yo'llari:\n"
-                f"1. Ikkinchi Telegram akkauntingizda (@soma_support) Telegram sozlamalaridan '{folder_name}' nomli papka yarating va unga vakansiya o'qiladigan kanallarni qo'shing.\n"
-                f"2. Yoki Railway orqali `VACANCY_SOURCES` o'zgaruvchisiga kanallarni vergul bilan yozib qo'ying (masalan: `@channel1,@channel2`)."
-            )
-            return
-            
-        await update.message.reply_text(f"📁 {len(channels)} ta kanal topildi. Yangi xabarlarni tekshirmoqdaman...")
-        latest_vacancies = await vacancy_scraper.get_latest_vacancies(channels, limit=5)
-        
-        if not latest_vacancies:
-            await update.message.reply_text("ℹ️ Kanallarda yangi vakansiyalar topilmadi.")
-            return
-            
-        import database
-        found_any = False
-        for vac in latest_vacancies:
-            already_processed = await database.db_is_vacancy_processed(vac["channel_id"], vac["msg_id"])
-            if already_processed:
-                continue
-                
-            found_any = True
-            await update.message.reply_text(f"💡 Yangi vakansiya topildi: {vac['channel_name']}. Formatlanmoqda...")
-            
-            # Format vacancy
-            formatted = await format_vacancy_with_ai(vac["text"])
-            if not formatted or "xato" in formatted.lower():
-                await update.message.reply_text("⚠️ AI formatlashda xatolik yuz berdi.")
-                continue
-                
-            # Send post to target channel
-            target_channel = os.environ.get("VACANCY_TARGET_CHANNEL", "@nuvi_jobs")
-            
-            # Generate cover image
-            from image_generator import generate_vacancy_cover
-            import tempfile
-            
-            pos, comp, sal = extract_meta_for_cover(formatted)
-            temp_dir = tempfile.gettempdir()
-            temp_path = os.path.join(temp_dir, f"vacancy_manual_{vac['msg_id']}.png")
-            
-            img_success = generate_vacancy_cover(pos, comp, sal, temp_path)
-            
-            if img_success and os.path.exists(temp_path):
-                try:
-                    with open(temp_path, "rb") as photo:
-                        await context.bot.send_photo(
-                            chat_id=target_channel,
-                            photo=photo,
-                            caption=escape_telegram_markdown(formatted),
-                            parse_mode="Markdown"
-                        )
-                    await update.message.reply_text(f"✅ Vakansiya muvaffaqiyatli yuborildi: {target_channel}")
-                except Exception as tg_err:
-                    logger.warning(f"Failed to send photo with full caption: {tg_err}. Retrying with split messages.")
-                    short_caption = f"📢 **NUVI JOBS | YANGI VAKANSIYA**\n\n📌 **Lavozim:** {pos}\n🏢 **Kompaniya:** {comp}\n💰 **Maosh:** {sal}"
-                    try:
-                        with open(temp_path, "rb") as photo:
-                            await context.bot.send_photo(
-                                chat_id=target_channel,
-                                photo=photo,
-                                caption=escape_telegram_markdown(short_caption),
-                                parse_mode="Markdown"
-                            )
-                        await context.bot.send_message(
-                            chat_id=target_channel,
-                            text=escape_telegram_markdown(formatted),
-                            parse_mode="Markdown"
-                        )
-                        await update.message.reply_text(f"✅ Vakansiya muvaffaqiyatli yuborildi (surat va matn alohida): {target_channel}")
-                    except Exception as split_err:
-                        logger.error(f"Failed to send split vacancy messages in cmd_scrape: {split_err}")
-                        await context.bot.send_message(chat_id=target_channel, text=escape_telegram_markdown(formatted), parse_mode="Markdown")
-                        await update.message.reply_text(f"✅ Vakansiya faqat matn ko'rinishida yuborildi: {target_channel}")
-                try:
-                    os.unlink(temp_path)
-                except:
-                    pass
-            else:
-                await context.bot.send_message(chat_id=target_channel, text=escape_telegram_markdown(formatted), parse_mode="Markdown")
-                await update.message.reply_text(f"✅ Vakansiya faqat matn ko'rinishida yuborildi (oblojka xatosi): {target_channel}")
-                
-            # Mark as processed in DB
-            await database.db_add_processed_vacancy(vac["channel_id"], vac["msg_id"])
-            break
-            
-        if not found_any:
-            await update.message.reply_text("ℹ️ Barcha topilgan vakansiyalar oldin qayta ishlangan. Yangisi yo'q.")
-            
-    except Exception as e:
-        logger.error(f"Manual scrape error: {e}")
-        await update.message.reply_text(f"❌ Xatolik yuz berdi: {e}")
 
 
 def main() -> None:
@@ -2933,7 +2611,7 @@ def main() -> None:
     app.add_handler(CommandHandler("logs", cmd_logs))
     app.add_handler(CommandHandler("deploy", cmd_deploy))
     app.add_handler(CommandHandler("fix", cmd_fix))
-    app.add_handler(CommandHandler("scrape", cmd_scrape))
+
     # /ping — guruhda ishlashini tekshirish uchun
     async def ping_cmd(upd: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await upd.message.reply_text("Pong! Bot ishlayapti.")
@@ -2975,7 +2653,7 @@ def main() -> None:
     app.job_queue.run_repeating(scheduled_posts_sender_job, interval=60, first=10) # har 1 daqiqa
     app.job_queue.run_daily(competitor_check_job, time=datetime.time(hour=9, minute=0, tzinfo=tz), days=(1,))  # Dushanba
     app.job_queue.run_daily(smart_kundalik_job, time=datetime.time(hour=21, minute=45, tzinfo=tz))  # Har kuni
-    app.job_queue.run_repeating(vacancy_scraper_job, interval=3600, first=60)                      # Har 1 soatda
+
 
     logger.info("✅ J.A.R.V.I.S tayyor! Polling boshlandi.")
     app.run_polling(
