@@ -125,19 +125,19 @@ def format_vacancy_text(data: dict) -> str:
     req_lines = "\n".join([f"— {line.strip()}" for line in reqs.split("\n") if line.strip()])
     benefit_lines = "\n".join([f"— {line.strip()}" for line in benefits.split("\n") if line.strip()])
     
-    text = f"📌 **{title}**\n\n"
-    text += f"🏢 **Firma:** {company}\n"
-    text += f"💵 **Maosh:** {salary}\n"
-    text += f"📍 **Lokatsiya:** {location}\n"
+    text = f"📌 *{title}*\n\n"
+    text += f"🏢 *Firma:* {company}\n"
+    text += f"💵 *Maosh:* {salary}\n"
+    text += f"📍 *Lokatsiya:* {location}\n"
     if hours:
-        text += f"⏱️ **Ish vaqti:** {hours}\n"
+        text += f"⏱️ *Ish vaqti:* {hours}\n"
         
-    text += f"\n📝 **Talablar:**\n{req_lines}\n"
+    text += f"\n📝 *Talablar:*\n{req_lines}\n"
     if benefit_lines:
-        text += f"\n🎁 **Taklif:**\n{benefit_lines}\n"
+        text += f"\n🎁 *Taklif:*\n{benefit_lines}\n"
         
-    text += f"\n📩 **Aloqa:** {contact}\n\n"
-    text += f"[Nuvi Jobs](https://t.me/nuvi_jobs) - ish va ishchi topishda bepul yordam beramiz!"
+    text += f"\n📩 *Aloqa:* {contact}\n\n"
+    text += f"[Nuvi Jobs](https://t.me/nuvi_jobs) - *ish va ishchi topishda bepul yordam beramiz!*"
     return text
 
 async def calculate_next_post_time() -> datetime.datetime:
