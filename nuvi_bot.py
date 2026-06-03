@@ -1042,8 +1042,13 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if user_id != OWNER_ID:
         return
         
+    from telegram import WebAppInfo
+    domain = os.environ.get("RAILWAY_PUBLIC_DOMAIN") or "jarvis-personal-bot-production.up.railway.app"
+    web_app_url = f"https://{domain}/nuvi-stats"
+    
     keyboard = [
-        [InlineKeyboardButton("📊 Tizim Statistikasi", callback_data="admin_stats")],
+        [InlineKeyboardButton("📊 Mini App (Statistika)", web_app=WebAppInfo(url=web_app_url))],
+        [InlineKeyboardButton("📊 Tizim Statistikasi (Matnli)", callback_data="admin_stats")],
         [InlineKeyboardButton("📢 Yangi Rassilka", callback_data="admin_broadcast")],
         [InlineKeyboardButton("⚙️ Sozlamalar", callback_data="admin_settings")]
     ]
@@ -1081,8 +1086,13 @@ async def cb_admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     """Admin menyusiga qaytish."""
     query = update.callback_query
     await query.answer()
+    from telegram import WebAppInfo
+    domain = os.environ.get("RAILWAY_PUBLIC_DOMAIN") or "jarvis-personal-bot-production.up.railway.app"
+    web_app_url = f"https://{domain}/nuvi-stats"
+    
     keyboard = [
-        [InlineKeyboardButton("📊 Tizim Statistikasi", callback_data="admin_stats")],
+        [InlineKeyboardButton("📊 Mini App (Statistika)", web_app=WebAppInfo(url=web_app_url))],
+        [InlineKeyboardButton("📊 Tizim Statistikasi (Matnli)", callback_data="admin_stats")],
         [InlineKeyboardButton("📢 Yangi Rassilka", callback_data="admin_broadcast")],
         [InlineKeyboardButton("⚙️ Sozlamalar", callback_data="admin_settings")]
     ]

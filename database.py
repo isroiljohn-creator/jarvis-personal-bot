@@ -739,5 +739,104 @@ async def db_get_nuvi_stats() -> dict:
         return {}
 
 
+async def db_get_nuvi_detailed_stats() -> dict:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            # 1. Total counts
+            total_users = await conn.fetchval("SELECT COUNT(*) FROM nuvi_users")
+            total_vacancies = await conn.fetchval("SELECT COUNT(*) FROM nuvi_vacancies")
+            total_posted = await conn.fetchval("SELECT COUNT(*) FROM nuvi_vacancies WHERE status = 'posted'")
+            total_pending = await conn.fetchval("SELECT COUNT(*) FROM nuvi_vacancies WHERE status = 'pending_approval'")
+            
+            # 2. Tariff prices (from settings or fallback)
+            pro_price = 20000
+            prem_price = 35000
+            vip_price = 50000
+            
+            p_pro = await conn.fetchval("SELECT value FROM nuvi_settings WHERE key = 'tariff_pro_price'")
+            if p_pro: pro_price = int(p_pro)
+            p_prem = await conn.fetchval("SELECT value FROM nuvi_settings WHERE key = 'tariff_premium_price'")
+            if p_prem: prem_price = int(p_prem)
+            p_vip = await conn.fetchval("SELECT value FROM nuvi_settings WHERE key = 'tariff_vip_price'")
+            if p_vip: vip_price = int(p_vip)
+            
+            # 3. Calculate turnover based on paid vacancies
+            paid_pro = await conn.fetchval("SELECT COUNT(*) FROM nuvi_vacancies WHERE payment_status = 'paid' AND tariff = 'pro'") or 0
+            paid_premium = await conn.fetchval("SELECT COUNT(*) FROM nuvi_vacancies WHERE payment_status = 'paid' AND tariff = 'premium'") or 0
+            paid_vip = await conn.fetchval("SELECT COUNT(*) FROM nuvi_vacancies WHERE payment_status = 'paid' AND tariff = 'vip'") or 0
+            
+            total_turnover = (paid_pro * pro_price) + (paid_premium * prem_price) + (paid_vip * vip_price)
+            
+            # 4. Status breakdown
+            status_rows = await conn.fetch("SELECT status, COUNT(*) as cnt FROM nuvi_vacancies GROUP BY status")
+            status_breakdown = {r['status']: r['cnt'] for r in status_rows}
+            
+            # 5. Tariff breakdown
+            tariff_rows = await conn.fetch("SELECT tariff, COUNT(*) as cnt FROM nuvi_vacancies GROUP BY tariff")
+            tariff_breakdown = {r['tariff']: r['cnt'] for r in tariff_rows}
+            
+            # 6. Recent 10 vacancies
+            recent_rows = await conn.fetch(
+                """
+                SELECT v.id, v.title, v.company, v.salary, v.status, v.payment_status, v.tariff, v.created_at, u.first_name as user_name
+                FROM nuvi_vacancies v
+                LEFT JOIN nuvi_users u ON v.user_id = u.user_id
+                ORDER BY v.id DESC LIMIT 10
+                """
+            )
+            recent_vacancies = []
+            for r in recent_rows:
+                recent_vacancies.append({
+                    "id": r['id'],
+                    "title": r['title'],
+                    "company": r['company'],
+                    "salary": r['salary'],
+                    "status": r['status'],
+                    "payment_status": r['payment_status'],
+                    "tariff": r['tariff'],
+                    "user_name": r['user_name'] or "Moma'lum",
+                    "created_at": r['created_at'].strftime("%Y-%m-%d %H:%M")
+                })
+                
+            # 7. Monthly turnover dynamics (last 6 months)
+            monthly_data = await conn.fetch(
+                "SELECT tariff, created_at FROM nuvi_vacancies WHERE payment_status = 'paid'"
+            )
+            monthly_turnover = {}
+            for m in monthly_data:
+                m_str = m['created_at'].strftime("%Y-%m")
+                tariff = m['tariff']
+                price = pro_price if tariff == 'pro' else (prem_price if tariff == 'premium' else vip_price)
+                monthly_turnover[m_str] = monthly_turnover.get(m_str, 0) + price
+                
+            monthly_turnover_sorted = [{"month": k, "amount": v} for k, v in sorted(monthly_turnover.items())]
+            
+            return {
+                "total_users": total_users or 0,
+                "total_vacancies": total_vacancies or 0,
+                "total_posted": total_posted or 0,
+                "total_pending": total_pending or 0,
+                "total_turnover": total_turnover,
+                "prices": {
+                    "pro": pro_price,
+                    "premium": prem_price,
+                    "vip": vip_price
+                },
+                "tariffs": {
+                    "pro": {"paid": paid_pro, "total": tariff_breakdown.get("pro", 0)},
+                    "premium": {"paid": paid_premium, "total": tariff_breakdown.get("premium", 0)},
+                    "vip": {"paid": paid_vip, "total": tariff_breakdown.get("vip", 0)}
+                },
+                "status_breakdown": status_breakdown,
+                "recent_vacancies": recent_vacancies,
+                "monthly_dynamics": monthly_turnover_sorted
+            }
+    except Exception as e:
+        logger.error(f"db_get_nuvi_detailed_stats xatosi: {e}")
+        return {}
+
+
+
 
 

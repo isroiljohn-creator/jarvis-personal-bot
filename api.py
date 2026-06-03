@@ -243,6 +243,18 @@ async def finance_dashboard():
     """Jasmina - Yangi maxsus moliyaviy mini app."""
     return FileResponse("static/finance.html")
 
+@app.get("/nuvi-stats")
+async def nuvi_stats_dashboard():
+    """Nuvi Jobs - Telegram Mini App Dashboard."""
+    return FileResponse("static/nuvi_stats.html")
+
+@app.get("/api/nuvi/stats")
+async def get_nuvi_stats_api():
+    """Nuvi Jobs detailed statistics API endpoint."""
+    from database import db_get_nuvi_detailed_stats
+    stats = await db_get_nuvi_detailed_stats()
+    return stats
+
 @app.post("/api/finance/transactions")
 async def save_transaction(request: Request):
     """Yangi tranzaksiya saqlash (Mini App orqali)."""
