@@ -127,7 +127,7 @@ def clean_for_markdown(text: str) -> str:
     """Telegram Markdown uchun belgilarni tozalaydi."""
     if not text:
         return ""
-    for ch in ("*", "_", "`", "#"):
+    for ch in ("*", "`", "#"):
         text = text.replace(ch, "")
     return text
 
