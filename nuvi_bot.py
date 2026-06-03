@@ -252,26 +252,28 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await database.db_upsert_nuvi_user(user.id, user.username, user.first_name)
     
     keyboard = [
-        ["💼 E'lon berish 📌"],
-        ["📊 Mening e'lonlarim", "ℹ️ Bot haqida / Ma'lumot"]
+        ["💼 E'lon berish"],
+        ["📊 Mening e'lonlarim"],
+        ["ℹ️ Bot haqida"],
     ]
     if user.id == OWNER_ID:
         keyboard.append(["⚙️ Admin panel"])
         
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     
+    safe_name = clean_for_markdown(user.first_name)
     msg = (
-        f"Assalomu alaykum, {user.first_name}!\n"
-        f"Nuvi Jobs e'lon berish botiga xush kelibsiz.\n\n"
-        f"Bu yerda kanalda vakansiya e'lon qilish uchun ariza topshirishingiz, "
-        f"to'lov qilishingiz va navbat asosida e'loningizni avtomatik chop etishingiz mumkin."
+        f"👋 *Assalomu alaykum, {safe_name}!* \n"
+        f"🚀 *Nuvi Jobs* e'lon berish botiga xush kelibsiz!\n\n"
+        f"💼 Bu yerda kanalda vakansiya e'lon qilish uchun *ariza topshirishingiz*, "
+        f"💳 *to'lov qilishingiz* va ⏱ *navbat asosida* e'loningizni avtomatik chop etishingiz mumkin."
     )
     if update.callback_query:
         await update.callback_query.answer()
         # Clean inline buttons
-        await update.callback_query.message.reply_text(msg, reply_markup=reply_markup)
+        await update.callback_query.message.reply_text(msg, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
     else:
-        await update.message.reply_text(msg, reply_markup=reply_markup)
+        await update.message.reply_text(msg, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
     return ConversationHandler.END
 
 async def cb_create_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -287,7 +289,8 @@ async def cb_create_start(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     keyboard = [
         ["💼 Doimiy ishchi kerak"],
         ["💻 Frilanser (Bir martalik ish)"],
-        ["📄 Rezyume joylashtirish 📎", "🔙 Orqaga"]
+        ["📄 Rezyume joylashtirish"],
+        ["🔙 Orqaga"]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     
@@ -309,7 +312,7 @@ async def state_section_received(update: Update, context: ContextTypes.DEFAULT_T
     sections = {
         "💼 Doimiy ishchi kerak": "doimiy",
         "💻 Frilanser (Bir martalik ish)": "frilans",
-        "📄 Rezyume joylashtirish 📎": "rezyume"
+        "📄 Rezyume joylashtirish": "rezyume"
     }
     
     if text not in sections:
@@ -342,7 +345,9 @@ async def state_ask_experience(update: Update, context: ContextTypes.DEFAULT_TYP
     context.user_data["title"] = title
     
     keyboard = [
-        ["Junior", "Middle", "Senior"],
+        ["👶 Junior"],
+        ["🧑 Middle"],
+        ["👨‍💻 Senior"],
         ["➡️ Shart emas"],
         ["🚫 Bekor qilish"]
     ]
@@ -362,7 +367,8 @@ async def state_ask_location(update: Update, context: ContextTypes.DEFAULT_TYPE)
     context.user_data["experience"] = exp
     
     keyboard = [
-        ["Toshkent shahri", "Masofaviy"],
+        ["📍 Toshkent shahri"],
+        ["💻 Masofaviy"],
         ["🚫 Bekor qilish"]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
@@ -404,7 +410,8 @@ async def state_ask_salary(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     context.user_data["company"] = company
     
     keyboard = [
-        ["Suhbat asosida", "Amaliyotchi"],
+        ["💬 Suhbat asosida"],
+        ["🎓 Amaliyotchi"],
         ["🚫 Bekor qilish"]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
@@ -544,7 +551,8 @@ async def state_generate_preview(update: Update, context: ContextTypes.DEFAULT_T
     await waiting_msg.delete()
     
     keyboard = [
-        ["✅ Ha", "❌ Yo'q"]
+        ["✅ Ha"],
+        ["❌ Yo'q"]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     
@@ -592,7 +600,8 @@ async def state_confirm_preview_received(update: Update, context: ContextTypes.D
             f"🚀 *VIP* - Birinchi navbatda joylash + 24 soatga pinned qilish: *{price_vip:,}* so'm"
         )
         keyboard = [
-            ["🔹 Pro", "🔸 Premium"],
+            ["🔹 Pro"],
+            ["🔸 Premium"],
             ["🚀 VIP"],
             ["🚫 Bekor qilish"]
         ]
@@ -1726,7 +1735,7 @@ def main():
     # ─── CONVERSATION HANDLER FOR VACANCY ───
     vacancy_conv = ConversationHandler(
         entry_points=[
-            MessageHandler(filters.Regex("^💼 E'lon berish 📌$"), cb_create_start),
+            MessageHandler(filters.Regex("^💼 E'lon berish$"), cb_create_start),
             CallbackQueryHandler(cb_create_start, pattern="^nuvi_create$")
         ],
         states={
@@ -1804,7 +1813,7 @@ def main():
     
     # ─── USER MENUS (REPLY KEYBOARDS) ───
     app.add_handler(MessageHandler(filters.Regex("^📊 Mening e'lonlarim$"), cb_my_vacancies_text))
-    app.add_handler(MessageHandler(filters.Regex("^ℹ️ Bot haqida / Ma'lumot$"), cb_bot_info_text))
+    app.add_handler(MessageHandler(filters.Regex("^ℹ️ Bot haqida$"), cb_bot_info_text))
     app.add_handler(MessageHandler(filters.Regex("^⚙️ Admin panel$"), cmd_admin))
     
     # ─── USER CALLBACKS ───
