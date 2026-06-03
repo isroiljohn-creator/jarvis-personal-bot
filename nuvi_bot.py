@@ -1035,24 +1035,27 @@ async def nuvi_auto_post_job(context: ContextTypes.DEFAULT_TYPE) -> None:
                 
         if post_success:
             # Bazani yangilaymiz
+            is_paid = vac.get("tariff") in ("vip", "premium", "pro")
             await database.db_update_nuvi_vacancy(
                 vac_id,
                 status="posted",
-                posted_at=datetime.datetime.now(datetime.timezone.utc)
+                posted_at=datetime.datetime.now(datetime.timezone.utc),
+                telegram_message_id=message_id,
+                pinned=is_paid
             )
             logger.info(f"✅ Vakansiya #{vac_id} muvaffaqiyatli post qilindi (Msg ID: {message_id})")
             
-            # Pinned message for VIP tariff
-            if vac.get("tariff") == "vip":
+            # Pinned message for paid tariffs (VIP, Premium, Pro)
+            if is_paid:
                 try:
                     await context.bot.pin_chat_message(
                         chat_id=TARGET_CHANNEL,
                         message_id=message_id,
                         disable_notification=False
                     )
-                    logger.info(f"📌 VIP Vakansiya #{vac_id} kanalda pin qilindi (Msg ID: {message_id})")
+                    logger.info(f"📌 Paid Vakansiya #{vac_id} ({vac.get('tariff')}) kanalda pin qilindi (Msg ID: {message_id})")
                 except Exception as pin_err:
-                    logger.error(f"Failed to pin VIP vacancy #{vac_id}: {pin_err}")
+                    logger.error(f"Failed to pin paid vacancy #{vac_id}: {pin_err}")
             
             # Foydalanuvchini xabardor qilish va havolani yuborish
             post_link = f"https://t.me/{TARGET_CHANNEL.replace('@', '')}/{message_id}"
@@ -1787,6 +1790,32 @@ async def nuvi_vip_auto_approve_job(context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.error(f"nuvi_vip_auto_approve_job error: {e}")
 
 
+async def nuvi_unpin_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Post qilinganiga 1 soatdan oshgan pullik e'lonlarni unpin qiladi."""
+    try:
+        import database
+        to_unpin = await database.db_get_pinned_nuvi_vacancies_to_unpin()
+        if not to_unpin:
+            return
+            
+        for vac in to_unpin:
+            vac_id = vac["id"]
+            msg_id = vac["telegram_message_id"]
+            logger.info(f"⏰ Paid Vakansiya #{vac_id} pin qilinganiga 1 soat bo'ldi. Unpin qilinmoqda...")
+            try:
+                await context.bot.unpin_chat_message(
+                    chat_id=TARGET_CHANNEL,
+                    message_id=msg_id
+                )
+            except Exception as unpin_err:
+                logger.warning(f"Failed to unpin message #{msg_id} on channel: {unpin_err} (already unpinned or chat issue)")
+                
+            # Update in DB
+            await database.db_update_nuvi_vacancy(vac_id, pinned=False)
+    except Exception as e:
+        logger.error(f"nuvi_unpin_job error: {e}")
+
+
 # ──────────────────────── MAIN ASSEMBLY ─────────────────────────
 
 def main():
@@ -1814,6 +1843,7 @@ def main():
     # ─── JOB QUEUE FOR AUTO-POSTING ───
     app.job_queue.run_repeating(nuvi_auto_post_job, interval=60, first=10)
     app.job_queue.run_repeating(nuvi_vip_auto_approve_job, interval=60, first=30)
+    app.job_queue.run_repeating(nuvi_unpin_job, interval=60, first=45)
     app.job_queue.run_repeating(vacancy_scraper_job, interval=3600, first=60)
     
     # ─── CONVERSATION HANDLER FOR VACANCY ───

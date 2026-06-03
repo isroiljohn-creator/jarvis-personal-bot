@@ -141,6 +141,8 @@ async def init_db():
             try:
                 await conn.execute("ALTER TABLE nuvi_vacancies ADD COLUMN IF NOT EXISTS tariff TEXT DEFAULT 'pro'")
                 await conn.execute("ALTER TABLE nuvi_vacancies ADD COLUMN IF NOT EXISTS skills TEXT")
+                await conn.execute("ALTER TABLE nuvi_vacancies ADD COLUMN IF NOT EXISTS telegram_message_id INT")
+                await conn.execute("ALTER TABLE nuvi_vacancies ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT FALSE")
             except Exception as e:
                 logger.error(f"Error altering nuvi_vacancies: {e}")
         logger.info("✅ DB jadvallar tayyor")
@@ -929,6 +931,21 @@ async def db_get_nuvi_queue() -> list[dict]:
     except Exception as e:
         logger.error(f"db_get_nuvi_queue xatosi: {e}")
         return []
+
+async def db_get_pinned_nuvi_vacancies_to_unpin() -> list[dict]:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT id, telegram_message_id 
+                FROM nuvi_vacancies 
+                WHERE pinned = TRUE AND telegram_message_id IS NOT NULL AND posted_at <= NOW() - INTERVAL '1 hour'
+            """)
+            return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"db_get_pinned_nuvi_vacancies_to_unpin xatosi: {e}")
+        return []
+
 
 
 
