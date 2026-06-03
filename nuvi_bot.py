@@ -154,7 +154,7 @@ def format_vacancy_text(data: dict) -> str:
         text += f"\n🎁 *Taklif:*\n{benefit_lines}\n"
         
     text += f"\n📩 *Aloqa:* {contact}\n\n"
-    text += f"[Nuvi Jobs](https://t.me/nuvi_jobs) - *ish va ishchi topishda bepul yordam beramiz!*"
+    text += f"[Nuvi Jobs](https://t.me/nuvi_jobs) - *ish va ishchi topishda yordam beramiz!*"
     return text
 
 async def calculate_next_post_time() -> datetime.datetime:
