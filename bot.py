@@ -1990,6 +1990,29 @@ async def midday_check_job(context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.error(f"Midday check xatosi: {e}")
 
 
+def escape_telegram_markdown(text: str) -> str:
+    """Telegram Markdown uchun tagchiziqlar (_) ni escape qiladi, lekin URL va havolalarni buzmaydi."""
+    if not text:
+        return text
+    import re
+    # 1. URL'larni topib, vaqtinchalik placeholderlar bilan almashtiramiz
+    urls = re.findall(r'https?://[^\s)]+', text)
+    placeholders = {}
+    for i, url in enumerate(urls):
+        ph = f"URLPLACEHOLDER{i}"
+        placeholders[ph] = url
+        text = text.replace(url, ph)
+        
+    # 2. Qolgan matndagi barcha tagchiziqlarni escape qilamiz
+    text = text.replace("_", "\\_")
+    
+    # 3. URL'larni asl holiga qaytaramiz
+    for ph, url in placeholders.items():
+        text = text.replace(ph, url)
+        
+    return text
+
+
 async def format_vacancy_with_ai(raw_text: str) -> str:
     """Vakansiya matnini Gemini yordamida shablonga soladi."""
     default_template = """
@@ -2139,7 +2162,7 @@ async def vacancy_scraper_job(context: ContextTypes.DEFAULT_TYPE) -> None:
                             await context.bot.send_photo(
                                 chat_id=target_channel,
                                 photo=photo,
-                                caption=formatted.replace("_", "\\_"),
+                                caption=escape_telegram_markdown(formatted),
                                 parse_mode="Markdown"
                             )
                     except Exception as tg_err:
@@ -2150,25 +2173,25 @@ async def vacancy_scraper_job(context: ContextTypes.DEFAULT_TYPE) -> None:
                                 await context.bot.send_photo(
                                     chat_id=target_channel,
                                     photo=photo,
-                                    caption=short_caption.replace("_", "\\_"),
+                                    caption=escape_telegram_markdown(short_caption),
                                     parse_mode="Markdown"
                                 )
                             await context.bot.send_message(
                                 chat_id=target_channel,
-                                text=formatted.replace("_", "\\_"),
+                                text=escape_telegram_markdown(formatted),
                                 parse_mode="Markdown"
                             )
                         except Exception as split_err:
                             logger.error(f"Failed to send split vacancy messages: {split_err}")
                             # Final fallback: text only
-                            await context.bot.send_message(chat_id=target_channel, text=formatted.replace("_", "\\_"), parse_mode="Markdown")
+                            await context.bot.send_message(chat_id=target_channel, text=escape_telegram_markdown(formatted), parse_mode="Markdown")
                     try:
                         os.unlink(temp_path)
                     except:
                         pass
                 else:
                     # Fallback to plain text if image generation fails
-                    await context.bot.send_message(chat_id=target_channel, text=formatted.replace("_", "\\_"), parse_mode="Markdown")
+                    await context.bot.send_message(chat_id=target_channel, text=escape_telegram_markdown(formatted), parse_mode="Markdown")
                 
                 # Mark as processed in DB
                 await database.db_add_processed_vacancy(vac["channel_id"], vac["msg_id"])
@@ -2843,7 +2866,7 @@ async def cmd_scrape(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                         await context.bot.send_photo(
                             chat_id=target_channel,
                             photo=photo,
-                            caption=formatted.replace("_", "\\_"),
+                            caption=escape_telegram_markdown(formatted),
                             parse_mode="Markdown"
                         )
                     await update.message.reply_text(f"✅ Vakansiya muvaffaqiyatli yuborildi: {target_channel}")
@@ -2855,25 +2878,25 @@ async def cmd_scrape(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                             await context.bot.send_photo(
                                 chat_id=target_channel,
                                 photo=photo,
-                                caption=short_caption.replace("_", "\\_"),
+                                caption=escape_telegram_markdown(short_caption),
                                 parse_mode="Markdown"
                             )
                         await context.bot.send_message(
                             chat_id=target_channel,
-                            text=formatted.replace("_", "\\_"),
+                            text=escape_telegram_markdown(formatted),
                             parse_mode="Markdown"
                         )
                         await update.message.reply_text(f"✅ Vakansiya muvaffaqiyatli yuborildi (surat va matn alohida): {target_channel}")
                     except Exception as split_err:
                         logger.error(f"Failed to send split vacancy messages in cmd_scrape: {split_err}")
-                        await context.bot.send_message(chat_id=target_channel, text=formatted.replace("_", "\\_"), parse_mode="Markdown")
+                        await context.bot.send_message(chat_id=target_channel, text=escape_telegram_markdown(formatted), parse_mode="Markdown")
                         await update.message.reply_text(f"✅ Vakansiya faqat matn ko'rinishida yuborildi: {target_channel}")
                 try:
                     os.unlink(temp_path)
                 except:
                     pass
             else:
-                await context.bot.send_message(chat_id=target_channel, text=formatted.replace("_", "\\_"), parse_mode="Markdown")
+                await context.bot.send_message(chat_id=target_channel, text=escape_telegram_markdown(formatted), parse_mode="Markdown")
                 await update.message.reply_text(f"✅ Vakansiya faqat matn ko'rinishida yuborildi (oblojka xatosi): {target_channel}")
                 
             # Mark as processed in DB
