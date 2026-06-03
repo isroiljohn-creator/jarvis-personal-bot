@@ -1453,21 +1453,47 @@ Siz professional HR assistentisiz. Vazifangiz quyidagi vakansiya matnini o'rgani
 MUHIM QOIDALAR:
 1. Matndagi asosiy so'zlar: Firma:, Maosh:, Lokatsiya:, Ish vaqti:, Talablar:, Taklif:, Aloqa: va bizning slogan: Nuvi Jobs - ish va ishchi topishda yordam beramiz! qismlari faqat yulduzcha (*) belgisi bilan o'ralib bold bo'lishi kerak.
 2. Har bir ma'lumot sarlavhalari (masalan, Firma:, Maosh:) va ularning qiymatlari (masalan, Adjaster .uz jamoasi, 3 000 000 so'm) chiroyli tarzda taqdim etilsin.
-3. Aloqa va kontakt ma'lumotlarini (havolalar, telefon raqamlar, usernamelar) albatta saqlab qoling.
-4. Agar biror ma'lumot matnda bo'lmasa, uni bo'sh qoldirmang, balki "[Ko'rsatilmagan]" deb yozing yoki mos qatorni olib tashlang.
-5. Har doim toza va chiroyli o'zbek tilida javob bering.
-6. Javobingizda faqat tayyorlangan vakansiya matni bo'lsin, ortiqcha izoh yoki gap qo'shmang.
-7. Shablon oxiridagi "[Nuvi Jobs](https://t.me/nuvi_jobs) - *ish va ishchi topishda yordam beramiz!*" qismini o'zgarishsiz, aynan qanday yozilgan bo'lsa shunday qoldiring.
+3. Aloqa va kontakt ma'lumotlarini (nomzod murojaat qilishi kerak bo'lgan shaxsiy profil yoki telefon raqami) albatta saqlab qoling.
+4. MUHIM TAQIQLAR: Hech qachon telegram bot foydalanuvchi nomini (masalan, oxiri '_bot' bilan tugaydigan usernamelar, xususan @Humanresourcesuz_bot kabi) yoki reklama kanallari havolalarini 'Aloqa' qismiga qo'ymang. FAQAT real insonlarning shaxsiy telegram profili (masalan, @ism_hr) yoki telefon raqamini ko'rsating. Agar bunday shaxsiy aloqa ma'lumoti matnda bo'lmasa, 'Aloqa' qismiga '[Ko'rsatilmagan]' deb yozing.
+5. Agar biror ma'lumot matnda bo'lmasa, uni bo'sh qoldirmang, balki "[Ko'rsatilmagan]" deb yozing yoki mos qatorni olib tashlang.
+6. Har doim toza va chiroyli o'zbek tilida javob bering.
+7. Javobingizda faqat tayyorlangan vakansiya matni bo'lsin, ortiqcha izoh yoki gap qo'shmang.
+8. Shablon oxiridagi "[Nuvi Jobs](https://t.me/nuvi_jobs) - *ish va ishchi topishda yordam beramiz!*" qismini o'zgarishsiz, aynan qanday yozilgan bo'lsa shunday qoldiring.
 """
     try:
         formatted = await ai.process_message(raw_text, system_prompt, use_tools=False)
         if formatted:
             expected_footer = "[Nuvi Jobs](https://t.me/nuvi_jobs) - *ish va ishchi topishda yordam beramiz!*"
+            import re
             lines = formatted.split("\n")
             for idx, line in enumerate(lines):
+                # 1. Clean the contact line from bot usernames
+                if "aloqa" in line.lower():
+                    # Remove usernames ending with _bot
+                    clean_line = re.sub(r"@[a-zA-Z0-9_]+_bot\b", "", line, flags=re.IGNORECASE)
+                    
+                    # Extract the prefix and value
+                    prefix = "📩 *Aloqa:*"
+                    val = clean_line
+                    parts = re.split(r"(?i)aloqa\s*:\s*\*?", clean_line)
+                    if len(parts) > 1:
+                        val = parts[1]
+                        
+                    val = val.replace("*", "").replace("📩", "").strip()
+                    # Clean leading/trailing spaces, commas, dashes, and yokis
+                    val = re.sub(r"^(?:\s*yoki\s*|\s*or\s*|\s*,\s*|\s*-\s*)+", "", val, flags=re.IGNORECASE)
+                    val = re.sub(r"(?:\s*yoki\s*|\s*or\s*|\s*,\s*|\s*-\s*)+$", "", val, flags=re.IGNORECASE)
+                    val = val.strip()
+                    
+                    if not val or val.lower() == "[ko'rsatilmagan]":
+                        lines[idx] = f"{prefix} [Ko'rsatilmagan]"
+                    else:
+                        lines[idx] = f"{prefix} {val}"
+                
+                # 2. Enforce the correct footer
                 if "[Nuvi Jobs](https://t.me/nuvi_jobs)" in line:
                     lines[idx] = expected_footer
-                    break
+                    
             formatted = "\n".join(lines)
         return formatted
     except Exception as e:
