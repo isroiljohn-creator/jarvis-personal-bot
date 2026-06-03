@@ -152,6 +152,39 @@ def escape_telegram_markdown(text: str) -> str:
         
     return text
 
+def trim_to_fit_caption(text: str, max_chars: int = 1000) -> str:
+    """Xabar caption limitdan oshsa, pastdan boshlab punktlarni o'chiradi."""
+    if not text or len(text) <= max_chars:
+        return text
+        
+    lines = text.split("\n")
+    # Pastdan boshlab punkt (bullet points) qatorlarini qirqib tashlaymiz
+    while len("\n".join(lines)) > max_chars:
+        bullet_idx = -1
+        for i in range(len(lines) - 1, -1, -1):
+            stripped = lines[i].strip()
+            if stripped.startswith("—") or stripped.startswith("-") or stripped.startswith("*"):
+                # Slogan va footer'larni o'chirmaslik uchun tekshiramiz
+                if "nuvi_jobs" not in stripped.lower() and "aloqa" not in stripped.lower():
+                    bullet_idx = i
+                    break
+        if bullet_idx != -1:
+            lines.pop(bullet_idx)
+        else:
+            break
+            
+    trimmed = "\n".join(lines)
+    # Agar baribir uzun bo'lsa, oxirida majburiy kesamiz
+    if len(trimmed) > max_chars:
+        footer = ""
+        # Contact info qismini saqlash
+        for line in reversed(text.split("\n")):
+            if "aloqa" in line.lower() or "nuvi_jobs" in line.lower():
+                footer = "\n" + line + footer
+        trimmed = trimmed[:max_chars - len(footer) - 5] + "..." + footer
+        
+    return trimmed
+
 async def check_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     if update.message and update.message.text:
         txt = update.message.text.strip()
@@ -1456,9 +1489,10 @@ MUHIM QOIDALAR:
 3. Aloqa va kontakt ma'lumotlarini (nomzod murojaat qilishi kerak bo'lgan shaxsiy profil yoki telefon raqami) albatta saqlab qoling.
 4. MUHIM TAQIQLAR: Hech qachon telegram bot foydalanuvchi nomini (masalan, oxiri '_bot' bilan tugaydigan usernamelar, xususan @Humanresourcesuz_bot kabi) yoki reklama kanallari havolalarini 'Aloqa' qismiga qo'ymang. FAQAT real insonlarning shaxsiy telegram profili (masalan, @ism_hr) yoki telefon raqamini ko'rsating. Agar bunday shaxsiy aloqa ma'lumoti matnda bo'lmasa, 'Aloqa' qismiga '[Ko'rsatilmagan]' deb yozing.
 5. Agar biror ma'lumot matnda bo'lmasa, uni bo'sh qoldirmang, balki "[Ko'rsatilmagan]" deb yozing yoki mos qatorni olib tashlang.
-6. Har doim toza va chiroyli o'zbek tilida javob bering.
-7. Javobingizda faqat tayyorlangan vakansiya matni bo'lsin, ortiqcha izoh yoki gap qo'shmang.
-8. Shablon oxiridagi "[Nuvi Jobs](https://t.me/nuvi_jobs) - *ish va ishchi topishda yordam beramiz!*" qismini o'zgarishsiz, aynan qanday yozilgan bo'lsa shunday qoldiring.
+6. QAT'IY RAVISHDA MATNNI QISQA QILING: Butun xabar matni o'ta ixcham va lo'nda bo'lishi shart. Talablar va takliflar ro'yxatida faqat eng asosiy 2-3 tadan ko'p bo'lmagan eng muhim punktlarni qoldiring, mayda gaplarni va ortiqcha tafsilotlarni kesib tashlang. Umumiy belgi soni 700 tadan oshmasligi kerak.
+7. Har doim toza va chiroyli o'zbek tilida javob bering.
+8. Javobingizda faqat tayyorlangan vakansiya matni bo'lsin, ortiqcha izoh yoki gap qo'shmang.
+9. Shablon oxiridagi "[Nuvi Jobs](https://t.me/nuvi_jobs) - *ish va ishchi topishda yordam beramiz!*" qismini o'zgarishsiz, aynan qanday yozilgan bo'lsa shunday qoldiring.
 """
     try:
         formatted = await ai.process_message(raw_text, system_prompt, use_tools=False)
@@ -1495,6 +1529,8 @@ MUHIM QOIDALAR:
                     lines[idx] = expected_footer
                     
             formatted = "\n".join(lines)
+            # Final sanity trim to guarantee fits in 1000 chars caption limit
+            formatted = trim_to_fit_caption(formatted, max_chars=980)
         return formatted
     except Exception as e:
         logger.error(f"Gemini vacancy formatting error: {e}")
@@ -1593,29 +1629,15 @@ async def vacancy_scraper_job(context: ContextTypes.DEFAULT_TYPE) -> None:
                             )
                         logger.info(f"✅ Vacancy photo post sent: {target_channel}")
                     except Exception as photo_err:
-                        logger.warning(f"Failed sending cover photo to {target_channel}: {photo_err}. Trying split messages.")
-                        short_caption = f"📢 *NUVI JOBS | YANGI VAKANSIYA*\n\n📌 *Lavozim:* {pos}\n🏢 *Firma:* {comp}\n💵 *Maosh:* {sal}"
+                        logger.warning(f"Failed sending cover photo to {target_channel}: {photo_err}. Falling back to text-only.")
                         try:
-                            with open(temp_path, "rb") as photo:
-                                await context.bot.send_photo(
-                                    chat_id=target_channel,
-                                    photo=photo,
-                                    caption=escape_telegram_markdown(short_caption),
-                                    parse_mode="Markdown"
-                                )
                             await context.bot.send_message(
                                 chat_id=target_channel,
                                 text=escape_telegram_markdown(formatted),
                                 parse_mode="Markdown"
                             )
-                            logger.info(f"✅ Vacancy photo + text split posts sent: {target_channel}")
-                        except Exception as split_err:
-                            logger.error(f"Failed sending split posts: {split_err}")
-                            await context.bot.send_message(
-                                chat_id=target_channel,
-                                text=escape_telegram_markdown(formatted),
-                                parse_mode="Markdown"
-                            )
+                        except Exception as txt_err:
+                            logger.error(f"Failed sending text-only fallback: {txt_err}")
                     try:
                         os.unlink(temp_path)
                     except:
@@ -1712,26 +1734,17 @@ async def cmd_scrape(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                         )
                     await update.message.reply_text(f"✅ Vakansiya muvaffaqiyatli yuborildi: {target_channel}")
                 except Exception as tg_err:
-                    logger.warning(f"Failed to send photo with full caption: {tg_err}. Retrying with split messages.")
-                    short_caption = f"📢 *NUVI JOBS | YANGI VAKANSIYA*\n\n📌 *Lavozim:* {pos}\n🏢 *Firma:* {comp}\n💵 *Maosh:* {sal}"
+                    logger.warning(f"Failed to send photo with full caption: {tg_err}. Falling back to text-only.")
                     try:
-                        with open(temp_path, "rb") as photo:
-                            await context.bot.send_photo(
-                                chat_id=target_channel,
-                                photo=photo,
-                                caption=escape_telegram_markdown(short_caption),
-                                parse_mode="Markdown"
-                            )
                         await context.bot.send_message(
                             chat_id=target_channel,
                             text=escape_telegram_markdown(formatted),
                             parse_mode="Markdown"
                         )
-                        await update.message.reply_text(f"✅ Vakansiya muvaffaqiyatli yuborildi (surat va matn alohida): {target_channel}")
-                    except Exception as split_err:
-                        logger.error(f"Failed to send split vacancy messages in cmd_scrape: {split_err}")
-                        await context.bot.send_message(chat_id=target_channel, text=escape_telegram_markdown(formatted), parse_mode="Markdown")
                         await update.message.reply_text(f"✅ Vakansiya faqat matn ko'rinishida yuborildi: {target_channel}")
+                    except Exception as txt_err:
+                        logger.error(f"Failed to send fallback message in cmd_scrape: {txt_err}")
+                        await update.message.reply_text(f"❌ Vakansiya yuborish butunlay muvaffaqiyatsiz bo'ldi: {txt_err}")
                 try:
                     os.unlink(temp_path)
                 except:

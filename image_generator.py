@@ -112,9 +112,32 @@ def generate_vacancy_cover(position: str, company: str, salary: str, output_path
             h = bbox[3] - bbox[1]
             y_comp += h + 8
         
-        # Column 2: Salary (Vibrant Mint Green)
+        # Column 2: Salary (Vibrant Mint Green, auto-wrap up to 2 lines)
         draw.text((650, y_meta), "MAOSH / ISH HAQI", fill=(113, 128, 150, 255), font=font_meta_label)
-        draw.text((650, y_meta + 35), salary, fill=(0, 230, 118, 255), font=font_meta_sal)
+        
+        max_salary_width = 470
+        salary_words = salary.split()
+        salary_lines = []
+        current_sal_line = []
+        
+        for word in salary_words:
+            test_line = " ".join(current_sal_line + [word])
+            bbox = draw.textbbox((0, 0), test_line, font=font_meta_sal)
+            w = bbox[2] - bbox[0]
+            if w <= max_salary_width:
+                current_sal_line.append(word)
+            else:
+                salary_lines.append(" ".join(current_sal_line))
+                current_sal_line = [word]
+        if current_sal_line:
+            salary_lines.append(" ".join(current_sal_line))
+            
+        y_sal = y_meta + 35
+        for line in salary_lines[:2]: # Limit to 2 lines
+            draw.text((650, y_sal), line, fill=(0, 230, 118, 255), font=font_meta_sal)
+            bbox = draw.textbbox((0, 0), line, font=font_meta_sal)
+            h = bbox[3] - bbox[1]
+            y_sal += h + 8
         
         # 7. Clean Minimalist Footer
         draw.text((80, 580), "t.me/nuvi_jobs", fill=(74, 85, 104, 255), font=font_footer)
