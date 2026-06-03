@@ -185,6 +185,37 @@ def trim_to_fit_caption(text: str, max_chars: int = 1000) -> str:
         
     return trimmed
 
+async def notify_shifted_vacancies(bot, shifted) -> None:
+    """Navbati surilgan pullik e'lonlar egalarini xabardor qiladi."""
+    if not shifted:
+        return
+    import pytz
+    tz = pytz.timezone("Asia/Tashkent")
+    for item in shifted:
+        user_id = item["user_id"]
+        vac_id = item["id"]
+        title = item["title"]
+        new_time = item["new_time"].astimezone(tz).strftime("%Y-%m-%d %H:%M")
+        
+        msg = (
+            f"⚠️ **E'lon vaqti yangilandi**\n\n"
+            f"Hurmatli foydalanuvchi! Yangi VIP/Premium e'lonlar tasdiqlanganligi sababli "
+            f"Sizning #{vac_id} ({title}) vakansiyangiz navbati biroz surildi.\n\n"
+            f"⏰ Yangi chop etilish vaqti: **{new_time}** (Toshkent vaqti bilan).\n\n"
+            f"⚠️ Eslatib o'tamiz, kelishilganidek, sizning postingiz to'lov tasdiqlanganidan so'ng **24-48 soat ichida** kanalga to'liq joylashtiriladi.\n\n"
+            f"Tushunganingiz uchun rahmat!"
+        )
+        try:
+            await bot.send_message(
+                chat_id=user_id,
+                text=msg,
+                parse_mode=ParseMode.MARKDOWN
+            )
+            logger.info(f"Notification sent to user {user_id} for vacancy #{vac_id} shift.")
+        except Exception as e:
+            logger.error(f"Failed to notify user {user_id} of shift: {e}")
+
+
 async def check_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     if update.message and update.message.text:
         txt = update.message.text.strip()
@@ -692,6 +723,7 @@ async def state_choose_tariff_received(update: Update, context: ContextTypes.DEF
         f"Vakansiya qabul qilindi!\n\n"
         f"Tanlangan tarif: *{text}*\n"
         f"To'lov summasi: **{price:,} so'm**.\n\n"
+        f"⚠️ **Eslatma:** Navbat tirbandligiga qarab, to'lov tasdiqlanganidan so'ng e'loningiz **24-48 soat ichida** kanalga to'liq joylashtiriladi.\n\n"
         f"Iltimos, to'lov usulini tanlang:"
     )
     await update.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup)
@@ -736,6 +768,7 @@ async def state_payment_method_received(update: Update, context: ContextTypes.DE
             f"💳 **Karta orqali to'lov:**\n\n"
             f"Karta: `{card}`\n"
             f"Summa: **{price:,} so'm**\n\n"
+            f"⚠️ **Eslatma:** Navbat tirbandligiga qarab, to'lov tasdiqlanganidan so'ng e'loningiz **24-48 soat ichida** kanalga to'liq joylashtiriladi.\n\n"
             f"To'lovni amalga oshirganingizdan so'ng, to'lov chekini (kvitansiya) rasm formatida shu yerga yuboring:"
         )
         keyboard = [["🚫 Bekor qilish"]]
@@ -902,7 +935,8 @@ async def admin_buttons_callback(update: Update, context: ContextTypes.DEFAULT_T
         vac_id = int(data.split("_")[-1])
         # Bazani yangilaymiz
         await database.db_update_nuvi_vacancy(vac_id, status="approved")
-        await database.db_align_vacancy_queue()
+        success, shifted = await database.db_align_vacancy_queue()
+        await notify_shifted_vacancies(context.bot, shifted)
         
         vac = await database.db_get_nuvi_vacancy(vac_id)
         scheduled_for = vac["scheduled_for"] if (vac and vac["scheduled_for"]) else datetime.datetime.now()
@@ -1566,7 +1600,7 @@ def extract_meta_for_cover(text: str) -> tuple[str, str, str]:
     return position, company, salary
 
 
-async def save_scraped_vacancy_to_db(formatted_text: str) -> Optional[int]:
+async def save_scraped_vacancy_to_db(formatted_text: str, bot=None) -> Optional[int]:
     """Scraped vakansiyani bazaga saqlaydi va navbatni tekislaydi."""
     try:
         import database
@@ -1599,7 +1633,9 @@ async def save_scraped_vacancy_to_db(formatted_text: str) -> Optional[int]:
                 payment_status="free"
             )
             # Navbatni tekislaymiz
-            await database.db_align_vacancy_queue()
+            success, shifted = await database.db_align_vacancy_queue()
+            if bot and success and shifted:
+                await notify_shifted_vacancies(bot, shifted)
             return vac_id
         return None
     except Exception as e:
@@ -1650,7 +1686,7 @@ async def vacancy_scraper_job(context: ContextTypes.DEFAULT_TYPE) -> None:
                 continue
 
             # Bazaga saqlash va navbatga qo'yish
-            vac_id = await save_scraped_vacancy_to_db(formatted)
+            vac_id = await save_scraped_vacancy_to_db(formatted, bot=context.bot)
             if vac_id:
                 # Mark as processed in DB
                 await database.db_add_processed_vacancy(vac["channel_id"], vac["msg_id"])
@@ -1709,7 +1745,7 @@ async def cmd_scrape(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                 continue
                 
             # Bazaga saqlash va navbatga qo'yish
-            vac_id = await save_scraped_vacancy_to_db(formatted)
+            vac_id = await save_scraped_vacancy_to_db(formatted, bot=context.bot)
             if vac_id:
                 await database.db_add_processed_vacancy(vac["channel_id"], vac["msg_id"])
                 await update.message.reply_text(

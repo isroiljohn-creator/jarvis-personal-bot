@@ -864,7 +864,7 @@ async def db_align_vacancy_queue() -> bool:
         pool = await get_pool()
         async with pool.acquire() as conn:
             rows = await conn.fetch("""
-                SELECT id, tariff, created_at, scheduled_for 
+                SELECT id, tariff, created_at, scheduled_for, user_id, title 
                 FROM nuvi_vacancies 
                 WHERE status = 'approved' AND posted_at IS NULL
                 ORDER BY 
@@ -878,15 +878,29 @@ async def db_align_vacancy_queue() -> bool:
             """)
             
             if not rows:
-                return True
+                return True, []
                 
             current_slot = next_slot
+            shifted_vacancies = []
             async with conn.transaction():
                 for r in rows:
+                    old_time = r["scheduled_for"]
                     await conn.execute(
                         "UPDATE nuvi_vacancies SET scheduled_for = $1, updated_at = NOW() WHERE id = $2",
                         current_slot, r["id"]
                     )
+                    
+                    # If it was shifted to a LATER time, and it is a PAID vacancy (pro, premium, vip)
+                    # and old_time was not None
+                    if old_time and current_slot > old_time and r["tariff"] in ('pro', 'premium', 'vip'):
+                        shifted_vacancies.append({
+                            "id": r["id"],
+                            "user_id": r["user_id"],
+                            "title": r["title"],
+                            "tariff": r["tariff"],
+                            "old_time": old_time,
+                            "new_time": current_slot
+                        })
                     
                     # Advance to next slot
                     current_slot += datetime.timedelta(minutes=30)
@@ -895,11 +909,11 @@ async def db_align_vacancy_queue() -> bool:
                     elif current_slot.hour >= 22 or (current_slot.hour == 21 and current_slot.minute > 30):
                         current_slot = (current_slot + datetime.timedelta(days=1)).replace(hour=9, minute=0, second=0, microsecond=0)
                         
-            logger.info(f"✅ Vacancy queue aligned successfully for {len(rows)} vacancies.")
-            return True
+            logger.info(f"✅ Vacancy queue aligned successfully for {len(rows)} vacancies. Shifted: {len(shifted_vacancies)}")
+            return True, shifted_vacancies
     except Exception as e:
         logger.error(f"db_align_vacancy_queue xatosi: {e}")
-        return False
+        return False, []
 
 async def db_get_nuvi_queue() -> list[dict]:
     try:
