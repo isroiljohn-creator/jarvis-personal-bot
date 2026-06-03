@@ -46,17 +46,28 @@ logger = logging.getLogger("nuvi_bot")
 
 # ──────────────────────── SOZLAMALAR ─────────────────────────
 
-NUVI_BOT_TOKEN = os.environ.get("NUVI_BOT_TOKEN")
-if not NUVI_BOT_TOKEN:
-    logger.error("NUVI_BOT_TOKEN env o'zgaruvchisi topilmadi! Bot ishga tusha olmaydi.")
-    sys.exit(1)
-
+NUVI_BOT_TOKEN = os.environ.get("NUVI_BOT_TOKEN", "8713575188:AAERwI20zYqVdbIYaiLCUdXSNEjFAskf_rM")
 OWNER_ID = int(os.environ.get("OWNER_TELEGRAM_ID", "1392501306"))
 ADMIN_CHANNEL_ID = int(os.environ.get("NUVI_ADMIN_CHANNEL_ID", str(OWNER_ID)))
-TARGET_CHANNEL = os.environ.get("NUVI_TARGET_CHANNEL", "@nuvi_jobs")
+TARGET_CHANNEL = os.environ.get("NUVI_TARGET_CHANNEL", "-1003705561421")
 PROVIDER_TOKEN = os.environ.get("PAYMENT_PROVIDER_TOKEN") # Click/Payme Telegram billing uchun
-VACANCY_PRICE = int(os.environ.get("NUVI_VACANCY_PRICE_UZS", "30000")) # 30,000 UZS default
-CARD_DETAILS = os.environ.get("NUVI_VACANCY_CARD_DETAILS", "8600 0000 0000 0000 (Nuvi Jobs)")
+
+async def get_vacancy_price() -> int:
+    """Tizimdagi joriy e'lon narxini bazadan oladi, bo'lmasa env/default qaytaradi."""
+    price_str = await database.db_get_nuvi_setting("vacancy_price_uzs")
+    if price_str:
+        try:
+            return int(price_str)
+        except ValueError:
+            pass
+    return int(os.environ.get("NUVI_VACANCY_PRICE_UZS", "30000"))
+
+async def get_card_details() -> str:
+    """Karta ma'lumotlarini bazadan oladi, bo'lmasa env/default qaytaradi."""
+    card = await database.db_get_nuvi_setting("vacancy_card_details")
+    if card:
+        return card
+    return os.environ.get("NUVI_VACANCY_CARD_DETAILS", "8600 0000 0000 0000 (Nuvi Jobs)")
 
 # Conversation holatlari
 (
@@ -78,6 +89,12 @@ CARD_DETAILS = os.environ.get("NUVI_VACANCY_CARD_DETAILS", "8600 0000 0000 0000 
     BROADCAST_ASK_MSG,
     BROADCAST_CONFIRM,
 ) = range(11, 13)
+
+# Settings holatlari
+(
+    SETTING_ASK_PRICE,
+    SETTING_ASK_CARD,
+) = range(13, 15)
 
 # ──────────────────────── YORDAMCHI FUNKSIYALAR ─────────────────────────
 
@@ -398,9 +415,10 @@ async def cb_preview_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE)
     
     reply_markup = InlineKeyboardMarkup(keyboard)
     
+    price = await get_vacancy_price()
     msg = (
         f"Vakansiya qabul qilindi!\n\n"
-        f"E'lon joylashtirish narxi: **{VACANCY_PRICE:,} so'm**.\n"
+        f"E'lon joylashtirish narxi: **{price:,} so'm**.\n"
         f"Iltimos, to'lov turini tanlang:"
     )
     await query.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup)
@@ -425,8 +443,8 @@ async def cb_pay_telegram(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     description = f"Nuvi Jobs kanalida vakansiya e'lonini joylash to'lovi."
     payload = f"vacancy_payment_{vac_id}"
     currency = "UZS"
-    # Telegram UZS ni tiyinlarda hisoblaydi (1 sum = 100 tiyin)
-    prices = [LabeledPrice("Vakansiya e'loni", VACANCY_PRICE * 100)]
+    price = await get_vacancy_price()
+    prices = [LabeledPrice("Vakansiya e'loni", price * 100)]
     
     # Bazada statusni o'zgartiramiz
     await database.db_update_nuvi_vacancy(vac_id, status="pending_payment", payment_method="telegram_billing")
@@ -451,9 +469,11 @@ async def cb_pay_manual(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     vac_id = context.user_data.get("vacancy_id")
     await database.db_update_nuvi_vacancy(vac_id, status="pending_payment", payment_method="card_manual")
     
+    price = await get_vacancy_price()
+    card = await get_card_details()
     msg = (
-        f"Karta raqami: `{CARD_DETAILS}`\n"
-        f"To'lov summasi: **{VACANCY_PRICE:,} so'm**\n\n"
+        f"Karta raqami: `{card}`\n"
+        f"To'lov summasi: **{price:,} so'm**\n\n"
         f"To'lovni amalga oshirgach, iltimos **to'lov chekini (skrinshot yoki rasmini)** shu yerga yuboring.\n"
         f"Admin to'lovni tasdiqlagandan so'ng ariza ko'rib chiqiladi."
     )
@@ -809,6 +829,67 @@ async def cb_admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.message.edit_text("Nuvi Jobs Bot - Admin Boshqaruv Paneli:", reply_markup=reply_markup)
 
+async def cb_admin_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Admin sozlamalari menyusi."""
+    query = update.callback_query
+    if query.from_user.id != OWNER_ID:
+        await query.answer("Ruxsat yo'q.")
+        return ConversationHandler.END
+    await query.answer()
+    
+    price = await get_vacancy_price()
+    card = await get_card_details()
+    
+    msg = (
+        f"⚙️ **TIZIM SOZLAMALARI**\n\n"
+        f"💵 Vakansiya narxi: **{price:,} so'm**\n"
+        f"💳 Karta ma'lumotlari: `{card}`\n\n"
+        f"O'zgartirmoqchi bo'lgan sozlamani tanlang:"
+    )
+    keyboard = [
+        [InlineKeyboardButton("💵 Narxni o'zgartirish", callback_data="set_price")],
+        [InlineKeyboardButton("💳 Karta ma'lumotlarini o'zgartirish", callback_data="set_card")],
+        [InlineKeyboardButton("⬅️ Orqaga", callback_data="admin_back")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.message.edit_text(msg, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
+    return ConversationHandler.END
+
+async def cb_set_price_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    if query.from_user.id != OWNER_ID:
+        await query.answer("Ruxsat yo'q.")
+        return ConversationHandler.END
+    await query.answer()
+    await query.message.reply_text("Yangi narxni kiriting (faqat raqamlarda, masalan: 35000):")
+    return SETTING_ASK_PRICE
+
+async def state_setting_price_received(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    text = update.message.text.strip()
+    try:
+        price = int(text)
+        await database.db_set_nuvi_setting("vacancy_price_uzs", str(price))
+        await update.message.reply_text(f"✅ Vakansiya narxi muvaffaqiyatli o'zgartirildi: **{price:,} so'm**", parse_mode=ParseMode.MARKDOWN)
+    except ValueError:
+        await update.message.reply_text("❌ Xato! Iltimos faqat raqam kiriting (masalan: 35000):")
+        return SETTING_ASK_PRICE
+    return ConversationHandler.END
+
+async def cb_set_card_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    if query.from_user.id != OWNER_ID:
+        await query.answer("Ruxsat yo'q.")
+        return ConversationHandler.END
+    await query.answer()
+    await query.message.reply_text("Yangi karta ma'lumotlarini kiriting (masalan: 8600 0000 0000 0000 Nuvi Jobs MCH):")
+    return SETTING_ASK_CARD
+
+async def state_setting_card_received(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    card = update.message.text.strip()
+    await database.db_set_nuvi_setting("vacancy_card_details", card)
+    await update.message.reply_text(f"✅ Karta ma'lumotlari muvaffaqiyatli o'zgartirildi:\n`{card}`", parse_mode=ParseMode.MARKDOWN)
+    return ConversationHandler.END
+
 # ─── BROADCAST (RASSILKA) CONVERSATION FLOW ───
 
 async def cb_admin_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -930,10 +1011,11 @@ async def cb_bot_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     query = update.callback_query
     await query.answer()
     
+    price = await get_vacancy_price()
     msg = (
         f"ℹ️ **Nuvi Jobs Bot haqida:**\n\n"
         f"Ushbu bot orqali `@nuvi_jobs` kanaliga osongina vakansiya e'lonlarini joylashingiz mumkin.\n\n"
-        f"💰 E'lon joylash narxi: **{VACANCY_PRICE:,} so'm**.\n\n"
+        f"💰 E'lon joylash narxi: **{price:,} so'm**.\n\n"
         f"**Jarayon ketma-ketligi:**\n"
         f"1. So'rovnomadagi savollarga javob berasiz.\n"
         f"2. E'lon namunasi (oblojka surat va matn) sizga ko'rsatiladi.\n"
@@ -1019,6 +1101,22 @@ def main():
     # ─── PAYMENTS HANDLERS ───
     app.add_handler(PreCheckoutQueryHandler(precheckout_callback))
     app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_callback))
+    
+    # ─── ADMIN SETTINGS CONVERSATION AND CALLBACKS ───
+    settings_conv = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(cb_set_price_start, pattern="^set_price$"),
+            CallbackQueryHandler(cb_set_card_start, pattern="^set_card$")
+        ],
+        states={
+            SETTING_ASK_PRICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, state_setting_price_received)],
+            SETTING_ASK_CARD: [MessageHandler(filters.TEXT & ~filters.COMMAND, state_setting_card_received)]
+        },
+        fallbacks=[CommandHandler("cancel", cmd_cancel)],
+        allow_reentry=True
+    )
+    app.add_handler(settings_conv)
+    app.add_handler(CallbackQueryHandler(cb_admin_settings, pattern="^admin_settings$"))
     
     # ─── ADMIN CALLBACKS ───
     app.add_handler(CallbackQueryHandler(admin_buttons_callback, pattern="^admin_"))
