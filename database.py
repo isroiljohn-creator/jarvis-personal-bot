@@ -77,6 +77,7 @@ CREATE TABLE IF NOT EXISTS nuvi_users (
     user_id     BIGINT PRIMARY KEY,
     username    TEXT,
     first_name  TEXT,
+    referred_by BIGINT,
     created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -101,8 +102,24 @@ CREATE TABLE IF NOT EXISTS nuvi_vacancies (
     scheduled_for  TIMESTAMPTZ,
     posted_at      TIMESTAMPTZ,
     tariff         TEXT DEFAULT 'pro',
+    telegram_message_id INT,
+    pinned         BOOLEAN DEFAULT FALSE,
+    pin_expires_at TIMESTAMPTZ,
+    promocode      TEXT,
+    discounted_price INT,
+    archive_prompted BOOLEAN DEFAULT FALSE,
     created_at     TIMESTAMPTZ DEFAULT NOW(),
     updated_at     TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS nuvi_promocodes (
+    code           TEXT PRIMARY KEY,
+    discount_pct   INT DEFAULT 0,
+    discount_flat  INT DEFAULT 0,
+    max_uses       INT DEFAULT 100,
+    uses_count     INT DEFAULT 0,
+    active         BOOLEAN DEFAULT TRUE,
+    created_at     TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS nuvi_settings (
@@ -139,10 +156,18 @@ async def init_db():
             except Exception:
                 pass
             try:
+                await conn.execute("ALTER TABLE nuvi_users ADD COLUMN IF NOT EXISTS referred_by BIGINT")
+            except Exception as e:
+                logger.error(f"Error altering nuvi_users for referred_by: {e}")
+            try:
                 await conn.execute("ALTER TABLE nuvi_vacancies ADD COLUMN IF NOT EXISTS tariff TEXT DEFAULT 'pro'")
                 await conn.execute("ALTER TABLE nuvi_vacancies ADD COLUMN IF NOT EXISTS skills TEXT")
                 await conn.execute("ALTER TABLE nuvi_vacancies ADD COLUMN IF NOT EXISTS telegram_message_id INT")
                 await conn.execute("ALTER TABLE nuvi_vacancies ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT FALSE")
+                await conn.execute("ALTER TABLE nuvi_vacancies ADD COLUMN IF NOT EXISTS pin_expires_at TIMESTAMPTZ")
+                await conn.execute("ALTER TABLE nuvi_vacancies ADD COLUMN IF NOT EXISTS promocode TEXT")
+                await conn.execute("ALTER TABLE nuvi_vacancies ADD COLUMN IF NOT EXISTS discounted_price INT")
+                await conn.execute("ALTER TABLE nuvi_vacancies ADD COLUMN IF NOT EXISTS archive_prompted BOOLEAN DEFAULT FALSE")
             except Exception as e:
                 logger.error(f"Error altering nuvi_vacancies: {e}")
         logger.info("✅ DB jadvallar tayyor")
@@ -575,10 +600,24 @@ async def db_is_vacancy_processed(channel_id: int, msg_id: int) -> bool:
 
 # ─── NUVI JOBS BOT FUNCTIONS ───────────────────────────────────
 
-async def db_upsert_nuvi_user(user_id: int, username: str, first_name: str) -> bool:
+async def db_upsert_nuvi_user(user_id: int, username: str, first_name: str, referred_by: int = None) -> bool:
     try:
         pool = await get_pool()
         async with pool.acquire() as conn:
+            if referred_by:
+                # Check if user already exists
+                exists = await conn.fetchval("SELECT 1 FROM nuvi_users WHERE user_id = $1", user_id)
+                if not exists:
+                    # Check if referrer exists in nuvi_users
+                    ref_exists = await conn.fetchval("SELECT 1 FROM nuvi_users WHERE user_id = $1", referred_by)
+                    if ref_exists:
+                        await conn.execute("""
+                            INSERT INTO nuvi_users (user_id, username, first_name, referred_by)
+                            VALUES ($1, $2, $3, $4)
+                            ON CONFLICT (user_id) DO UPDATE 
+                            SET username = EXCLUDED.username, first_name = EXCLUDED.first_name
+                        """, user_id, username, first_name, referred_by)
+                        return True
             await conn.execute("""
                 INSERT INTO nuvi_users (user_id, username, first_name)
                 VALUES ($1, $2, $3)
@@ -953,12 +992,115 @@ async def db_get_pinned_nuvi_vacancies_to_unpin() -> list[dict]:
             rows = await conn.fetch("""
                 SELECT id, telegram_message_id 
                 FROM nuvi_vacancies 
-                WHERE pinned = TRUE AND telegram_message_id IS NOT NULL AND posted_at <= NOW() - INTERVAL '1 hour'
+                WHERE pinned = TRUE AND telegram_message_id IS NOT NULL AND pin_expires_at <= NOW()
             """)
             return [dict(r) for r in rows]
     except Exception as e:
         logger.error(f"db_get_pinned_nuvi_vacancies_to_unpin xatosi: {e}")
         return []
+
+async def db_validate_promocode(code: str) -> Optional[dict]:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow("""
+                SELECT * FROM nuvi_promocodes 
+                WHERE code = $1 AND active = TRUE AND uses_count < max_uses
+            """, code.strip().upper())
+            if row:
+                return dict(row)
+        return None
+    except Exception as e:
+        logger.error(f"db_validate_promocode xatosi: {e}")
+        return None
+
+async def db_use_promocode(code: str) -> bool:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute("""
+                UPDATE nuvi_promocodes 
+                SET uses_count = uses_count + 1 
+                WHERE code = $1
+            """, code.strip().upper())
+        return True
+    except Exception as e:
+        logger.error(f"db_use_promocode xatosi: {e}")
+        return False
+
+async def db_create_promocode(code: str, discount_pct: int = 0, discount_flat: int = 0, max_uses: int = 100) -> bool:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO nuvi_promocodes (code, discount_pct, discount_flat, max_uses, active)
+                VALUES ($1, $2, $3, $4, TRUE)
+                ON CONFLICT (code) DO UPDATE 
+                SET discount_pct = $2, discount_flat = $3, max_uses = $4, active = TRUE
+            """, code.strip().upper(), discount_pct, discount_flat, max_uses)
+        return True
+    except Exception as e:
+        logger.error(f"db_create_promocode xatosi: {e}")
+        return False
+
+async def db_get_user_referrer(user_id: int) -> Optional[int]:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            val = await conn.fetchval("SELECT referred_by FROM nuvi_users WHERE user_id = $1", user_id)
+            return val
+        return None
+    except Exception as e:
+        logger.error(f"db_get_user_referrer xatosi: {e}")
+        return None
+
+async def db_get_user_paid_vacancies_count(user_id: int) -> int:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            val = await conn.fetchval("""
+                SELECT COUNT(*) FROM nuvi_vacancies 
+                WHERE user_id = $1 AND payment_status = 'paid'
+            """, user_id)
+            return val or 0
+    except Exception as e:
+        logger.error(f"db_get_user_paid_vacancies_count xatosi: {e}")
+        return 0
+
+async def db_get_nuvi_vacancies_to_archive() -> list[dict]:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT * FROM nuvi_vacancies 
+                WHERE status = 'posted' 
+                  AND posted_at <= NOW() - INTERVAL '14 days' 
+                  AND archive_prompted = FALSE
+            """)
+            return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"db_get_nuvi_vacancies_to_archive xatosi: {e}")
+        return []
+
+async def db_mark_nuvi_vacancy_archive_prompted(vac_id: int) -> bool:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute("UPDATE nuvi_vacancies SET archive_prompted = TRUE WHERE id = $1", vac_id)
+        return True
+    except Exception as e:
+        logger.error(f"db_mark_nuvi_vacancy_archive_prompted xatosi: {e}")
+        return False
+
+async def db_get_posted_vacancies_count() -> int:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            val = await conn.fetchval("SELECT COUNT(*) FROM nuvi_vacancies WHERE status = 'posted'")
+            return val or 0
+    except Exception as e:
+        logger.error(f"db_get_posted_vacancies_count xatosi: {e}")
+        return 0
 
 
 

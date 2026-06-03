@@ -11,6 +11,8 @@ import datetime
 import tempfile
 import pytz
 import re
+import random
+import string
 from typing import Optional
 
 from telegram import (
@@ -105,21 +107,32 @@ async def get_card_details() -> str:
     ASK_BENEFITS,
     CONFIRM_PREVIEW,
     CHOOSE_TARIFF,
+    ENTER_PROMOCODE,
     CHOOSE_PAYMENT_METHOD,
     WAIT_MANUAL_RECEIPT,
-) = range(15)
+) = range(16)
 
 # Broadcast holatlari
 (
     BROADCAST_ASK_MSG,
     BROADCAST_CONFIRM,
-) = range(15, 17)
+) = range(16, 18)
 
 # Settings holatlari
 (
     SETTING_ASK_PRICE,
     SETTING_ASK_CARD,
-) = range(17, 19)
+) = range(18, 20)
+
+# Vacancy edit holatlari
+(
+    EDIT_VACANCY_TEXT_STATE,
+) = range(20, 21)
+
+# Pin payment holatlari
+(
+    WAIT_PIN_RECEIPT,
+) = range(21, 22)
 
 # ──────────────────────── YORDAMCHI FUNKSIYALAR ─────────────────────────
 
@@ -317,7 +330,19 @@ async def calculate_next_post_time(tariff: str) -> datetime.datetime:
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Bot boshlanishi."""
     user = update.effective_user
-    await database.db_upsert_nuvi_user(user.id, user.username, user.first_name)
+    
+    referred_by = None
+    if update.message and context.args:
+        arg = context.args[0]
+        if arg.startswith("ref_"):
+            try:
+                referred_by = int(arg.split("_")[1])
+                if referred_by == user.id:
+                    referred_by = None
+            except (IndexError, ValueError):
+                pass
+                
+    await database.db_upsert_nuvi_user(user.id, user.username, user.first_name, referred_by)
     
     keyboard = [
         ["💼 E'lon berish"],
@@ -715,7 +740,79 @@ async def state_choose_tariff_received(update: Update, context: ContextTypes.DEF
     )
     context.user_data["vacancy_id"] = vacancy_id
     
-    price = await get_tariff_price(tariff)
+    msg = (
+        f"🎟 **Sizda promo-kod bormi?**\n\n"
+        f"Agar mavjud bo'lsa, promo-kodni kiriting.\n"
+        f"Bo'lmasa, **⏩ O'tkazib yuborish** tugmasini bosing:"
+    )
+    keyboard = [
+        ["⏩ O'tkazib yuborish"],
+        ["🚫 Bekor qilish"]
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    await update.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup)
+    return ENTER_PROMOCODE
+
+async def state_enter_promocode(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if await check_cancel(update, context):
+        return ConversationHandler.END
+        
+    text = update.message.text.strip()
+    vac_id = context.user_data.get("vacancy_id")
+    tariff = context.user_data.get("tariff", "pro")
+    original_price = await get_tariff_price(tariff)
+    
+    if text == "⏩ O'tkazib yuborish":
+        price = original_price
+        keyboard = []
+        if PROVIDER_TOKEN:
+            keyboard.append(["💳 Telegram orqali to'lov (Click/Payme)"])
+        keyboard.append(["📎 Karta orqali to'lov (Chek yuborish)"])
+        keyboard.append(["🚫 Bekor qilish"])
+        
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        warning_text = ""
+        if tariff == "premium":
+            warning_text = "⚠️ **Eslatma:** Navbat tirbandligiga qarab, to'lov tasdiqlanganidan so'ng e'loningiz **24-48 soat ichida** kanalga to'liq joylashtiriladi.\n\n"
+            
+        msg = (
+            f"Vakansiya qabul qilindi!\n\n"
+            f"Tanlangan tarif: *{tariff.upper()}*\n"
+            f"To'lov summasi: **{price:,} so'm**.\n\n"
+            f"{warning_text}"
+            f"Iltimos, to'lov usulini tanlang:"
+        )
+        await update.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup)
+        return CHOOSE_PAYMENT_METHOD
+        
+    promo = await database.db_validate_promocode(text)
+    if not promo:
+        await update.message.reply_text(
+            "❌ Kiritilgan promo-kod yaroqsiz, muddati o'tgan yoki limiti tugagan.\n"
+            "Iltimos, promo-kodni qaytadan yuboring yoki keyingi bosqichga o'tish uchun **⏩ O'tkazib yuborish** tugmasini bosing:",
+            reply_markup=ReplyKeyboardMarkup([["⏩ O'tkazib yuborish"], ["🚫 Bekor qilish"]], resize_keyboard=True)
+        )
+        return ENTER_PROMOCODE
+        
+    discount_pct = promo.get("discount_pct", 0)
+    discount_flat = promo.get("discount_flat", 0)
+    
+    discount = 0
+    if discount_pct > 0:
+        discount = (original_price * discount_pct) // 100
+    elif discount_flat > 0:
+        discount = discount_flat
+        
+    discounted_price = max(0, original_price - discount)
+    
+    await database.db_update_nuvi_vacancy(
+        vac_id,
+        promocode=promo["code"],
+        discounted_price=discounted_price
+    )
+    
+    await database.db_use_promocode(promo["code"])
+    
     keyboard = []
     if PROVIDER_TOKEN:
         keyboard.append(["💳 Telegram orqali to'lov (Click/Payme)"])
@@ -728,9 +825,11 @@ async def state_choose_tariff_received(update: Update, context: ContextTypes.DEF
         warning_text = "⚠️ **Eslatma:** Navbat tirbandligiga qarab, to'lov tasdiqlanganidan so'ng e'loningiz **24-48 soat ichida** kanalga to'liq joylashtiriladi.\n\n"
         
     msg = (
-        f"Vakansiya qabul qilindi!\n\n"
-        f"Tanlangan tarif: *{text}*\n"
-        f"To'lov summasi: **{price:,} so'm**.\n\n"
+        f"✅ **Promo-kod muvaffaqiyatli qo'llanildi!**\n"
+        f"Promo-kod: `{promo['code']}`\n"
+        f"Chegirma: *{discount_pct}%* ({discount:,} so'm)\n"
+        f"Tanlangan tarif: *{tariff.upper()}*\n"
+        f"Yakuniy to'lov summasi: **{discounted_price:,} so'm**.\n\n"
         f"{warning_text}"
         f"Iltimos, to'lov usulini tanlang:"
     )
@@ -744,7 +843,12 @@ async def state_payment_method_received(update: Update, context: ContextTypes.DE
     text = update.message.text.strip()
     vac_id = context.user_data.get("vacancy_id")
     tariff = context.user_data.get("tariff", "pro")
-    price = await get_tariff_price(tariff)
+    
+    vac = await database.db_get_nuvi_vacancy(vac_id)
+    if vac and vac.get("discounted_price") is not None:
+        price = vac["discounted_price"]
+    else:
+        price = await get_tariff_price(tariff)
     
     if text == "💳 Telegram orqali to'lov (Click/Payme)" and PROVIDER_TOKEN:
         title = f"Vakansiya e'loni #{vac_id}"
@@ -820,6 +924,44 @@ async def state_manual_receipt_received(update: Update, context: ContextTypes.DE
     await send_vacancy_to_admin(context.bot, vac_id)
     return ConversationHandler.END
 
+async def trigger_payment_referral_check(bot, user_id: int, vacancy_id: int) -> None:
+    try:
+        referrer_id = await database.db_get_user_referrer(user_id)
+        if not referrer_id:
+            return
+            
+        paid_count = await database.db_get_user_paid_vacancies_count(user_id)
+        if paid_count == 1:
+            suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
+            promo_code = f"REF_{suffix}"
+            
+            await database.db_create_promocode(promo_code, discount_pct=10, max_uses=1)
+            
+            try:
+                await bot.send_message(
+                    chat_id=referrer_id,
+                    text=(
+                        f"🎉 **Tabriklaymiz!** Siz taklif qilgan do'stingiz botda o'zining birinchi pullik e'lonini joylashtirdi.\n\n"
+                        f"Sizga navbatdagi e'loningiz uchun **10% chegirmali** shaxsiy promo-kod taqdim etiladi:\n"
+                        f"`{promo_code}`\n\n"
+                        f"Uni to'lov sahifasida kiritib chegirma olishingiz mumkin."
+                    ),
+                    parse_mode=ParseMode.MARKDOWN
+                )
+                logger.info(f"Referral reward promo-code {promo_code} sent to referrer {referrer_id}")
+            except Exception as notify_err:
+                logger.error(f"Failed to notify referrer {referrer_id}: {notify_err}")
+                
+            try:
+                await bot.send_message(
+                    chat_id=user_id,
+                    text="🎁 Do'stingiz taklifi bilan ro'yxatdan o'tganingiz uchun unga chegirma promo-kodi yuborildi. Rahmat!"
+                )
+            except Exception:
+                pass
+    except Exception as e:
+        logger.error(f"trigger_payment_referral_check error: {e}")
+
 # ──────────────────────── PRECHECKOUT VA SUCCESSFUL PAYMENT ─────────────────────────
 
 async def precheckout_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -832,22 +974,47 @@ async def successful_payment_callback(update: Update, context: ContextTypes.DEFA
     """Telegram billing orqali to'lov muvaffaqiyatli o'tganda."""
     payment = update.message.successful_payment
     payload = payment.invoice_payload
-    # Payload format: vacancy_payment_ID
-    vac_id = int(payload.split("_")[-1])
     
-    # Bazada statusni yangilaymiz
-    await database.db_update_nuvi_vacancy(
-        vac_id,
-        status="pending_approval",
-        payment_status="paid"
-    )
-    
-    await update.message.reply_text(
-        "To'lovingiz muvaffaqiyatli qabul qilindi! Vakansiya tasdiqlash uchun adminga yuborildi."
-    )
-    
-    # Adminga tasdiqlash uchun yuborish
-    await send_vacancy_to_admin(update.get_bot(), vac_id)
+    if payload.startswith("vacancy_payment_"):
+        vac_id = int(payload.split("_")[-1])
+        
+        await database.db_update_nuvi_vacancy(
+            vac_id,
+            status="pending_approval",
+            payment_status="paid"
+        )
+        
+        await update.message.reply_text(
+            "To'lovingiz muvaffaqiyatli qabul qilindi! Vakansiya tasdiqlash uchun adminga yuborildi."
+        )
+        
+        # Trigger referral check
+        await trigger_payment_referral_check(context.bot, update.effective_user.id, vac_id)
+        
+        # Adminga tasdiqlash uchun yuborish
+        await send_vacancy_to_admin(context.bot, vac_id)
+        
+    elif payload.startswith("pin_payment_"):
+        vac_id = int(payload.split("_")[-1])
+        pin_expires = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=24)
+        
+        await database.db_update_nuvi_vacancy(
+            vac_id,
+            pinned=True,
+            pin_expires_at=pin_expires
+        )
+        
+        vac = await database.db_get_nuvi_vacancy(vac_id)
+        msg_id = vac.get("telegram_message_id") if vac else None
+        if msg_id:
+            try:
+                await context.bot.pin_chat_message(chat_id=TARGET_CHANNEL, message_id=msg_id, disable_notification=False)
+            except Exception as pin_err:
+                logger.error(f"Failed to pin post {msg_id}: {pin_err}")
+                
+        await update.message.reply_text(
+            f"🎉 To'lovingiz qabul qilindi! Sizning #{vac_id} e'loningiz kanalda 24 soatga pin qilindi."
+        )
 
 # ──────────────────────── ADMIN TASDIQLASH TIZIMI ─────────────────────────
 
@@ -943,6 +1110,9 @@ async def admin_buttons_callback(update: Update, context: ContextTypes.DEFAULT_T
             text=f"💳 Sizning e'lon #{vac_id} bo'yicha to'lovingiz admin tomonidan tasdiqlandi! Vakansiya ko'rib chiqilmoqda."
         )
         
+        # Trigger referral check
+        await trigger_payment_referral_check(context.bot, vac["user_id"], vac_id)
+        
     elif data.startswith("admin_approve_"):
         vac_id = int(data.split("_")[-1])
         # Bazani yangilaymiz
@@ -1018,6 +1188,48 @@ async def admin_buttons_callback(update: Update, context: ContextTypes.DEFAULT_T
             chat_id=vac["user_id"],
             text=f"❌ Sizning e'lon #{vac_id} rad etildi.\n⚠️ Sababi: **{reason}**"
         )
+        
+    elif data.startswith("admin_pinconfirm_"):
+        vac_id = int(data.split("_")[-1])
+        vac = await database.db_get_nuvi_vacancy(vac_id)
+        if vac:
+            pin_expires = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=24)
+            await database.db_update_nuvi_vacancy(vac_id, pinned=True, pin_expires_at=pin_expires)
+            
+            msg_id = vac.get("telegram_message_id")
+            if msg_id:
+                try:
+                    await context.bot.pin_chat_message(chat_id=TARGET_CHANNEL, message_id=msg_id, disable_notification=False)
+                except Exception as pin_err:
+                    logger.error(f"Failed to pin post {msg_id}: {pin_err}")
+                    
+            await context.bot.send_message(
+                chat_id=vac["user_id"],
+                text=f"🎉 Tabriklaymiz! Sizning #{vac_id} e'loningiz uchun 24 soatlik pin xizmati tasdiqlandi va e'lon pin qilindi."
+            )
+            
+            msg = query.message.caption if query.message.photo else query.message.text
+            msg += "\n\n🟢 **PIN TO'LOVI TASDIQLANDI**"
+            if query.message.photo:
+                await query.message.edit_caption(caption=msg, reply_markup=None, parse_mode=ParseMode.MARKDOWN)
+            else:
+                await query.message.edit_text(text=msg, reply_markup=None, parse_mode=ParseMode.MARKDOWN)
+                
+    elif data.startswith("admin_pinreject_"):
+        vac_id = int(data.split("_")[-1])
+        vac = await database.db_get_nuvi_vacancy(vac_id)
+        if vac:
+            await context.bot.send_message(
+                chat_id=vac["user_id"],
+                text=f"❌ Kechirasiz, sizning #{vac_id} e'loningiz uchun 24 soatlik pin to'lovingiz admin tomonidan rad etildi."
+            )
+            
+            msg = query.message.caption if query.message.photo else query.message.text
+            msg += "\n\n🔴 **PIN TO'LOVI RAD ETILDI**"
+            if query.message.photo:
+                await query.message.edit_caption(caption=msg, reply_markup=None, parse_mode=ParseMode.MARKDOWN)
+            else:
+                await query.message.edit_text(text=msg, reply_markup=None, parse_mode=ParseMode.MARKDOWN)
 
 # ──────────────────────── SCHEDULER: NAVBATDAGI POSTLARNI JOYLASHTIRISH ─────────────────────────
 
@@ -1082,12 +1294,17 @@ async def nuvi_auto_post_job(context: ContextTypes.DEFAULT_TYPE) -> None:
         if post_success:
             # Bazani yangilaymiz
             is_paid = vac.get("tariff") in ("vip", "premium", "pro")
+            pin_expires = None
+            if is_paid:
+                pin_expires = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
+                
             await database.db_update_nuvi_vacancy(
                 vac_id,
                 status="posted",
                 posted_at=datetime.datetime.now(datetime.timezone.utc),
                 telegram_message_id=message_id,
-                pinned=is_paid
+                pinned=is_paid,
+                pin_expires_at=pin_expires
             )
             logger.info(f"✅ Vakansiya #{vac_id} muvaffaqiyatli post qilindi (Msg ID: {message_id})")
             
@@ -1113,6 +1330,29 @@ async def nuvi_auto_post_job(context: ContextTypes.DEFAULT_TYPE) -> None:
                 ),
                 parse_mode=ParseMode.MARKDOWN
             )
+            
+            # Promo banner post logic
+            try:
+                posted_count = await database.db_get_posted_vacancies_count()
+                if posted_count > 0 and posted_count % 10 == 0:
+                    promo_banner_text = (
+                        "🚀 **E'lon berishni xohlaysizmi?**\n\n"
+                        "Bizning rasmiy botimiz orqali o'z vakansiyalaringizni tez va oson kanalga joylashingiz mumkin!\n\n"
+                        "🤖 **Bot:** @nuvijobs_bot\n\n"
+                        "🔹 **Qulayliklar:**\n"
+                        "• Turli tarif rejalari (Pro, Premium, VIP)\n"
+                        "• Tezkor to'lov tizimlari\n"
+                        "• Navbat tizimi va tahrirlash imkoniyati\n\n"
+                        "👉 Hozirroq botga o'ting va e'loningizni yarating!"
+                    )
+                    await context.bot.send_message(
+                        chat_id=TARGET_CHANNEL,
+                        text=promo_banner_text,
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+                    logger.info("Auto-promo banner posted to the channel.")
+            except Exception as promo_err:
+                logger.error(f"Failed to post auto-promo banner: {promo_err}")
     except Exception as e:
         logger.error(f"nuvi_auto_post_job error: {e}")
 
@@ -1348,35 +1588,22 @@ async def cb_my_vacancies(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     
     if not vacs:
         msg = "ℹ️ Sizda hali e'lonlar mavjud emas."
+        keyboard = [[InlineKeyboardButton("⬅️ Menyuga qaytish", callback_data="nuvi_menu")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.message.edit_text(msg, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
     else:
-        msg = "📊 **Sizning arizalaringiz holati:**\n\n"
-        for v in vacs[:10]: # Oxirgi 10 tasini ko'rsatish
-            p_status = v["payment_status"]
-            status = v["status"]
-            
-            status_map = {
-                "draft": "Qoralama",
-                "pending_payment": "To'lov kutilmoqda",
-                "pending_approval": "Admindan tasdiq kutilmoqda",
-                "approved": "Tasdiqlangan / Navbatda",
-                "rejected": "Rad etilgan",
-                "posted": "Kanalga joylangan ✅"
-            }
-            status_desc = status_map.get(status, status)
-            
-            msg += (
-                f"🆔 Ariza #{v['id']}\n"
-                f"📌 Lavozim: **{v['title']}**\n"
-                f"📈 Holati: *{status_desc}*\n"
-                f"💳 To'lov holati: *{p_status}*\n"
-            )
-            if v["rejection_reason"]:
-                msg += f"⚠️ Sabab: {v['rejection_reason']}\n"
-            msg += "──────────────────\n"
-            
-    keyboard = [[InlineKeyboardButton("⬅️ Menyuga qaytish", callback_data="nuvi_menu")]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.message.edit_text(msg, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
+        msg = "📊 **Sizning e'lonlaringiz:**\n\nBatafsil ko'rish va boshqarish uchun quyidagi tugmalardan birini tanlang:"
+        keyboard = []
+        for v in vacs[:10]:
+            tariff_lbl = v.get("tariff", "pro").upper()
+            status_lbl = v.get("status", "draft").upper()
+            keyboard.append([InlineKeyboardButton(
+                text=f"#{v['id']} | {v['title']} ({tariff_lbl} - {status_lbl})",
+                callback_data=f"myvac_view_{v['id']}"
+            )])
+        keyboard.append([InlineKeyboardButton("⬅️ Menyuga qaytish", callback_data="nuvi_menu")])
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.message.edit_text(msg, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
 
 async def cb_bot_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Bot haqida ma'lumot (Legacy callback query support)."""
@@ -1386,6 +1613,10 @@ async def cb_bot_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     price_pro = await get_tariff_price("pro")
     price_premium = await get_tariff_price("premium")
     price_vip = await get_tariff_price("vip")
+    
+    bot_info = await context.bot.get_me()
+    bot_username = bot_info.username or "nuvijobs_bot"
+    ref_link = f"https://t.me/{bot_username}?start=ref_{update.effective_user.id}"
     
     msg = (
         f"ℹ️ **Nuvi Jobs Bot haqida:**\n\n"
@@ -1399,7 +1630,11 @@ async def cb_bot_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         f"2. E'lon namunasi (oblojka surat va matn) sizga ko'rsatiladi.\n"
         f"3. Tarif va to'lov usulini tanlaysiz.\n"
         f"4. Admin tekshiruvdan o'tkazgandan keyin ariza tasdiqlanadi va navbatga qo'yiladi.\n"
-        f"5. Navbati kelganda e'loningiz avtomatik kanalga chiqadi va sizga xabar keladi."
+        f"5. Navbati kelganda e'loningiz avtomatik kanalga chiqadi va sizga xabar keladi.\n\n"
+        f"🎁 **Do'stlarni taklif qiling va chegirma oling!**\n"
+        f"Sizning taklif havolangiz:\n"
+        f"`{ref_link}`\n\n"
+        f"Do'stingiz bot orqali o'zining birinchi pullik e'lonini berganda, sizga **10% chegirmali promo-kod** yuboriladi!"
     )
     keyboard = [[InlineKeyboardButton("⬅️ Menyuga qaytish", callback_data="nuvi_menu")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -1413,45 +1648,29 @@ async def cb_my_vacancies_text(update: Update, context: ContextTypes.DEFAULT_TYP
     vacs = await database.db_get_nuvi_vacancies_by_user(user_id)
     
     if not vacs:
-        msg = "ℹ️ Sizda hali e'lonlar muzokaralari mavjud emas."
+        await update.message.reply_text("ℹ️ Sizda hali e'lonlar mavjud emas.")
     else:
-        msg = "📊 *Sizning arizalaringiz holati:*\n\n"
+        msg = "📊 **Sizning e'lonlaringiz:**\n\nBatafsil ko'rish va boshqarish uchun quyidagi tugmalardan birini tanlang:"
+        keyboard = []
         for v in vacs[:10]:
-            p_status = v["payment_status"]
-            status = v["status"]
-            tariff = v.get("tariff", "pro")
-            
-            status_map = {
-                "draft": "Qoralama",
-                "pending_payment": "To'lov kutilmoqda",
-                "pending_approval": "Admindan tasdiq kutilmoqda",
-                "approved": "Tasdiqlangan / Navbatda",
-                "rejected": "Rad etilgan",
-                "posted": "Kanalga joylangan ✅"
-            }
-            status_desc = status_map.get(status, status)
-            
-            tariff_map = {"pro": "Pro", "premium": "Premium", "vip": "VIP"}
-            t_desc = tariff_map.get(tariff, "Pro")
-            
-            msg += (
-                f"🆔 Ariza #{v['id']} (*{t_desc}*)\n"
-                f"📌 Lavozim: *{v['title']}*\n"
-                f"🏢 Firma: *{v['company']}*\n"
-                f"📈 Holati: *{status_desc}*\n"
-                f"💳 To'lov: *{p_status}*\n"
-            )
-            if v["rejection_reason"]:
-                msg += f"⚠️ Sabab: {v['rejection_reason']}\n"
-            msg += "──────────────────\n"
-            
-    await update.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
+            tariff_lbl = v.get("tariff", "pro").upper()
+            status_lbl = v.get("status", "draft").upper()
+            keyboard.append([InlineKeyboardButton(
+                text=f"#{v['id']} | {v['title']} ({tariff_lbl} - {status_lbl})",
+                callback_data=f"myvac_view_{v['id']}"
+            )])
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text(msg, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
 
 async def cb_bot_info_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Bot haqida ma'lumot (Reply keyboard uchun)."""
     price_pro = await get_tariff_price("pro")
     price_premium = await get_tariff_price("premium")
     price_vip = await get_tariff_price("vip")
+    
+    bot_info = await context.bot.get_me()
+    bot_username = bot_info.username or "nuvijobs_bot"
+    ref_link = f"https://t.me/{bot_username}?start=ref_{update.effective_user.id}"
     
     msg = (
         f"ℹ️ *Nuvi Jobs Bot haqida:*\n\n"
@@ -1465,9 +1684,377 @@ async def cb_bot_info_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         f"2. So'rovnomadagi savollarga javob berasiz.\n"
         f"3. E'lon namunasi (surat va matn) ko'rsatiladi.\n"
         f"4. Tarif va to'lov usulini tanlaysiz.\n"
-        f"5. Admin tekshiruvidan o'tgach, e'loningiz navbat bo'yicha avtomatik kanalga joylanadi."
+        f"5. Admin tekshiruvidan o'tgach, e'loningiz navbat bo'yicha avtomatik kanalga joylanadi.\n\n"
+        f"🎁 *Do'stlarni taklif qiling va chegirma oling!*\n"
+        f"Sizning taklif havolangiz:\n"
+        f"`{ref_link}`\n\n"
+        f"Do'stingiz bot orqali o'zining birinchi pullik e'lonini berganda, sizga **10% chegirmali promo-kod** yuboriladi!"
     )
     await update.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
+
+async def cb_my_vacancy_view(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Yakka vakansiyani ko'rish."""
+    query = update.callback_query
+    await query.answer()
+    
+    vac_id = int(query.data.split("_")[-1])
+    vac = await database.db_get_nuvi_vacancy(vac_id)
+    if not vac:
+        await query.message.edit_text("❌ E'lon topilmadi.", reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("⬅️ Orqaga", callback_data="nuvi_my_list")
+        ]]))
+        return
+        
+    p_status = vac["payment_status"]
+    status = vac["status"]
+    tariff = vac.get("tariff", "pro")
+    
+    status_map = {
+        "draft": "Qoralama",
+        "pending_payment": "To'lov kutilmoqda",
+        "pending_approval": "Admindan tasdiq kutilmoqda",
+        "approved": "Tasdiqlangan / Navbatda",
+        "rejected": "Rad etilgan",
+        "posted": "Kanalga joylangan ✅",
+        "closed": "Yopilgan 🛑"
+    }
+    status_desc = status_map.get(status, status)
+    
+    tariff_map = {"pro": "Pro", "premium": "Premium", "vip": "VIP"}
+    t_desc = tariff_map.get(tariff, "Pro")
+    
+    msg = (
+        f"🆔 **Ariza #{vac['id']} ({t_desc})**\n\n"
+        f"📌 **Lavozim:** {vac['title']}\n"
+        f"🏢 **Firma:** {vac['company']}\n"
+        f"💵 **Maosh:** {vac['salary']}\n"
+        f"📍 **Hudud:** {vac['location']}\n"
+        f"📈 **Holati:** {status_desc}\n"
+        f"💳 **To'lov holati:** {p_status}\n"
+    )
+    if vac["pinned"]:
+        msg += "📌 **Kanalda pin qilingan:** Ha ✅\n"
+        if vac["pin_expires_at"]:
+            tz = pytz.timezone("Asia/Tashkent")
+            expires_tz = vac["pin_expires_at"].astimezone(tz)
+            msg += f"⏳ **Pin tugash vaqti:** {expires_tz.strftime('%Y-%m-%d %H:%M')} (Toshkent vaqti)\n"
+            
+    if vac["rejection_reason"]:
+        msg += f"\n⚠️ **Rad etish sababi:** {vac['rejection_reason']}\n"
+        
+    msg += f"\n**Ariza matni:**\n`{vac['formatted_text']}`"
+    
+    keyboard = []
+    
+    if status not in ("closed", "rejected"):
+        keyboard.append([InlineKeyboardButton("✏️ Matnni tahrirlash", callback_data=f"myvac_edit_{vac_id}")])
+        
+    if status == "posted" and not vac["pinned"]:
+        keyboard.append([InlineKeyboardButton("📌 24 soatga Pin qilish (15,000 so'm)", callback_data=f"myvac_pin_start_{vac_id}")])
+        
+    if status == "posted":
+        keyboard.append([InlineKeyboardButton("🛑 Yopish (Nomzod topildi)", callback_data=f"myvac_close_{vac_id}")])
+        
+    keyboard.append([InlineKeyboardButton("⬅️ E'lonlar ro'yxatiga qaytish", callback_data="nuvi_my_list")])
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.message.edit_text(msg, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
+
+async def cb_my_vacancy_pin_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Pin qilish to'lovini boshlash."""
+    query = update.callback_query
+    await query.answer()
+    
+    vac_id = int(query.data.split("_")[-1])
+    
+    keyboard = []
+    if PROVIDER_TOKEN:
+        keyboard.append([InlineKeyboardButton("💳 Telegram orqali to'lov (Click/Payme)", callback_data=f"pin_pay_tg_{vac_id}")])
+    keyboard.append([InlineKeyboardButton("📎 Karta orqali to'lov (Chek yuborish)", callback_data=f"pin_pay_manual_{vac_id}")])
+    keyboard.append([InlineKeyboardButton("⬅️ Bekor qilish", callback_data=f"myvac_view_{vac_id}")])
+    
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    msg = (
+        f"📌 **E'lonni 24 soatga pin qilish:**\n\n"
+        f"Xizmat narxi: **15,000 so'm**\n"
+        f"E'loningiz Telegram kanalda 24 soat davomida eng yuqorida (pin) turadi.\n\n"
+        f"Iltimos, to'lov usulini tanlang:"
+    )
+    await query.message.edit_text(msg, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
+
+async def cb_pin_pay_tg(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Telegram billing orqali Pin to'lovi."""
+    query = update.callback_query
+    await query.answer()
+    
+    vac_id = int(query.data.split("_")[-1])
+    await query.message.edit_text("To'lov hisobi tayyorlanmoqda, iltimos kuting...")
+    
+    title = f"Pin qilish #{vac_id}"
+    description = f"Nuvi Jobs kanalidagi #{vac_id} vakansiyani 24 soatga pin qilish to'lovi."
+    payload = f"pin_payment_{vac_id}"
+    currency = "UZS"
+    prices = [LabeledPrice("24 soatlik Pin qilish xizmati", 15000 * 100)]
+    
+    await context.bot.send_invoice(
+        chat_id=update.effective_chat.id,
+        title=title,
+        description=description,
+        payload=payload,
+        provider_token=PROVIDER_TOKEN,
+        currency=currency,
+        prices=prices,
+        start_parameter=f"pin_pay_{vac_id}"
+    )
+
+async def cb_pin_pay_manual_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Karta orqali Pin to'lovi boshlash."""
+    query = update.callback_query
+    await query.answer()
+    
+    vac_id = int(query.data.split("_")[-1])
+    context.user_data["pin_vac_id"] = vac_id
+    
+    card = await get_card_details()
+    msg = (
+        f"💳 **Pin xizmati to'lovi:**\n\n"
+        f"Karta: `{card}`\n"
+        f"Summa: **15,000 so'm**\n\n"
+        f"To'lovni amalga oshirgach, to'lov chekini rasm shaklida shu yerga yuboring:"
+    )
+    keyboard = [[InlineKeyboardButton("🚫 Bekor qilish", callback_data=f"myvac_view_{vac_id}")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.message.edit_text(msg, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
+    return WAIT_PIN_RECEIPT
+
+async def cb_pin_pay_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Pin to'lovini bekor qilish."""
+    query = update.callback_query
+    await query.answer()
+    vac_id = context.user_data.get("pin_vac_id") or int(query.data.split("_")[-1])
+    query.data = f"myvac_view_{vac_id}"
+    await cb_my_vacancy_view(update, context)
+    return ConversationHandler.END
+
+async def state_pin_receipt_received(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Pin to'lovi chekini olish."""
+    photo = update.message.photo
+    if not photo:
+        await update.message.reply_text("Iltimos, to'lov chekini faqat Rasm shaklida yuboring:")
+        return WAIT_PIN_RECEIPT
+        
+    file_id = photo[-1].file_id
+    vac_id = context.user_data.get("pin_vac_id")
+    
+    await update.message.reply_text(
+        "Rahmat! Pin to'lovi cheki qabul qilindi. Admin tasdiqlagach, e'loningiz pin qilinadi.",
+        reply_markup=ReplyKeyboardRemove()
+    )
+    
+    await cmd_start(update, context)
+    await send_pin_payment_to_admin(context.bot, vac_id, file_id)
+    return ConversationHandler.END
+
+async def cb_my_vacancy_edit_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Tahrirlashni boshlash."""
+    query = update.callback_query
+    await query.answer()
+    
+    vac_id = int(query.data.split("_")[-1])
+    context.user_data["edit_vacancy_id"] = vac_id
+    
+    msg = (
+        f"✏️ **Ariza #{vac_id} matnini tahrirlash:**\n\n"
+        f"Iltimos, vakansiya uchun yangi to'liq matnni yuboring.\n"
+        f"Eslatma: Yangi yuborilgan matn kanaldagi xabar matnini to'liq almashtiradi."
+    )
+    keyboard = [[InlineKeyboardButton("🚫 Bekor qilish", callback_data=f"myvac_view_{vac_id}")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.message.edit_text(msg, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
+    return EDIT_VACANCY_TEXT_STATE
+
+async def cb_my_vacancy_edit_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Tahrirlashni bekor qilish."""
+    query = update.callback_query
+    await query.answer()
+    vac_id = context.user_data.get("edit_vacancy_id") or int(query.data.split("_")[-1])
+    query.data = f"myvac_view_{vac_id}"
+    await cb_my_vacancy_view(update, context)
+    return ConversationHandler.END
+
+async def state_my_vacancy_edit_received(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Yangi tahrirlangan matnni qabul qilish."""
+    new_text = update.message.text.strip()
+    vac_id = context.user_data.get("edit_vacancy_id")
+    
+    if not vac_id:
+        await update.message.reply_text("Xatolik yuz berdi. Tahrirlash bekor qilindi.")
+        await cmd_start(update, context)
+        return ConversationHandler.END
+        
+    await database.db_update_nuvi_vacancy(vac_id, formatted_text=new_text)
+    
+    vac = await database.db_get_nuvi_vacancy(vac_id)
+    if vac and vac["status"] == "posted":
+        await update_telegram_post(context.bot, vac)
+        
+    await update.message.reply_text(
+        "✅ Vakansiya matni muvaffaqiyatli tahrirlandi!",
+        reply_markup=ReplyKeyboardRemove()
+    )
+    await cmd_start(update, context)
+    return ConversationHandler.END
+
+async def cb_my_vacancy_close(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Vakansiyani yopish."""
+    query = update.callback_query
+    await query.answer()
+    
+    vac_id = int(query.data.split("_")[-1])
+    vac = await database.db_get_nuvi_vacancy(vac_id)
+    if not vac:
+        await query.message.edit_text("❌ Ariza topilmadi.")
+        return
+        
+    new_formatted = f"🛑 NOMZOD TOPILDI\n\n{vac['formatted_text']}"
+    await database.db_update_nuvi_vacancy(vac_id, formatted_text=new_formatted, status="closed", pinned=False)
+    
+    vac["formatted_text"] = new_formatted
+    await update_telegram_post(context.bot, vac)
+    
+    msg_id = vac.get("telegram_message_id")
+    if msg_id:
+        try:
+            await context.bot.unpin_chat_message(chat_id=TARGET_CHANNEL, message_id=msg_id)
+            logger.info(f"Unpinned closed vacancy #{vac_id}")
+        except Exception as unpin_err:
+            logger.warning(f"Failed to unpin closed vacancy #{vac_id}: {unpin_err}")
+            
+    await query.message.edit_text(
+        f"🛑 E'lon #{vac_id} yopildi va kanaldagi xabar tahrirlandi (Nomzod topildi).",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("⬅️ E'lonlar ro'yxati", callback_data="nuvi_my_list")
+        ]])
+    )
+
+async def cb_my_vacancy_archive_decision(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """14 kunlik arxiv so'rovnomasi tugmalari."""
+    query = update.callback_query
+    await query.answer()
+    
+    data = query.data
+    parts = data.split("_")
+    action = parts[1]
+    vac_id = int(parts[2])
+    
+    if action == "archyes":
+        vac = await database.db_get_nuvi_vacancy(vac_id)
+        if vac:
+            new_formatted = f"🛑 NOMZOD TOPILDI\n\n{vac['formatted_text']}"
+            await database.db_update_nuvi_vacancy(vac_id, formatted_text=new_formatted, status="closed", pinned=False)
+            
+            vac["formatted_text"] = new_formatted
+            await update_telegram_post(context.bot, vac)
+            
+            msg_id = vac.get("telegram_message_id")
+            if msg_id:
+                try:
+                    await context.bot.unpin_chat_message(chat_id=TARGET_CHANNEL, message_id=msg_id)
+                except:
+                    pass
+            await query.message.edit_text("🛑 E'lon yopildi va kanalda 'Nomzod topildi' deb belgilandi. Rahmat!")
+    else:
+        await query.message.edit_text("✅ Rahmat! E'loningiz kanalda faol holatda qoladi.")
+
+async def send_pin_payment_to_admin(bot, vacancy_id: int, receipt_file_id: str) -> None:
+    """Admin kanaliga Pin to'lovini yuborish."""
+    vac = await database.db_get_nuvi_vacancy(vacancy_id)
+    if not vac:
+        return
+    msg = (
+        f"📌 **PIN XIZMATI UCHUN TO'LOV**\n\n"
+        f"🆔 Ariza ID: #{vacancy_id}\n"
+        f"📌 Lavozim: {vac['title']}\n"
+        f"🏢 Firma: {vac['company']}\n"
+        f"💵 Narx: 15,000 so'm (24 soatlik Pin)\n"
+        f"💳 To'lov turi: card_manual\n"
+        f"📈 To'lov holati: manual_pending\n"
+    )
+    keyboard = [
+        [InlineKeyboardButton("💳 Pin To'lovini Tasdiqlash", callback_data=f"admin_pinconfirm_{vacancy_id}")],
+        [InlineKeyboardButton("❌ Rad etish", callback_data=f"admin_pinreject_{vacancy_id}")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await bot.send_photo(
+        chat_id=ADMIN_CHANNEL_ID,
+        photo=receipt_file_id,
+        caption=msg,
+        parse_mode=ParseMode.MARKDOWN,
+        reply_markup=reply_markup
+    )
+
+async def update_telegram_post(bot, vac: dict) -> None:
+    """Telegram kanaldagi postni tahrirlash."""
+    msg_id = vac.get("telegram_message_id")
+    if not msg_id:
+        return
+    caption_text = escape_telegram_markdown(vac["formatted_text"])
+    try:
+        await bot.edit_message_caption(
+            chat_id=TARGET_CHANNEL,
+            message_id=msg_id,
+            caption=caption_text,
+            parse_mode=ParseMode.MARKDOWN
+        )
+        logger.info(f"Telegram post caption updated for vacancy #{vac['id']}")
+    except Exception as e:
+        logger.warning(f"Failed to edit caption, trying text edit: {e}")
+        try:
+            await bot.edit_message_text(
+                chat_id=TARGET_CHANNEL,
+                message_id=msg_id,
+                text=caption_text,
+                parse_mode=ParseMode.MARKDOWN
+            )
+            logger.info(f"Telegram post text updated for vacancy #{vac['id']}")
+        except Exception as err2:
+            logger.error(f"Failed to edit Telegram post for vacancy #{vac['id']}: {err2}")
+
+async def nuvi_archive_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Chiqqaniga 14 kun bo'lgan e'lonlarni yopish haqida foydalanuvchidan so'raydi."""
+    try:
+        old_vacs = await database.db_get_nuvi_vacancies_to_archive()
+        if not old_vacs:
+            return
+            
+        for vac in old_vacs:
+            vac_id = vac["id"]
+            user_id = vac["user_id"]
+            
+            await database.db_mark_nuvi_vacancy_archive_prompted(vac_id)
+            
+            msg = (
+                f"📋 Sizning **{vac['title']}** (*{vac['company']}*) bo'yicha e'loningiz kanalda chop etilganiga **14 kun** bo'ldi.\n\n"
+                f"Ushbu vakansiya bo'yicha nomzod topildimi va e'lonni yopish kerakmi?"
+            )
+            keyboard = [
+                [InlineKeyboardButton("🛑 Ha, yopilsin (Nomzod topildi)", callback_data=f"myvac_archyes_{vac_id}")],
+                [InlineKeyboardButton("✅ Yo'q, hali ham faol", callback_data=f"myvac_archno_{vac_id}")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            try:
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=msg,
+                    reply_markup=reply_markup,
+                    parse_mode=ParseMode.MARKDOWN
+                )
+                logger.info(f"Archive check query sent to user {user_id} for vacancy #{vac_id}")
+            except Exception as notify_err:
+                logger.warning(f"Failed to send archive query to user {user_id} for vacancy #{vac_id}: {notify_err}")
+                
+    except Exception as e:
+        logger.error(f"nuvi_archive_job error: {e}")
 
 # ──────────────────────── BOSHQA / ERROR HANDLERS ─────────────────────────
 
@@ -1893,6 +2480,7 @@ def main():
     app.job_queue.run_repeating(nuvi_vip_auto_approve_job, interval=60, first=30)
     app.job_queue.run_repeating(nuvi_unpin_job, interval=60, first=45)
     app.job_queue.run_repeating(vacancy_scraper_job, interval=3600, first=60)
+    app.job_queue.run_repeating(nuvi_archive_job, interval=86400, first=3600)
     
     # ─── CONVERSATION HANDLER FOR VACANCY ───
     vacancy_conv = ConversationHandler(
@@ -1914,6 +2502,7 @@ def main():
             ASK_BENEFITS: [MessageHandler(filters.TEXT & ~filters.COMMAND, state_generate_preview)],
             CONFIRM_PREVIEW: [MessageHandler(filters.TEXT & ~filters.COMMAND, state_confirm_preview_received)],
             CHOOSE_TARIFF: [MessageHandler(filters.TEXT & ~filters.COMMAND, state_choose_tariff_received)],
+            ENTER_PROMOCODE: [MessageHandler(filters.TEXT & ~filters.COMMAND, state_enter_promocode)],
             CHOOSE_PAYMENT_METHOD: [MessageHandler(filters.TEXT & ~filters.COMMAND, state_payment_method_received)],
             WAIT_MANUAL_RECEIPT: [
                 MessageHandler(filters.PHOTO, state_manual_receipt_received),
@@ -1925,6 +2514,44 @@ def main():
         allow_reentry=True
     )
     app.add_handler(vacancy_conv)
+    
+    # ─── CONVERSATION HANDLER FOR VACANCY EDIT ───
+    edit_conv = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(cb_my_vacancy_edit_start, pattern="^myvac_edit_(\d+)$")
+        ],
+        states={
+            EDIT_VACANCY_TEXT_STATE: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, state_my_vacancy_edit_received),
+                CallbackQueryHandler(cb_my_vacancy_edit_cancel, pattern="^myvac_view_")
+            ]
+        },
+        fallbacks=[
+            CommandHandler("cancel", cmd_cancel),
+            CallbackQueryHandler(cb_my_vacancy_edit_cancel, pattern="^myvac_view_")
+        ],
+        allow_reentry=True
+    )
+    app.add_handler(edit_conv)
+    
+    # ─── CONVERSATION HANDLER FOR PIN PAYMENT ───
+    pin_pay_conv = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(cb_pin_pay_manual_start, pattern="^pin_pay_manual_(\d+)$")
+        ],
+        states={
+            WAIT_PIN_RECEIPT: [
+                MessageHandler(filters.PHOTO, state_pin_receipt_received),
+                CallbackQueryHandler(cb_pin_pay_cancel, pattern="^myvac_view_")
+            ]
+        },
+        fallbacks=[
+            CommandHandler("cancel", cmd_cancel),
+            CallbackQueryHandler(cb_pin_pay_cancel, pattern="^myvac_view_")
+        ],
+        allow_reentry=True
+    )
+    app.add_handler(pin_pay_conv)
     
     # ─── CONVERSATION HANDLER FOR ADMIN BROADCAST ───
     broadcast_conv = ConversationHandler(
@@ -1982,6 +2609,11 @@ def main():
     app.add_handler(CallbackQueryHandler(cmd_start, pattern="^nuvi_menu$"))
     app.add_handler(CallbackQueryHandler(cb_my_vacancies, pattern="^nuvi_my_list$"))
     app.add_handler(CallbackQueryHandler(cb_bot_info, pattern="^nuvi_info$"))
+    app.add_handler(CallbackQueryHandler(cb_my_vacancy_view, pattern="^myvac_view_(\d+)$"))
+    app.add_handler(CallbackQueryHandler(cb_my_vacancy_pin_start, pattern="^myvac_pin_start_(\d+)$"))
+    app.add_handler(CallbackQueryHandler(cb_pin_pay_tg, pattern="^pin_pay_tg_(\d+)$"))
+    app.add_handler(CallbackQueryHandler(cb_my_vacancy_close, pattern="^myvac_close_(\d+)$"))
+    app.add_handler(CallbackQueryHandler(cb_my_vacancy_archive_decision, pattern="^myvac_arch(yes|no)_(\d+)$"))
     
     # ─── PUBLIC COMMANDS ───
     app.add_handler(CommandHandler("start", cmd_start))
