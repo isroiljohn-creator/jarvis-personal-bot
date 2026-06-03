@@ -73,6 +73,41 @@ CREATE TABLE IF NOT EXISTS deadlines (
     created_at   TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS nuvi_users (
+    user_id     BIGINT PRIMARY KEY,
+    username    TEXT,
+    first_name  TEXT,
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS nuvi_vacancies (
+    id             SERIAL PRIMARY KEY,
+    user_id        BIGINT REFERENCES nuvi_users(user_id),
+    title          TEXT NOT NULL,
+    company        TEXT NOT NULL,
+    salary         TEXT NOT NULL,
+    location       TEXT NOT NULL,
+    working_hours  TEXT,
+    requirements   TEXT,
+    benefits       TEXT,
+    contact        TEXT NOT NULL,
+    formatted_text TEXT,
+    status         TEXT DEFAULT 'draft',
+    payment_status TEXT DEFAULT 'unpaid',
+    payment_method TEXT,
+    payment_receipt TEXT,
+    rejection_reason TEXT,
+    scheduled_for  TIMESTAMPTZ,
+    posted_at      TIMESTAMPTZ,
+    created_at     TIMESTAMPTZ DEFAULT NOW(),
+    updated_at     TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS nuvi_settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS processed_vacancies (
     channel_id  BIGINT NOT NULL,
     msg_id      INT NOT NULL,
@@ -85,6 +120,8 @@ CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_transactions_created ON transactions(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_plans_date ON daily_plans(plan_date DESC);
 CREATE INDEX IF NOT EXISTS idx_deadlines_date ON deadlines(deadline_date ASC) WHERE completed = FALSE;
+CREATE INDEX IF NOT EXISTS idx_nuvi_vacancies_status ON nuvi_vacancies(status);
+CREATE INDEX IF NOT EXISTS idx_nuvi_vacancies_scheduled ON nuvi_vacancies(scheduled_for) WHERE status = 'approved';
 """
 
 async def init_db():
@@ -525,6 +562,174 @@ async def db_is_vacancy_processed(channel_id: int, msg_id: int) -> bool:
     except Exception as e:
         logger.error(f"db_is_vacancy_processed xatosi: {e}")
         return False
+
+
+# ─── NUVI JOBS BOT FUNCTIONS ───────────────────────────────────
+
+async def db_upsert_nuvi_user(user_id: int, username: str, first_name: str) -> bool:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO nuvi_users (user_id, username, first_name)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (user_id) DO UPDATE 
+                SET username = EXCLUDED.username, first_name = EXCLUDED.first_name
+            """, user_id, username, first_name)
+        return True
+    except Exception as e:
+        logger.error(f"db_upsert_nuvi_user xatosi: {e}")
+        return False
+
+async def db_get_all_nuvi_users() -> list[dict]:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch("SELECT * FROM nuvi_users")
+        return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"db_get_all_nuvi_users xatosi: {e}")
+        return []
+
+async def db_create_nuvi_vacancy(
+    user_id: int, title: str, company: str, salary: str, location: str, 
+    working_hours: str, requirements: str, benefits: str, contact: str, formatted_text: str = None
+) -> Optional[int]:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow("""
+                INSERT INTO nuvi_vacancies (
+                    user_id, title, company, salary, location, 
+                    working_hours, requirements, benefits, contact, formatted_text
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                RETURNING id
+            """, user_id, title, company, salary, location, working_hours, requirements, benefits, contact, formatted_text)
+            if row:
+                return row["id"]
+        return None
+    except Exception as e:
+        logger.error(f"db_create_nuvi_vacancy xatosi: {e}")
+        return None
+
+async def db_get_nuvi_vacancy(vacancy_id: int) -> Optional[dict]:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT * FROM nuvi_vacancies WHERE id = $1", vacancy_id)
+            if row:
+                return dict(row)
+        return None
+    except Exception as e:
+        logger.error(f"db_get_nuvi_vacancy xatosi: {e}")
+        return None
+
+async def db_get_nuvi_vacancies_by_user(user_id: int) -> list[dict]:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch("SELECT * FROM nuvi_vacancies WHERE user_id = $1 ORDER BY id DESC", user_id)
+        return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"db_get_nuvi_vacancies_by_user xatosi: {e}")
+        return []
+
+async def db_update_nuvi_vacancy(vacancy_id: int, **kwargs) -> bool:
+    if not kwargs:
+        return False
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            set_clauses = []
+            values = []
+            for i, (key, value) in enumerate(kwargs.items(), start=2):
+                set_clauses.append(f"{key} = ${i}")
+                values.append(value)
+            query = f"UPDATE nuvi_vacancies SET {', '.join(set_clauses)}, updated_at = NOW() WHERE id = $1"
+            await conn.execute(query, vacancy_id, *values)
+        return True
+    except Exception as e:
+        logger.error(f"db_update_nuvi_vacancy xatosi: {e}")
+        return False
+
+async def db_get_pending_approval_vacancies() -> list[dict]:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT * FROM nuvi_vacancies 
+                WHERE status = 'pending_approval' 
+                ORDER BY id ASC
+            """)
+        return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"db_get_pending_approval_vacancies xatosi: {e}")
+        return []
+
+async def db_get_next_scheduled_vacancy() -> Optional[dict]:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow("""
+                SELECT * FROM nuvi_vacancies 
+                WHERE status = 'approved' AND posted_at IS NULL AND scheduled_for <= NOW()
+                ORDER BY scheduled_for ASC, id ASC
+                LIMIT 1
+            """)
+            if row:
+                return dict(row)
+        return None
+    except Exception as e:
+        logger.error(f"db_get_next_scheduled_vacancy xatosi: {e}")
+        return None
+
+async def db_get_nuvi_setting(key: str, default: str = None) -> Optional[str]:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            val = await conn.fetchval("SELECT value FROM nuvi_settings WHERE key = $1", key)
+            if val is not None:
+                return val
+        return default
+    except Exception as e:
+        logger.error(f"db_get_nuvi_setting xatosi: {e}")
+        return default
+
+async def db_set_nuvi_setting(key: str, value: str) -> bool:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO nuvi_settings (key, value)
+                VALUES ($1, $2)
+                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+            """, key, str(value))
+        return True
+    except Exception as e:
+        logger.error(f"db_set_nuvi_setting xatosi: {e}")
+        return False
+
+async def db_get_nuvi_stats() -> dict:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            total_users = await conn.fetchval("SELECT COUNT(*) FROM nuvi_users")
+            total_vacancies = await conn.fetchval("SELECT COUNT(*) FROM nuvi_vacancies")
+            total_posted = await conn.fetchval("SELECT COUNT(*) FROM nuvi_vacancies WHERE status = 'posted'")
+            total_pending = await conn.fetchval("SELECT COUNT(*) FROM nuvi_vacancies WHERE status = 'pending_approval'")
+            total_scheduled = await conn.fetchval("SELECT COUNT(*) FROM nuvi_vacancies WHERE status = 'approved' AND posted_at IS NULL")
+        return {
+            "total_users": total_users or 0,
+            "total_vacancies": total_vacancies or 0,
+            "total_posted": total_posted or 0,
+            "total_pending": total_pending or 0,
+            "total_scheduled": total_scheduled or 0,
+        }
+    except Exception as e:
+        logger.error(f"db_get_nuvi_stats xatosi: {e}")
+        return {}
+
 
 
 
