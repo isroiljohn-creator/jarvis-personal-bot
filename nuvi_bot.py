@@ -197,12 +197,16 @@ async def notify_shifted_vacancies(bot, shifted) -> None:
         title = item["title"]
         new_time = item["new_time"].astimezone(tz).strftime("%Y-%m-%d %H:%M")
         
+        warning_clause = ""
+        if item.get("tariff") == "premium":
+            warning_clause = "\n⚠️ Eslatib o'tamiz, kelishilganidek, sizning postingiz to'lov tasdiqlanganidan so'ng **24-48 soat ichida** kanalga to'liq joylashtiriladi.\n"
+            
         msg = (
             f"⚠️ **E'lon vaqti yangilandi**\n\n"
             f"Hurmatli foydalanuvchi! Yangi VIP/Premium e'lonlar tasdiqlanganligi sababli "
             f"Sizning #{vac_id} ({title}) vakansiyangiz navbati biroz surildi.\n\n"
-            f"⏰ Yangi chop etilish vaqti: **{new_time}** (Toshkent vaqti bilan).\n\n"
-            f"⚠️ Eslatib o'tamiz, kelishilganidek, sizning postingiz to'lov tasdiqlanganidan so'ng **24-48 soat ichida** kanalga to'liq joylashtiriladi.\n\n"
+            f"⏰ Yangi chop etilish vaqti: **{new_time}** (Toshkent vaqti bilan).\n"
+            f"{warning_clause}\n"
             f"Tushunganingiz uchun rahmat!"
         )
         try:
@@ -719,11 +723,15 @@ async def state_choose_tariff_received(update: Update, context: ContextTypes.DEF
     keyboard.append(["🚫 Bekor qilish"])
     
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    warning_text = ""
+    if tariff == "premium":
+        warning_text = "⚠️ **Eslatma:** Navbat tirbandligiga qarab, to'lov tasdiqlanganidan so'ng e'loningiz **24-48 soat ichida** kanalga to'liq joylashtiriladi.\n\n"
+        
     msg = (
         f"Vakansiya qabul qilindi!\n\n"
         f"Tanlangan tarif: *{text}*\n"
         f"To'lov summasi: **{price:,} so'm**.\n\n"
-        f"⚠️ **Eslatma:** Navbat tirbandligiga qarab, to'lov tasdiqlanganidan so'ng e'loningiz **24-48 soat ichida** kanalga to'liq joylashtiriladi.\n\n"
+        f"{warning_text}"
         f"Iltimos, to'lov usulini tanlang:"
     )
     await update.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup)
@@ -764,11 +772,15 @@ async def state_payment_method_received(update: Update, context: ContextTypes.DE
         card = await get_card_details()
         await database.db_update_nuvi_vacancy(vac_id, status="pending_payment", payment_method="card_manual")
         
+        warning_text = ""
+        if tariff == "premium":
+            warning_text = "⚠️ **Eslatma:** Navbat tirbandligiga qarab, to'lov tasdiqlanganidan so'ng e'loningiz **24-48 soat ichida** kanalga to'liq joylashtiriladi.\n\n"
+            
         msg = (
             f"💳 **Karta orqali to'lov:**\n\n"
             f"Karta: `{card}`\n"
             f"Summa: **{price:,} so'm**\n\n"
-            f"⚠️ **Eslatma:** Navbat tirbandligiga qarab, to'lov tasdiqlanganidan so'ng e'loningiz **24-48 soat ichida** kanalga to'liq joylashtiriladi.\n\n"
+            f"{warning_text}"
             f"To'lovni amalga oshirganingizdan so'ng, to'lov chekini (kvitansiya) rasm formatida shu yerga yuboring:"
         )
         keyboard = [["🚫 Bekor qilish"]]
