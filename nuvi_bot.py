@@ -4013,7 +4013,7 @@ async def cmd_scrape(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             await update.message.reply_text(
                 f"⚠️ '{folder_name}' nomli papka (dialog filter) ikkinchi Telegram akkauntingizda topilmadi yoki bo'sh.\n\n"
                 f"Tuzatish yo'llari:\n"
-                f"1. Ikkinchi Telegram akkauntingizda (@soma_support) Telegram sozlamalaridan '{folder_name}' nomli papka yarating va unga vakansiya o'qiladigan kanallarni qo'shing.\n"
+                f"1. Ikkinchi Telegram akkauntingizda Telegram sozlamalaridan '{folder_name}' nomli papka yarating va unga vakansiya o'qiladigan kanallarni qo'shing.\n"
                 f"2. Yoki Railway orqali `VACANCY_SOURCES` o'zgaruvchisiga kanallarni vergul bilan yozib qo'ying (masalan: `@channel1,@channel2`)."
             )
             return
