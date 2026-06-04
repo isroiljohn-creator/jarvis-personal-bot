@@ -52,7 +52,7 @@ logger = logging.getLogger("nuvi_bot")
 
 # ──────────────────────── SOZLAMALAR ─────────────────────────
 
-NUVI_BOT_TOKEN = os.environ.get("NUVI_BOT_TOKEN", "8713575188:AAH0Cc65Cnpn5KwsEIhOe75_FZAXUSGoaco")
+NUVI_BOT_TOKEN = os.environ.get("NUVI_BOT_TOKEN", "8713575188:AAGu5iCVtoBBlCIydf_gWwAzp9SCNDyO-4g")
 OWNER_ID = int(os.environ.get("OWNER_TELEGRAM_ID", "1392501306"))
 ADMIN_CHANNEL_ID = int(os.environ.get("NUVI_ADMIN_CHANNEL_ID", str(OWNER_ID)))
 TARGET_CHANNEL = os.environ.get("NUVI_TARGET_CHANNEL", "-1003705561421")
@@ -142,6 +142,30 @@ async def get_card_details() -> str:
     WAIT_BUMP_RECEIPT,
 ) = range(22, 26)
 
+# Kengaytirilgan imkoniyatlar holatlari (CV, Alerts, ATS, Ratings)
+(
+    CV_ASK_NAME,
+    CV_ASK_CONTACT,
+    CV_ASK_SPECIALTY,
+    CV_ASK_SKILLS,
+    CV_ASK_EXPERIENCE,
+    CV_ASK_EDUCATION,
+    CV_ASK_ABOUT,
+    
+    PREF_ASK_KEYWORDS,
+    PREF_ASK_LOCATION,
+    
+    APPLY_ASK_COVER_LETTER,
+    APPLY_ASK_RESUME,
+    
+    EMPLOYER_INTERVIEW_MESSAGE,
+    EMPLOYER_REJECT_REASON,
+    
+    RATING_ASK_STARS,
+    RATING_ASK_COMMENT,
+) = range(26, 41)
+
+
 # ──────────────────────── YORDAMCHI FUNKSIYALAR ─────────────────────────
 
 def clean_for_markdown(text: str) -> str:
@@ -173,6 +197,145 @@ def escape_telegram_markdown(text: str) -> str:
         
     return text
 
+import html
+
+# Inter fonts paths
+inter_regular_path = os.path.join(os.path.dirname(__file__), "Inter-Regular.ttf")
+inter_bold_path = os.path.join(os.path.dirname(__file__), "Inter-Bold.ttf")
+
+try:
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    if os.path.exists(inter_regular_path) and os.path.exists(inter_bold_path):
+        pdfmetrics.registerFont(TTFont("Inter", inter_regular_path))
+        pdfmetrics.registerFont(TTFont("Inter-Bold", inter_bold_path))
+        logger.info("✅ Inter fonts successfully registered in ReportLab.")
+    else:
+        logger.warning("⚠️ Inter font files not found, default Helvetica will be used.")
+except Exception as fe:
+    logger.error(f"Error registering Inter fonts: {fe}")
+
+def escape_xml(text: str) -> str:
+    """ReportLab Paragraph XML parsing xatolarini oldini olish uchun textni escape qiladi."""
+    if not text:
+        return ""
+    return html.escape(text).replace("\n", "<br/>")
+
+def generate_cv_pdf(cv_data: dict, output_path: str) -> None:
+    """Foydalanuvchi ma'lumotlari asosida premium PDF rezyume yaratadi."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    
+    doc = SimpleDocTemplate(
+        output_path,
+        pagesize=A4,
+        rightMargin=40,
+        leftMargin=40,
+        topMargin=40,
+        bottomMargin=40
+    )
+    
+    story = []
+    
+    # Fontlarni aniqlash
+    font_reg = "Inter" if os.path.exists(inter_regular_path) else "Helvetica"
+    font_bold = "Inter-Bold" if os.path.exists(inter_bold_path) else "Helvetica-Bold"
+    
+    # Custom styles
+    name_style = ParagraphStyle(
+        "CVName",
+        fontName=font_bold,
+        fontSize=24,
+        leading=28,
+        textColor=colors.HexColor("#0F172A")
+    )
+    spec_style = ParagraphStyle(
+        "CVSpec",
+        fontName=font_bold,
+        fontSize=14,
+        leading=18,
+        textColor=colors.HexColor("#2563EB"),
+        spaceAfter=5
+    )
+    contact_style = ParagraphStyle(
+        "CVContact",
+        fontName=font_reg,
+        fontSize=9,
+        leading=13,
+        textColor=colors.HexColor("#475569")
+    )
+    h1_style = ParagraphStyle(
+        "CVH1",
+        fontName=font_bold,
+        fontSize=12,
+        leading=16,
+        textColor=colors.HexColor("#0F172A"),
+        spaceBefore=12,
+        spaceAfter=4
+    )
+    body_style = ParagraphStyle(
+        "CVBody",
+        fontName=font_reg,
+        fontSize=10,
+        leading=14,
+        textColor=colors.HexColor("#334155"),
+        spaceAfter=6
+    )
+    
+    # Header Section
+    story.append(Paragraph(escape_xml(cv_data.get("name", "Nomzod")), name_style))
+    story.append(Paragraph(escape_xml(cv_data.get("specialty", "Mutaxassislik")), spec_style))
+    
+    contact_text = f"Aloqa: {escape_xml(cv_data.get('contact', '-'))}  |  Telegram orqali yaratilgan"
+    story.append(Paragraph(contact_text, contact_style))
+    story.append(Spacer(1, 10))
+    story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#E2E8F0"), spaceAfter=10))
+    
+    # About Section
+    if cv_data.get("about"):
+        story.append(Paragraph("O'ZIM HAQIMDA", h1_style))
+        story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#CBD5E1"), spaceAfter=5))
+        story.append(Paragraph(escape_xml(cv_data.get("about")), body_style))
+        story.append(Spacer(1, 5))
+        
+    # Skills Section
+    story.append(Paragraph("KO'NIKMALAR", h1_style))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#CBD5E1"), spaceAfter=5))
+    
+    skills_raw = cv_data.get("skills", "-")
+    # Ensure there is a space after each comma to force ReportLab line wrapping
+    skills_formatted = ", ".join([s.strip() for s in skills_raw.split(",") if s.strip()])
+    story.append(Paragraph(escape_xml(skills_formatted), body_style))
+    story.append(Spacer(1, 5))
+    
+    # Experience Section
+    story.append(Paragraph("ISH TAJRIBASI", h1_style))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#CBD5E1"), spaceAfter=5))
+    story.append(Paragraph(escape_xml(cv_data.get("experience", "-")), body_style))
+    story.append(Spacer(1, 5))
+    
+    # Education Section
+    story.append(Paragraph("MA'LUMOT / TA'LIM", h1_style))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#CBD5E1"), spaceAfter=5))
+    story.append(Paragraph(escape_xml(cv_data.get("education", "-")), body_style))
+    story.append(Spacer(1, 10))
+    
+    # Footer Note
+    footer_note_style = ParagraphStyle(
+        "CVFooterNote",
+        fontName=font_reg,
+        fontSize=8,
+        textColor=colors.HexColor("#94A3B8"),
+        alignment=1 # Center
+    )
+    story.append(Spacer(1, 15))
+    story.append(Paragraph("Rezyume @nuvijobs_bot yordamida shakllantirildi", footer_note_style))
+    
+    doc.build(story)
+
+
 def trim_to_fit_caption(text: str, max_chars: int = 1000) -> str:
     """Xabar caption limitdan oshsa, pastdan boshlab punktlarni o'chiradi."""
     if not text or len(text) <= max_chars:
@@ -202,7 +365,8 @@ def trim_to_fit_caption(text: str, max_chars: int = 1000) -> str:
         for line in reversed(text.split("\n")):
             if "aloqa" in line.lower() or "nuvi_jobs" in line.lower():
                 footer = "\n" + line + footer
-        trimmed = trimmed[:max_chars - len(footer) - 5] + "..." + footer
+        slice_idx = max(0, max_chars - len(footer) - 5)
+        trimmed = trimmed[:slice_idx] + "..." + footer
         
     return trimmed
 
@@ -275,7 +439,7 @@ def get_vacancy_reply_markup(bot_username: str, vac: dict) -> InlineKeyboardMark
         keyboard.append([InlineKeyboardButton("📝 Ariza topshirish", url=f"https://t.me/{bot_username}?start=apply_{vac['id']}")])
     return InlineKeyboardMarkup(keyboard)
 
-def format_vacancy_text(data: dict) -> str:
+async def format_vacancy_text(data: dict) -> str:
     """Vakansiya ma'lumotlarini chiroyli shablonga soladi."""
     title = clean_for_markdown(data.get("title", ""))
     company = clean_for_markdown(data.get("company", ""))
@@ -290,8 +454,22 @@ def format_vacancy_text(data: dict) -> str:
     skills = clean_for_markdown(data.get("skills", ""))
     benefits = clean_for_markdown(data.get("benefits", ""))
     
+    # Ishonchli ish beruvchi / Reyting
+    user_id = data.get("user_id")
+    rating_str = ""
+    if user_id:
+        try:
+            rating_info = await database.db_get_employer_rating(user_id)
+            is_verified = await database.db_is_employer_verified(user_id)
+            if rating_info["reviews_count"] > 0:
+                rating_str = f" ⭐ {rating_info['avg_rating']:.1f} ({rating_info['reviews_count']} baholar)"
+            if is_verified:
+                rating_str += " 🛡️ [Ishonchli]"
+        except Exception as e:
+            logger.error(f"Error getting employer rating in format_vacancy_text: {e}")
+            
     text = f"📌 *{title}*\n\n"
-    text += f"🏢 *Firma:* {company}\n"
+    text += f"🏢 *Firma:* {company}{rating_str}\n"
     text += f"💵 *Maosh:* {salary}\n"
     text += f"📍 *Lokatsiya:* {location}\n"
     
@@ -317,6 +495,7 @@ def format_vacancy_text(data: dict) -> str:
     text += f"\n📩 *Aloqa:* {contact}\n\n"
     text += f"[Nuvi Jobs](https://t.me/nuvi_jobs) - *ish va ishchi topishda yordam beramiz!*"
     return text
+
 
 async def calculate_next_post_time(tariff: str) -> datetime.datetime:
     """E'lonlar orasida tarifga qarab interval bilan navbat hisoblaydi."""
@@ -360,11 +539,87 @@ async def calculate_next_post_time(tariff: str) -> datetime.datetime:
 
 # ──────────────────────── FOYDALANUVCHI ZANJIRI (CONVERSATION) ─────────────────────────
 
+async def check_user_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """Foydalanuvchi majburiy obuna kanaliga a'zo ekanligini tekshiradi."""
+    user = update.effective_user
+    if not user:
+        return True
+        
+    user_id = user.id
+    if user_id == OWNER_ID:
+        return True
+        
+    target_channel = "@nuvi_jobs"
+    try:
+        member = await context.bot.get_chat_member(chat_id=target_channel, user_id=user_id)
+        if member.status in ["creator", "administrator", "member"]:
+            return True
+    except Exception as e:
+        logger.warning(f"Obunani tekshirishda xatolik ({user_id}): {e}")
+        # Bot kanalda bo'lmasa yoki xato bersa, bot bloklanib qolmasligi uchun True qaytaramiz
+        return True
+        
+    # Obuna bo'lmagan bo'lsa
+    join_btn = InlineKeyboardButton("🔗 Kanalga a'zo bo'lish", url="https://t.me/nuvi_jobs")
+    check_btn = InlineKeyboardButton("🔄 Tekshirish", callback_data="nuvi_check_sub")
+    reply_markup = InlineKeyboardMarkup([[join_btn], [check_btn]])
+    
+    msg = (
+        "🚀 **Botdan foydalanish uchun rasmiy kanalimizga a'zo bo'lishingiz lozim!**\n\n"
+        "Iltimos, avval kanalimizga a'zo bo'ling va keyin **'Tekshirish'** tugmasini bosing."
+    )
+    if update.callback_query:
+        await update.callback_query.answer()
+        await update.callback_query.message.reply_text(msg, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
+    elif update.message:
+        await update.message.reply_text(msg, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
+        
+    return False
+
+async def cb_check_sub(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Obunani tekshirish callback handler."""
+    query = update.callback_query
+    await query.answer()
+    user = update.effective_user
+    user_id = user.id
+    
+    target_channel = "@nuvi_jobs"
+    try:
+        member = await context.bot.get_chat_member(chat_id=target_channel, user_id=user_id)
+        if member.status in ["creator", "administrator", "member"]:
+            try:
+                await query.message.delete()
+            except Exception:
+                pass
+            # Bosh menyuni ko'rsatamiz
+            context.args = []
+            await cmd_start(update, context)
+            return
+    except Exception as e:
+        logger.error(f"Error checking sub callback: {e}")
+        
+    await query.message.reply_text(
+        "❌ **Siz hali kanalga a'zo bo'lmadingiz!**\nIltimos, pastdagi tugma orqali a'zo bo'ling va qayta urinib ko'ring.",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔗 Kanalga a'zo bo'lish", url="https://t.me/nuvi_jobs")],
+            [InlineKeyboardButton("🔄 Tekshirish", callback_data="nuvi_check_sub")]
+        ]),
+        parse_mode=ParseMode.MARKDOWN
+    )
+
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Bot boshlanishi."""
     user = update.effective_user
-    
+    if not user:
+        return ConversationHandler.END
+        
+    # Umumiy start bo'lsa (deep link param bo'lmasa) majburiy obunani tekshiramiz
+    if not (update.message and context.args):
+        if not await check_user_subscription(update, context):
+            return ConversationHandler.END
+            
     referred_by = None
+
     if update.message and context.args:
         arg = context.args[0]
         if arg.startswith("ref_"):
@@ -397,9 +652,12 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
                     msg += (
                         f"\n📩 **Aloqa uchun ma'lumot:**\n"
                         f"`{clean_for_markdown(vac['contact'])}`\n\n"
-                        f"Bog'lanish uchun yuqoridagi kontaktlardan foydalaning."
+                        f"Bog'lanish uchun yuqoridagi kontaktlardan foydalaning yoki bot orqali ariza topshirish uchun quyidagi tugmani bosing."
                     )
-                    await update.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
+                    reply_markup = InlineKeyboardMarkup([[
+                        InlineKeyboardButton("📝 Ariza topshirish", callback_data=f"apply_vac_{vac_id}")
+                    ]])
+                    await update.message.reply_text(msg, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
                     return ConversationHandler.END
             except Exception as e:
                 logger.error(f"Error handling apply start parameter: {e}")
@@ -407,9 +665,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await database.db_upsert_nuvi_user(user.id, user.username, user.first_name, referred_by)
     
     keyboard = [
-        ["💼 E'lon berish"],
-        ["📊 Mening e'lonlarim"],
-        ["ℹ️ Bot haqida"],
+        ["💼 E'lon berish", "📊 Mening e'lonlarim"],
+        ["📝 Mening profilim / CV", "🔔 Mos vakansiyalar obunasi"],
+        ["🏢 Ish beruvchini baholash", "ℹ️ Bot haqida"],
     ]
     if user.id == OWNER_ID:
         keyboard.append(["⚙️ Admin panel"])
@@ -433,6 +691,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 async def cb_create_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Vakansiya yaratishni boshlash."""
+    if not await check_user_subscription(update, context):
+        return ConversationHandler.END
+        
     if update.callback_query:
         await update.callback_query.answer()
         message_func = update.callback_query.message.reply_text
@@ -683,8 +944,8 @@ async def state_ask_benefits(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def show_confirm_preview(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     waiting_msg = await update.message.reply_text("⏳ Oblojka va e'lon matni tayyorlanmoqda, iltimos kuting...")
-    
-    formatted_text = format_vacancy_text(context.user_data)
+    context.user_data["user_id"] = update.effective_user.id
+    formatted_text = await format_vacancy_text(context.user_data)
     context.user_data["formatted_text"] = formatted_text
     
     temp_dir = tempfile.gettempdir()
@@ -1505,6 +1766,37 @@ async def nuvi_auto_post_job(context: ContextTypes.DEFAULT_TYPE) -> None:
                 parse_mode=ParseMode.MARKDOWN
             )
             
+            # Mos vakansiyalar obunachilarini xabardor qilish (Job Alerts)
+            try:
+                matched_user_ids = await database.db_get_matching_candidates(
+                    vac_title=vac["title"],
+                    vac_desc=vac["formatted_text"],
+                    vac_skills=vac.get("skills", ""),
+                    vac_loc=vac["location"]
+                )
+                for matched_uid in matched_user_ids:
+                    if matched_uid == vac["user_id"]:
+                        continue
+                    try:
+                        alert_msg = (
+                            f"🔔 **Siz uchun yangi mos vakansiya topildi!**\n\n"
+                            f"📌 **Lavozim:** {clean_for_markdown(vac['title'])}\n"
+                            f"🏢 **Firma:** {clean_for_markdown(vac['company'])}\n"
+                            f"📍 **Lokatsiya:** {clean_for_markdown(vac['location'])}\n"
+                            f"💵 **Maosh:** {clean_for_markdown(vac['salary'])}\n\n"
+                            f"🔗 **Batafsil ko'rish:** [Kanalda ko'rish]({post_link})\n"
+                            f"🤖 **Ariza topshirish:** /start apply_{vac_id}"
+                        )
+                        await context.bot.send_message(
+                            chat_id=matched_uid,
+                            text=alert_msg,
+                            parse_mode=ParseMode.MARKDOWN
+                        )
+                    except Exception as notify_err:
+                        logger.error(f"Failed to notify subscriber {matched_uid}: {notify_err}")
+            except Exception as match_err:
+                logger.error(f"Error matching job preferences: {match_err}")
+            
             # Promo banner post logic
             try:
                 posted_count = await database.db_get_posted_vacancies_count()
@@ -1849,6 +2141,9 @@ async def cb_broadcast_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 async def cb_my_vacancies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Mening e'lonlarim ro'yxati."""
+    if not await check_user_subscription(update, context):
+        return
+        
     query = update.callback_query
     await query.answer()
     
@@ -1876,6 +2171,9 @@ async def cb_my_vacancies(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 async def cb_bot_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Bot haqida ma'lumot (Legacy callback query support)."""
+    if not await check_user_subscription(update, context):
+        return
+        
     query = update.callback_query
     await query.answer()
     
@@ -1909,10 +2207,866 @@ async def cb_bot_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.message.edit_text(msg, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
 
+# ─── CV / REZYUME YARATUVCHI MODULI ───
+
+async def cb_cv_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Mening profilim / CV menyusi (Reply keyboard uchun)."""
+    if not await check_user_subscription(update, context):
+        return
+        
+    user_id = update.effective_user.id
+    cv = await database.db_get_cv(user_id)
+    
+    keyboard = []
+    if cv:
+        msg = (
+            f"👤 **Sizning CV ma'lumotlaringiz:**\n\n"
+            f"✍️ **Ism:** {clean_for_markdown(cv['name'])}\n"
+            f"📞 **Aloqa:** {clean_for_markdown(cv['contact'])}\n"
+            f"💼 **Mutaxassislik:** {clean_for_markdown(cv['specialty'])}\n"
+            f"⚙️ **Ko'nikmalar:** {clean_for_markdown(cv['skills'])}\n"
+            f"🏫 **Ta'lim:** {clean_for_markdown(cv['education'])}\n"
+            f"⏳ **Tajriba:** {clean_for_markdown(cv['experience'])}\n"
+        )
+        if cv.get("about"):
+            msg += f"ℹ️ **O'zi haqida:** {clean_for_markdown(cv['about'])}\n"
+            
+        keyboard.append([InlineKeyboardButton("✏️ CVni tahrirlash", callback_data="cv_build_start")])
+        keyboard.append([InlineKeyboardButton("📄 PDF yuklab olish", callback_data="cv_download_pdf")])
+        keyboard.append([InlineKeyboardButton("🗑 CVni o'chirish", callback_data="cv_delete")])
+    else:
+        msg = (
+            f"📝 **Sizda hali CV mavjud emas!**\n\n"
+            f"Bot orqali bir necha daqiqada professional PDF formatidagi rezyume yaratishingiz va "
+            f"uni to'g'ridan-to'g'ri vakansiyalarga ariza topshirishda foydalanishingiz mumkin."
+        )
+        keyboard.append([InlineKeyboardButton("✏️ Yangi CV yaratish", callback_data="cv_build_start")])
+        
+    keyboard.append([InlineKeyboardButton("⬅️ Bosh menyu", callback_data="nuvi_menu")])
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    if update.callback_query:
+        await update.callback_query.answer()
+        await update.callback_query.message.edit_text(msg, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
+    else:
+        await update.message.reply_text(msg, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
+
+async def cb_cv_build_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """CV yaratish/tahrirlash FSM boshlanishi."""
+    query = update.callback_query
+    if query:
+        await query.answer()
+        await query.message.reply_text(
+            "Keling, rezyumeingizni shakllantiramiz.\n\n"
+            "Ism va familiyangizni kiriting:\n"
+            "(Bekor qilish uchun /cancel deb yozing)",
+            reply_markup=ReplyKeyboardRemove()
+        )
+    else:
+        await update.message.reply_text(
+            "Keling, rezyumeingizni shakllantiramiz.\n\n"
+            "Ism va familiyangizni kiriting:\n"
+            "(Bekor qilish uchun /cancel deb yozing)",
+            reply_markup=ReplyKeyboardRemove()
+        )
+    context.user_data["cv_draft"] = {}
+    return CV_ASK_NAME
+
+async def cv_state_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    text = update.message.text.strip()
+    if not text:
+        await update.message.reply_text("Iltimos, ism va familiyangizni to'g'ri kiriting:")
+        return CV_ASK_NAME
+    context.user_data["cv_draft"]["name"] = text
+    await update.message.reply_text(
+        "📞 Telefon raqamingiz yoki Telegram username (@) kiriting:"
+    )
+    return CV_ASK_CONTACT
+
+async def cv_state_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    text = update.message.text.strip()
+    if not text:
+        await update.message.reply_text("Iltimos, aloqa ma'lumotingizni kiriting:")
+        return CV_ASK_CONTACT
+    context.user_data["cv_draft"]["contact"] = text
+    await update.message.reply_text(
+        "💼 Mutaxassisligingiz (Masalan: Python Developer, UI/UX Designer):"
+    )
+    return CV_ASK_SPECIALTY
+
+async def cv_state_specialty(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    text = update.message.text.strip()
+    if not text:
+        await update.message.reply_text("Iltimos, mutaxassisligingizni kiriting:")
+        return CV_ASK_SPECIALTY
+    context.user_data["cv_draft"]["specialty"] = text
+    await update.message.reply_text(
+        "⚙️ Ko'nikmalaringizni kiriting (vergul bilan ajrating, masalan: Python, SQL, Git):"
+    )
+    return CV_ASK_SKILLS
+
+async def cv_state_skills(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    text = update.message.text.strip()
+    if not text:
+        await update.message.reply_text("Iltimos, ko'nikmalaringizni kiriting:")
+        return CV_ASK_SKILLS
+    context.user_data["cv_draft"]["skills"] = text
+    await update.message.reply_text(
+        "💼 Ish tajribangiz haqida yozing (masalan: 2 yil EPAM kompaniyasida, Freelance loyihalar):"
+    )
+    return CV_ASK_EXPERIENCE
+
+async def cv_state_experience(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    text = update.message.text.strip()
+    if not text:
+        await update.message.reply_text("Iltimos, ish tajribangizni kiriting:")
+        return CV_ASK_EXPERIENCE
+    context.user_data["cv_draft"]["experience"] = text
+    await update.message.reply_text(
+        "🎓 Ma'lumotingiz yoki o'qish joyingiz (Masalan: TATU bakalavr, 2020-2024):"
+    )
+    return CV_ASK_EDUCATION
+
+async def cv_state_education(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    text = update.message.text.strip()
+    if not text:
+        await update.message.reply_text("Iltimos, ta'lim ma'lumotini kiriting:")
+        return CV_ASK_EDUCATION
+    context.user_data["cv_draft"]["education"] = text
+    await update.message.reply_text(
+        "ℹ️ O'zingiz haqingizda qo'shimcha ma'lumot (Masalan: maqsadlaringiz, qiziqishlaringiz):"
+    )
+    return CV_ASK_ABOUT
+
+async def cv_state_about(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    text = update.message.text.strip()
+    context.user_data["cv_draft"]["about"] = text
+    
+    waiting_msg = await update.message.reply_text("⏳ Rezyume tayyorlanmoqda, iltimos kuting...")
+    user_id = update.effective_user.id
+    
+    cv_data = context.user_data["cv_draft"]
+    
+    # PDF fayl yaratish
+    temp_dir = tempfile.gettempdir()
+    pdf_path = os.path.join(temp_dir, f"cv_{user_id}.pdf")
+    
+    try:
+        generate_cv_pdf(cv_data, pdf_path)
+        
+        # Telegramga yuklash
+        with open(pdf_path, "rb") as pdf_file:
+            doc_msg = await context.bot.send_document(
+                chat_id=user_id,
+                document=pdf_file,
+                caption="✅ Sizning professional rezyumeingiz muvaffaqiyatli yaratildi va saqlandi!"
+            )
+            pdf_file_id = doc_msg.document.file_id
+            
+        # Bazaga yozish
+        await database.db_save_cv(
+            user_id=user_id,
+            name=cv_data["name"],
+            contact=cv_data["contact"],
+            specialty=cv_data["specialty"],
+            skills=cv_data["skills"],
+            experience=cv_data["experience"],
+            education=cv_data["education"],
+            about=cv_data["about"],
+            pdf_file_id=pdf_file_id
+        )
+        
+        # Temp faylni o'chirish
+        try:
+            os.unlink(pdf_path)
+        except:
+            pass
+            
+        if waiting_msg:
+            await waiting_msg.delete()
+            
+        # Orqaga bosh menyuni qaytarish
+        keyboard = [
+            ["💼 E'lon berish", "📊 Mening e'lonlarim"],
+            ["📝 Mening profilim / CV", "🔔 Mos vakansiyalar obunasi"],
+            ["🏢 Ish beruvchini baholash", "ℹ️ Bot haqida"],
+        ]
+        if user_id == OWNER_ID:
+            keyboard.append(["⚙️ Admin panel"])
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        await update.message.reply_text("CV menyusiga qaytish uchun quyidagi tugmalardan foydalaning.", reply_markup=reply_markup)
+        
+    except Exception as e:
+        logger.error(f"Error building CV PDF: {e}")
+        await update.message.reply_text("❌ Rezyume yaratishda xatolik yuz berdi. Iltimos qaytadan urinib ko'ring.")
+        if waiting_msg:
+            try:
+                await waiting_msg.delete()
+            except:
+                pass
+                
+    return ConversationHandler.END
+
+async def cb_cv_download(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """PDF rezyumeni yuklab olish."""
+    query = update.callback_query
+    await query.answer()
+    user_id = update.effective_user.id
+    
+    cv = await database.db_get_cv(user_id)
+    if not cv:
+        await query.message.reply_text("❌ Rezyume topilmadi.")
+        return
+        
+    if cv.get("pdf_file_id"):
+        try:
+            await context.bot.send_document(
+                chat_id=user_id,
+                document=cv["pdf_file_id"],
+                caption=f"📄 **{clean_for_markdown(cv['name'])}** - Rezyume"
+            )
+            return
+        except Exception as e:
+            logger.warning(f"Could not send cached pdf_file_id: {e}. Regenerating...")
+            
+    # Regenerate PDF if file_id is lost or invalid
+    temp_dir = tempfile.gettempdir()
+    pdf_path = os.path.join(temp_dir, f"cv_{user_id}.pdf")
+    try:
+        generate_cv_pdf(cv, pdf_path)
+        with open(pdf_path, "rb") as pdf_file:
+            doc_msg = await context.bot.send_document(
+                chat_id=user_id,
+                document=pdf_file,
+                caption=f"📄 **{clean_for_markdown(cv['name'])}** - Rezyume"
+            )
+            # Update file_id in database
+            await database.db_save_cv(
+                user_id=user_id,
+                name=cv["name"],
+                contact=cv["contact"],
+                specialty=cv["specialty"],
+                skills=cv["skills"],
+                experience=cv["experience"],
+                education=cv["education"],
+                about=cv.get("about"),
+                pdf_file_id=doc_msg.document.file_id
+            )
+        try:
+            os.unlink(pdf_path)
+        except:
+            pass
+    except Exception as err:
+        logger.error(f"Error regenerating CV PDF: {err}")
+        await query.message.reply_text("❌ Rezyumeni generatsiya qilishda xatolik yuz berdi.")
+
+async def cb_cv_delete(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Rezyumeni o'chirish."""
+    query = update.callback_query
+    await query.answer()
+    user_id = update.effective_user.id
+    
+    try:
+        pool = await database.get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute("DELETE FROM nuvi_cvs WHERE user_id = $1", user_id)
+        await query.message.edit_text("🗑 Rezyumeingiz muvaffaqiyatli o'chirildi.", reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("⬅️ Orqaga", callback_data="nuvi_menu")
+        ]]))
+    except Exception as e:
+        logger.error(f"Error deleting CV: {e}")
+        await query.message.reply_text("❌ Rezyumeni o'chirishda xatolik yuz berdi.")
+
+async def cb_cv_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """CV yaratishni bekor qilish."""
+    await cb_cv_menu(update, context)
+    return ConversationHandler.END
+
+
+# ─── JOB ALERTS / MOS VAKANSIYALAR OBUNASI MODULI ───
+
+async def cb_pref_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Obuna menyusi (Reply keyboard uchun)."""
+    if not await check_user_subscription(update, context):
+        return
+        
+    user_id = update.effective_user.id
+    pref = await database.db_get_preferences(user_id)
+    
+    keyboard = []
+    if pref:
+        status_str = "Faol 🟢" if pref["is_active"] else "Nofaol 🔴"
+        msg = (
+            f"🔔 **Sizning obuna sozlamalaringiz:**\n\n"
+            f"🔑 **Kalit so'zlar:** {clean_for_markdown(pref['keywords'])}\n"
+            f"📍 **Lokatsiya:** {clean_for_markdown(pref['location']) or 'Barchasi'}\n"
+            f"🔔 **Holati:** {status_str}\n"
+        )
+        keyboard.append([InlineKeyboardButton("✏️ Obunani sozlash", callback_data="pref_setup_start")])
+        toggle_lbl = "🔴 Obunani o'chirish" if pref["is_active"] else "🟢 Obunani yoqish"
+        keyboard.append([InlineKeyboardButton(toggle_lbl, callback_data="pref_toggle")])
+    else:
+        msg = (
+            f"🔔 **Mos vakansiyalar obunasi sozlanmagan!**\n\n"
+            f"Kalit so'zlar va lokatsiyani kiriting, biz esa sizga mos vakansiya post "
+            f"qilinganida darhol bot orqali xabar beramiz."
+        )
+        keyboard.append([InlineKeyboardButton("✏️ Obunani sozlash", callback_data="pref_setup_start")])
+        
+    keyboard.append([InlineKeyboardButton("⬅️ Bosh menyu", callback_data="nuvi_menu")])
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    if update.callback_query:
+        await update.callback_query.answer()
+        await update.callback_query.message.edit_text(msg, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
+    else:
+        await update.message.reply_text(msg, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
+
+async def cb_pref_setup_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Obunani sozlash FSM boshlanishi."""
+    query = update.callback_query
+    await query.answer()
+    
+    await query.message.reply_text(
+        "Mos vakansiyalarni filtrlash uchun kalit so'zlarni yuboring (vergul bilan ajratib, masalan: python, django, remote):\n"
+        "(Bekor qilish uchun /cancel deb yozing)",
+        reply_markup=ReplyKeyboardRemove()
+    )
+    return PREF_ASK_KEYWORDS
+
+async def pref_state_keywords(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    text = update.message.text.strip()
+    if not text:
+        await update.message.reply_text("Iltimos, kalit so'zlarni kiriting:")
+        return PREF_ASK_KEYWORDS
+        
+    context.user_data["pref_keywords"] = text
+    
+    keyboard = [
+        ["Toshkent"],
+        ["Masofaviy (Remote)"],
+        ["Barchasi"]
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    
+    await update.message.reply_text(
+        "Istalgan lokatsiyani kiriting (masalan: Toshkent, Samarqand) yoki tanlang:",
+        reply_markup=reply_markup
+    )
+    return PREF_ASK_LOCATION
+
+async def pref_state_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    text = update.message.text.strip()
+    if not text:
+        await update.message.reply_text("Iltimos, lokatsiyani kiriting:")
+        return PREF_ASK_LOCATION
+        
+    user_id = update.effective_user.id
+    keywords = context.user_data["pref_keywords"]
+    
+    loc = text
+    if text == "Barchasi":
+        loc = ""
+        
+    # Save to database
+    await database.db_save_preferences(user_id, keywords, loc, is_active=True)
+    
+    await update.message.reply_text("✅ Obuna sozlamalari muvaffaqiyatli saqlandi!")
+    
+    # Reset reply keyboard and show menu
+    keyboard = [
+        ["💼 E'lon berish", "📊 Mening e'lonlarim"],
+        ["📝 Mening profilim / CV", "🔔 Mos vakansiyalar obunasi"],
+        ["🏢 Ish beruvchini baholash", "ℹ️ Bot haqida"],
+    ]
+    if user_id == OWNER_ID:
+        keyboard.append(["⚙️ Admin panel"])
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    await update.message.reply_text("Asosiy menyuga qaytdik:", reply_markup=reply_markup)
+    
+    return ConversationHandler.END
+
+async def cb_pref_toggle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Obunani faollashtirish / o'chirish."""
+    query = update.callback_query
+    await query.answer()
+    user_id = update.effective_user.id
+    
+    pref = await database.db_get_preferences(user_id)
+    if not pref:
+        await query.message.reply_text("Mos obuna topilmadi.")
+        return
+        
+    new_active = not pref["is_active"]
+    await database.db_save_preferences(user_id, pref["keywords"], pref["location"], is_active=new_active)
+    
+    # Refresh preferences page
+    await cb_pref_menu(update, context)
+
+async def cb_pref_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Obuna sozlashni bekor qilish."""
+    await cb_pref_menu(update, context)
+    return ConversationHandler.END
+
+
+# ─── NOMZODLARNI BOSHQARISH TIZIMI (ATS) ───
+
+async def cb_apply_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Ariza topshirish zanjiri boshlanishi (muqovali xat so'raladi)."""
+    if not await check_user_subscription(update, context):
+        return ConversationHandler.END
+        
+    query = update.callback_query
+    await query.answer()
+    
+    vac_id = int(query.data.split("_")[-1])
+    context.user_data["apply_vac_id"] = vac_id
+    
+    await query.message.reply_text(
+        "Iltimos, ushbu vakansiya uchun muqovali xatingizni (o'zingiz haqingizda qisqacha ma'lumot va nega aynan siz munosibligingizni) yozib yuboring:\n"
+        "(Bekor qilish uchun /cancel deb yozing)",
+        reply_markup=ReplyKeyboardRemove()
+    )
+    return APPLY_ASK_COVER_LETTER
+
+async def apply_state_cover_letter(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    text = update.message.text.strip()
+    if not text:
+        await update.message.reply_text("Iltimos, muqovali xatingizni kiriting:")
+        return APPLY_ASK_COVER_LETTER
+        
+    context.user_data["apply_cover_letter"] = text
+    user_id = update.effective_user.id
+    
+    # Botda mavjud rezyume bor-yo'qligini tekshirish
+    cv = await database.db_get_cv(user_id)
+    
+    keyboard = []
+    if cv and cv.get("pdf_file_id"):
+        keyboard.append([InlineKeyboardButton("📄 Botdagi rezyumeni yuborish", callback_data="apply_use_bot_cv")])
+        
+    keyboard.append([InlineKeyboardButton("❌ Rezyumesiz yuborish", callback_data="apply_no_cv")])
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await update.message.reply_text(
+        "Iltimos, rezyumeingizni (PDF formatida) yuklang yoki botdagi mavjud rezyumeingizni tanlang:",
+        reply_markup=reply_markup
+    )
+    return APPLY_ASK_RESUME
+
+async def apply_state_resume_doc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Nomzod o'zining PDF rezyumesini yuklaganda."""
+    doc = update.message.document
+    if not doc or not doc.file_name.lower().endswith(".pdf"):
+        await update.message.reply_text("Iltimos, faqat PDF formatidagi rezyume yuklang:")
+        return APPLY_ASK_RESUME
+        
+    resume_file_id = doc.file_id
+    return await submit_candidate_application(update, context, resume_file_id)
+
+async def cb_apply_state_resume_btn(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Nomzod mavjud rezyumeni tanlaganda yoki rezyumesiz topshirganda."""
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = update.effective_user.id
+    action = query.data
+    
+    resume_file_id = None
+    if action == "apply_use_bot_cv":
+        cv = await database.db_get_cv(user_id)
+        if cv and cv.get("pdf_file_id"):
+            resume_file_id = cv["pdf_file_id"]
+        else:
+            await query.message.reply_text("Sizda hali botda rezyume yaratilmagan. Iltimos, rezyumeingizni PDF formatida yuklang:")
+            return APPLY_ASK_RESUME
+            
+    return await submit_candidate_application(update, context, resume_file_id)
+
+async def submit_candidate_application(update: Update, context: ContextTypes.DEFAULT_TYPE, resume_file_id: str = None) -> int:
+    user = update.effective_user
+    vac_id = context.user_data["apply_vac_id"]
+    cover_letter = context.user_data["apply_cover_letter"]
+    
+    vac = await database.db_get_nuvi_vacancy(vac_id)
+    if not vac:
+        msg = "❌ Xatolik: Vakansiya topilmadi."
+        if update.callback_query:
+            await update.callback_query.message.reply_text(msg)
+        else:
+            await update.message.reply_text(msg)
+        return ConversationHandler.END
+        
+    # Arizani DBga yozish
+    app_id = await database.db_create_application(
+        vacancy_id=vac_id,
+        candidate_id=user.id,
+        cover_letter=cover_letter,
+        resume_file_id=resume_file_id
+    )
+    
+    if not app_id:
+        msg = "❌ Arizani topshirishda xatolik yuz berdi."
+        if update.callback_query:
+            await update.callback_query.message.reply_text(msg)
+        else:
+            await update.message.reply_text(msg)
+        return ConversationHandler.END
+        
+    success_msg = "✅ Arizangiz muvaffaqiyatli topshirildi! Ish beruvchi javobini bot orqali ma'lum qilamiz."
+    if update.callback_query:
+        await update.callback_query.message.reply_text(success_msg)
+    else:
+        await update.message.reply_text(success_msg)
+        
+    # Ish beruvchiga bildirishnoma yuborish
+    try:
+        employer_id = vac["user_id"]
+        cand_name = clean_for_markdown(user.first_name)
+        cand_username = f"@{user.username}" if user.username else "mavjud emas"
+        
+        emp_msg = (
+            f"📩 **Yangi ariza kelib tushdi!**\n\n"
+            f"📌 **Vakansiya:** {clean_for_markdown(vac['title'])} (#{vac_id})\n"
+            f"👤 **Nomzod:** {cand_name} ({cand_username})\n\n"
+            f"📝 **Muqovali xat:**\n"
+            f"{clean_for_markdown(cover_letter)}\n"
+        )
+        
+        keyboard = [
+            [
+                InlineKeyboardButton("✅ Qabul qilish (Suhbat)", callback_data=f"app_accept_{app_id}"),
+                InlineKeyboardButton("❌ Rad etish", callback_data=f"app_reject_{app_id}")
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        if resume_file_id:
+            await context.bot.send_document(
+                chat_id=employer_id,
+                document=resume_file_id,
+                caption=emp_msg,
+                reply_markup=reply_markup,
+                parse_mode=ParseMode.MARKDOWN
+            )
+        else:
+            await context.bot.send_message(
+                chat_id=employer_id,
+                text=emp_msg,
+                reply_markup=reply_markup,
+                parse_mode=ParseMode.MARKDOWN
+            )
+    except Exception as notify_err:
+        logger.error(f"Error notifying employer of new application: {notify_err}")
+        
+    # Bosh menyuga qaytarish
+    keyboard = [
+        ["💼 E'lon berish", "📊 Mening e'lonlarim"],
+        ["📝 Mening profilim / CV", "🔔 Mos vakansiyalar obunasi"],
+        ["🏢 Ish beruvchini baholash", "ℹ️ Bot haqida"],
+    ]
+    if user.id == OWNER_ID:
+        keyboard.append(["⚙️ Admin panel"])
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    
+    if update.callback_query:
+        await update.callback_query.message.reply_text("Asosiy menyu:", reply_markup=reply_markup)
+    else:
+        await update.message.reply_text("Asosiy menyu:", reply_markup=reply_markup)
+        
+    return ConversationHandler.END
+
+async def cb_app_accept_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Ish beruvchi arizani qabul qilishni bosganda."""
+    query = update.callback_query
+    await query.answer()
+    
+    app_id = int(query.data.split("_")[-1])
+    context.user_data["decision_app_id"] = app_id
+    
+    await query.message.reply_text(
+        "Nomzodni suhbatga chaqirish uchun tafsilotlarni yozib yuboring (Masalan: sana, vaqt, joylashuv, manzil yoki havola):\n"
+        "(Bekor qilish uchun /cancel deb yozing)",
+        reply_markup=ReplyKeyboardRemove()
+    )
+    return EMPLOYER_INTERVIEW_MESSAGE
+
+async def cb_app_reject_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Ish beruvchi arizani rad etishni bosganda."""
+    query = update.callback_query
+    await query.answer()
+    
+    app_id = int(query.data.split("_")[-1])
+    context.user_data["decision_app_id"] = app_id
+    
+    keyboard = [
+        [InlineKeyboardButton("Standart rad etish xabari", callback_data="reject_default")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.message.reply_text(
+        "Nomzodga rad etish sababini yozib yuboring yoki standart matnni tanlang:",
+        reply_markup=reply_markup
+    )
+    return EMPLOYER_REJECT_REASON
+
+async def employer_state_interview(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    text = update.message.text.strip()
+    if not text:
+        await update.message.reply_text("Iltimos, suhbat tafsilotlarini kiriting:")
+        return EMPLOYER_INTERVIEW_MESSAGE
+        
+    app_id = context.user_data["decision_app_id"]
+    
+    # DBda statusni yangilash
+    await database.db_update_application_status(app_id, "accepted")
+    
+    app = await database.db_get_application(app_id)
+    if app:
+        candidate_id = app["candidate_id"]
+        # Nomzodni xabardor qilish
+        try:
+            msg = (
+                f"🎉 **Xushxabar! Sizning arizangiz qabul qilindi!**\n\n"
+                f"📌 **Vakansiya:** {clean_for_markdown(app['vacancy_title'])}\n"
+                f"🏢 **Kompaniya:** {clean_for_markdown(app['vacancy_company'])}\n\n"
+                f"⏱️ **Suhbat tafsilotlari:**\n"
+                f"{clean_for_markdown(text)}"
+            )
+            await context.bot.send_message(
+                chat_id=candidate_id,
+                text=msg,
+                parse_mode=ParseMode.MARKDOWN
+            )
+        except Exception as e:
+            logger.error(f"Error notifying candidate: {e}")
+            
+    await update.message.reply_text("✅ Nomzodga suhbat taklifnomasi yuborildi.")
+    
+    # Asosiy menyu
+    keyboard = [
+        ["💼 E'lon berish", "📊 Mening e'lonlarim"],
+        ["📝 Mening profilim / CV", "🔔 Mos vakansiyalar obunasi"],
+        ["🏢 Ish beruvchini baholash", "ℹ️ Bot haqida"],
+    ]
+    if update.effective_user.id == OWNER_ID:
+        keyboard.append(["⚙️ Admin panel"])
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    await update.message.reply_text("Asosiy menyuga qaytdik:", reply_markup=reply_markup)
+    
+    return ConversationHandler.END
+
+async def employer_state_reject(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    app_id = context.user_data["decision_app_id"]
+    
+    reason = "Sizning nomzodingiz ushbu vakansiya talablariga to'liq mos kelmadi. Kelgusi faoliyatingizda muvaffaqiyatlar tilaymiz!"
+    
+    if query:
+        await query.answer()
+        await query.message.reply_text("✅ Standart rad etish xabari tanlandi.")
+    else:
+        reason = update.message.text.strip()
+        
+    # DBda statusni yangilash
+    await database.db_update_application_status(app_id, "rejected")
+    
+    app = await database.db_get_application(app_id)
+    if app:
+        candidate_id = app["candidate_id"]
+        # Nomzodni xabardor qilish
+        try:
+            msg = (
+                f"🛑 **Arizangiz rad etildi**\n\n"
+                f"📌 **Vakansiya:** {clean_for_markdown(app['vacancy_title'])}\n"
+                f"🏢 **Kompaniya:** {clean_for_markdown(app['vacancy_company'])}\n\n"
+                f"📝 **Sabab:**\n"
+                f"{clean_for_markdown(reason)}"
+            )
+            await context.bot.send_message(
+                chat_id=candidate_id,
+                text=msg,
+                parse_mode=ParseMode.MARKDOWN
+            )
+        except Exception as e:
+            logger.error(f"Error notifying candidate: {e}")
+            
+    msg_text = "❌ Nomzodga rad etish xabari yuborildi."
+    keyboard = [
+        ["💼 E'lon berish", "📊 Mening e'lonlarim"],
+        ["📝 Mening profilim / CV", "🔔 Mos vakansiyalar obunasi"],
+        ["🏢 Ish beruvchini baholash", "ℹ️ Bot haqida"],
+    ]
+    if update.effective_user.id == OWNER_ID:
+        keyboard.append(["⚙️ Admin panel"])
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    
+    if query:
+        await query.message.reply_text(msg_text, reply_markup=reply_markup)
+    else:
+        await update.message.reply_text(msg_text, reply_markup=reply_markup)
+        
+    return ConversationHandler.END
+
+
+# ─── REYTING VA BAHOLASH MODULI ───
+
+async def cb_rate_employer_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Ish beruvchini baholash FSM boshlanishi."""
+    if not await check_user_subscription(update, context):
+        return ConversationHandler.END
+        
+    user_id = update.effective_user.id
+    apps = await database.db_get_candidate_applications(user_id)
+    
+    if not apps:
+        await update.message.reply_text("Siz hali biror-bir vakansiyaga ariza topshirmagansiz, shuning uchun ish beruvchini baholay olmaysiz.")
+        return ConversationHandler.END
+        
+    # Noyob ish beruvchilar ro'yxati
+    seen = set()
+    unique_employers = []
+    for app in apps:
+        emp_id = app["employer_id"]
+        if emp_id not in seen and emp_id != user_id:
+            seen.add(emp_id)
+            unique_employers.append(app)
+            
+    if not unique_employers:
+        await update.message.reply_text("Siz baholashingiz mumkin bo'lgan ish beruvchilar topilmadi.")
+        return ConversationHandler.END
+        
+    keyboard = []
+    for emp in unique_employers[:10]:
+        keyboard.append([InlineKeyboardButton(
+            text=emp["vacancy_company"],
+            callback_data=f"rate_emp_{emp['employer_id']}"
+        )])
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await update.message.reply_text(
+        "Iltimos, baholamoqchi bo'lgan kompaniya / ish beruvchini tanlang:\n"
+        "(Bekor qilish uchun /cancel deb yozing)",
+        reply_markup=reply_markup
+    )
+    return RATING_ASK_STARS
+
+async def cb_rate_employer_stars_selection(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    
+    employer_id = int(query.data.split("_")[-1])
+    context.user_data["rate_employer_id"] = employer_id
+    
+    keyboard = [
+        [
+            InlineKeyboardButton("⭐ 1", callback_data="rate_star_1"),
+            InlineKeyboardButton("⭐ 2", callback_data="rate_star_2"),
+            InlineKeyboardButton("⭐ 3", callback_data="rate_star_3")
+        ],
+        [
+            InlineKeyboardButton("⭐ 4", callback_data="rate_star_4"),
+            InlineKeyboardButton("⭐ 5", callback_data="rate_star_5")
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.message.edit_text(
+        "Ushbu ish beruvchini necha yulduzcha bilan baholaysiz?",
+        reply_markup=reply_markup
+    )
+    return RATING_ASK_STARS
+
+async def cb_rate_employer_comment_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    
+    stars = int(query.data.split("_")[-1])
+    context.user_data["rate_stars"] = stars
+    
+    keyboard = [[InlineKeyboardButton("⏭️ Fikrsiz yuborish", callback_data="rate_comment_skip")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.message.edit_text(
+        "Kompaniya haqida o'z fikringiz / izohingizni yozib yuboring:",
+        reply_markup=reply_markup
+    )
+    return RATING_ASK_COMMENT
+
+async def state_rate_employer_submit_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    comment = update.message.text.strip()
+    return await submit_employer_review(update, context, comment)
+
+async def cb_rate_employer_submit_skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    return await submit_employer_review(update, context, None)
+
+async def submit_employer_review(update: Update, context: ContextTypes.DEFAULT_TYPE, comment: str = None) -> int:
+    user_id = update.effective_user.id
+    employer_id = context.user_data["rate_employer_id"]
+    stars = context.user_data["rate_stars"]
+    
+    # DBga yozish
+    await database.db_save_review(employer_id, user_id, stars, comment)
+    
+    msg = "✅ Bahongiz muvaffaqiyatli qabul qilindi! Rahmat."
+    
+    # Kanaldagi postlarni tahrirlab verified badge va ratingni yangilash
+    try:
+        await update_employer_vacancies_in_channel(context, employer_id)
+    except Exception as err:
+        logger.error(f"Error updating employer vacancies in channel: {err}")
+        
+    keyboard = [
+        ["💼 E'lon berish", "📊 Mening e'lonlarim"],
+        ["📝 Mening profilim / CV", "🔔 Mos vakansiyalar obunasi"],
+        ["🏢 Ish beruvchini baholash", "ℹ️ Bot haqida"],
+    ]
+    if user_id == OWNER_ID:
+        keyboard.append(["⚙️ Admin panel"])
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    
+    if update.callback_query:
+        await update.callback_query.message.reply_text(msg, reply_markup=reply_markup)
+    else:
+        await update.message.reply_text(msg, reply_markup=reply_markup)
+        
+    return ConversationHandler.END
+
+async def update_employer_vacancies_in_channel(context: ContextTypes.DEFAULT_TYPE, employer_id: int) -> None:
+    """Ish beruvchining kanaldagi barcha posted e'lonlarini yangi reyting bilan yangilaydi."""
+    try:
+        vacs = await database.db_get_nuvi_vacancies_by_user(employer_id)
+        for vac in vacs:
+            if vac.get("status") == "posted" and vac.get("telegram_message_id"):
+                vac["user_id"] = employer_id
+                new_text = await format_vacancy_text(vac)
+                caption_text = escape_telegram_markdown(new_text)
+                
+                try:
+                    await context.bot.edit_message_caption(
+                        chat_id=TARGET_CHANNEL,
+                        message_id=vac["telegram_message_id"],
+                        caption=caption_text,
+                        parse_mode=ParseMode.MARKDOWN,
+                        reply_markup=get_vacancy_reply_markup(context.bot.username, vac)
+                    )
+                    logger.info(f"Dynamically updated channel message for vacancy #{vac['id']}")
+                except Exception as edit_err:
+                    logger.error(f"Failed to edit message {vac['telegram_message_id']}: {edit_err}")
+    except Exception as e:
+        logger.error(f"Error in update_employer_vacancies_in_channel: {e}")
+
+
 # ─── REPLY KEYBOARD HELPERS FOR PUBLIC MENUS ───
+
 
 async def cb_my_vacancies_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Mening e'lonlarim ro'yxati (Reply keyboard uchun)."""
+    if not await check_user_subscription(update, context):
+        return
+        
     user_id = update.effective_user.id
     vacs = await database.db_get_nuvi_vacancies_by_user(user_id)
     
@@ -1933,6 +3087,9 @@ async def cb_my_vacancies_text(update: Update, context: ContextTypes.DEFAULT_TYP
 
 async def cb_bot_info_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Bot haqida ma'lumot (Reply keyboard uchun)."""
+    if not await check_user_subscription(update, context):
+        return
+        
     price_pro = await get_tariff_price("pro")
     price_premium = await get_tariff_price("premium")
     price_vip = await get_tariff_price("vip")
@@ -2667,6 +3824,7 @@ MUHIM QOIDALAR:
 7. Har doim toza va chiroyli o'zbek tilida javob bering.
 8. Javobingizda faqat tayyorlangan vakansiya matni bo'lsin, ortiqcha izoh yoki gap qo'shmang.
 9. Shablon oxiridagi "[Nuvi Jobs](https://t.me/nuvi_jobs) - *ish va ishchi topishda yordam beramiz!*" qismini o'zgarishsiz, aynan qanday yozilgan bo'lsa shunday qoldiring.
+10. Agar taqdim etilgan matn umuman vakansiya (ish yoki xodim e'loni) bo'lmasa, FAQAT 'NOT_A_VACANCY' deb javob bering. Boshqa hech qanday so'z yoki izoh yozmang.
 """
     try:
         formatted = await ai.process_message(raw_text, system_prompt, use_tools=False)
@@ -2818,8 +3976,10 @@ async def vacancy_scraper_job(context: ContextTypes.DEFAULT_TYPE) -> None:
             
             # Format vacancy
             formatted = await format_vacancy_with_ai(vac["text"])
-            if not formatted or "xato" in formatted.lower():
-                logger.warning("Empty or error response from AI vacancy formatting.")
+            if not formatted or "xato" in formatted.lower() or "not_a_vacancy" in formatted.lower() or "kechirasiz" in formatted.lower() or "vakansiya emas" in formatted.lower():
+                logger.warning(f"Non-vacancy or error response from AI vacancy formatting: {formatted[:60]}...")
+                # Also mark it as processed in DB so we don't try to scrape it again and again
+                await database.db_add_processed_vacancy(vac["channel_id"], vac["msg_id"])
                 continue
 
             # Bazaga saqlash va navbatga qo'yish
@@ -2877,8 +4037,9 @@ async def cmd_scrape(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             
             # Format vacancy
             formatted = await format_vacancy_with_ai(vac["text"])
-            if not formatted or "xato" in formatted.lower():
-                await update.message.reply_text("⚠️ AI formatlashda xatolik yuz berdi.")
+            if not formatted or "xato" in formatted.lower() or "not_a_vacancy" in formatted.lower() or "kechirasiz" in formatted.lower() or "vakansiya emas" in formatted.lower():
+                await database.db_add_processed_vacancy(vac["channel_id"], vac["msg_id"])
+                await update.message.reply_text("⚠️ Ushbu matn vakansiya emas, o'tkazib yuborildi.")
                 continue
                 
             # Bazaga saqlash va navbatga qo'yish
@@ -3055,6 +4216,101 @@ def main():
     )
     app.add_handler(vacancy_conv)
     
+    # ─── CONVERSATION HANDLER FOR CV BUILDER ───
+    cv_conv = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(cb_cv_build_start, pattern="^cv_build_start$")
+        ],
+        states={
+            CV_ASK_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, cv_state_name)],
+            CV_ASK_CONTACT: [MessageHandler(filters.TEXT & ~filters.COMMAND, cv_state_contact)],
+            CV_ASK_SPECIALTY: [MessageHandler(filters.TEXT & ~filters.COMMAND, cv_state_specialty)],
+            CV_ASK_SKILLS: [MessageHandler(filters.TEXT & ~filters.COMMAND, cv_state_skills)],
+            CV_ASK_EXPERIENCE: [MessageHandler(filters.TEXT & ~filters.COMMAND, cv_state_experience)],
+            CV_ASK_EDUCATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, cv_state_education)],
+            CV_ASK_ABOUT: [MessageHandler(filters.TEXT & ~filters.COMMAND, cv_state_about)]
+        },
+        fallbacks=[
+            CommandHandler("cancel", cmd_cancel),
+            CallbackQueryHandler(cb_cv_cancel, pattern="^cv_cancel$")
+        ],
+        allow_reentry=True
+    )
+    app.add_handler(cv_conv)
+    
+    # ─── CONVERSATION HANDLER FOR JOB ALERTS PREFERENCES ───
+    pref_conv = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(cb_pref_setup_start, pattern="^pref_setup_start$")
+        ],
+        states={
+            PREF_ASK_KEYWORDS: [MessageHandler(filters.TEXT & ~filters.COMMAND, pref_state_keywords)],
+            PREF_ASK_LOCATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, pref_state_location)]
+        },
+        fallbacks=[
+            CommandHandler("cancel", cmd_cancel),
+            CallbackQueryHandler(cb_pref_cancel, pattern="^pref_cancel$")
+        ],
+        allow_reentry=True
+    )
+    app.add_handler(pref_conv)
+    
+    # ─── CONVERSATION HANDLER FOR ATS (APPLY) ───
+    apply_conv = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(cb_apply_start, pattern="^apply_vac_\\d+$")
+        ],
+        states={
+            APPLY_ASK_COVER_LETTER: [MessageHandler(filters.TEXT & ~filters.COMMAND, apply_state_cover_letter)],
+            APPLY_ASK_RESUME: [
+                MessageHandler(filters.Document.PDF, apply_state_resume_doc),
+                CallbackQueryHandler(cb_apply_state_resume_btn, pattern="^(apply_use_bot_cv|apply_no_cv)$")
+            ]
+        },
+        fallbacks=[CommandHandler("cancel", cmd_cancel)],
+        allow_reentry=True
+    )
+    app.add_handler(apply_conv)
+    
+    # ─── CONVERSATION HANDLER FOR EMPLOYER DECISIONS ───
+    employer_decision_conv = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(cb_app_accept_start, pattern="^app_accept_\\d+$"),
+            CallbackQueryHandler(cb_app_reject_start, pattern="^app_reject_\\d+$")
+        ],
+        states={
+            EMPLOYER_INTERVIEW_MESSAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, employer_state_interview)],
+            EMPLOYER_REJECT_REASON: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, employer_state_reject),
+                CallbackQueryHandler(employer_state_reject, pattern="^reject_default$")
+            ]
+        },
+        fallbacks=[CommandHandler("cancel", cmd_cancel)],
+        allow_reentry=True
+    )
+    app.add_handler(employer_decision_conv)
+    
+    # ─── CONVERSATION HANDLER FOR CANDIDATE RATING ───
+    rating_conv = ConversationHandler(
+        entry_points=[
+            MessageHandler(filters.Regex("^🏢 Ish beruvchini baholash$"), cb_rate_employer_start)
+        ],
+        states={
+            RATING_ASK_STARS: [
+                CallbackQueryHandler(cb_rate_employer_stars_selection, pattern="^rate_emp_\\d+$"),
+                CallbackQueryHandler(cb_rate_employer_comment_prompt, pattern="^rate_star_\\d+$")
+            ],
+            RATING_ASK_COMMENT: [
+                CallbackQueryHandler(cb_rate_employer_submit_skip, pattern="^rate_comment_skip$"),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, state_rate_employer_submit_text)
+            ]
+        },
+        fallbacks=[CommandHandler("cancel", cmd_cancel)],
+        allow_reentry=True
+    )
+    app.add_handler(rating_conv)
+
+    
     # ─── CONVERSATION HANDLER FOR VACANCY EDIT ───
     edit_conv = ConversationHandler(
         entry_points=[
@@ -3180,10 +4436,13 @@ def main():
     
     # ─── USER MENUS (REPLY KEYBOARDS) ───
     app.add_handler(MessageHandler(filters.Regex("^📊 Mening e'lonlarim$"), cb_my_vacancies_text))
+    app.add_handler(MessageHandler(filters.Regex("^📝 Mening profilim / CV$"), cb_cv_menu))
+    app.add_handler(MessageHandler(filters.Regex("^🔔 Mos vakansiyalar obunasi$"), cb_pref_menu))
     app.add_handler(MessageHandler(filters.Regex("^ℹ️ Bot haqida$"), cb_bot_info_text))
     app.add_handler(MessageHandler(filters.Regex("^⚙️ Admin panel$"), cmd_admin))
     
     # ─── USER CALLBACKS ───
+    app.add_handler(CallbackQueryHandler(cb_check_sub, pattern="^nuvi_check_sub$"))
     app.add_handler(CallbackQueryHandler(cmd_start, pattern="^nuvi_menu$"))
     app.add_handler(CallbackQueryHandler(cb_my_vacancies, pattern="^nuvi_my_list$"))
     app.add_handler(CallbackQueryHandler(cb_bot_info, pattern="^nuvi_info$"))
@@ -3195,6 +4454,12 @@ def main():
     app.add_handler(CallbackQueryHandler(cb_my_vacancy_delete, pattern="^myvac_delete_(\d+)$"))
     app.add_handler(CallbackQueryHandler(cb_my_vacancy_bump_start, pattern="^myvac_bump_start_(\d+)$"))
     app.add_handler(CallbackQueryHandler(cb_bump_pay_tg, pattern="^bump_pay_tg_(\d+)$"))
+    app.add_handler(CallbackQueryHandler(cb_cv_menu, pattern="^cv_menu$"))
+    app.add_handler(CallbackQueryHandler(cb_cv_download, pattern="^cv_download_pdf$"))
+    app.add_handler(CallbackQueryHandler(cb_cv_delete, pattern="^cv_delete$"))
+    app.add_handler(CallbackQueryHandler(cb_pref_menu, pattern="^pref_menu$"))
+    app.add_handler(CallbackQueryHandler(cb_pref_toggle, pattern="^pref_toggle$"))
+
     
     # ─── PUBLIC COMMANDS ───
     app.add_handler(CommandHandler("start", cmd_start))

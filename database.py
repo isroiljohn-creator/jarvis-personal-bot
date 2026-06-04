@@ -134,6 +134,47 @@ CREATE TABLE IF NOT EXISTS processed_vacancies (
     PRIMARY KEY(channel_id, msg_id)
 );
 
+CREATE TABLE IF NOT EXISTS nuvi_cvs (
+    user_id        BIGINT PRIMARY KEY REFERENCES nuvi_users(user_id) ON DELETE CASCADE,
+    name           TEXT NOT NULL,
+    contact        TEXT NOT NULL,
+    specialty      TEXT NOT NULL,
+    skills         TEXT NOT NULL,
+    experience     TEXT NOT NULL,
+    education      TEXT NOT NULL,
+    about          TEXT,
+    pdf_file_id    TEXT,
+    updated_at     TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS nuvi_applications (
+    id             SERIAL PRIMARY KEY,
+    vacancy_id     INT REFERENCES nuvi_vacancies(id) ON DELETE CASCADE,
+    candidate_id   BIGINT REFERENCES nuvi_users(user_id) ON DELETE CASCADE,
+    cover_letter   TEXT,
+    resume_file_id TEXT,
+    status         TEXT DEFAULT 'pending', -- pending / accepted / rejected
+    created_at     TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS nuvi_preferences (
+    user_id        BIGINT PRIMARY KEY REFERENCES nuvi_users(user_id) ON DELETE CASCADE,
+    keywords       TEXT NOT NULL,
+    location       TEXT,
+    is_active      BOOLEAN DEFAULT TRUE,
+    updated_at     TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS nuvi_reviews (
+    id             SERIAL PRIMARY KEY,
+    employer_id    BIGINT REFERENCES nuvi_users(user_id) ON DELETE CASCADE,
+    reviewer_id    BIGINT REFERENCES nuvi_users(user_id) ON DELETE CASCADE,
+    rating         INT CHECK (rating >= 1 AND rating <= 5),
+    comment        TEXT,
+    created_at     TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(employer_id, reviewer_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_memories_category ON memories(category);
 CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_transactions_created ON transactions(created_at DESC);
@@ -157,8 +198,9 @@ async def init_db():
                 pass
             try:
                 await conn.execute("ALTER TABLE nuvi_users ADD COLUMN IF NOT EXISTS referred_by BIGINT")
+                await conn.execute("ALTER TABLE nuvi_users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE")
             except Exception as e:
-                logger.error(f"Error altering nuvi_users for referred_by: {e}")
+                logger.error(f"Error altering nuvi_users: {e}")
             try:
                 await conn.execute("ALTER TABLE nuvi_vacancies ADD COLUMN IF NOT EXISTS tariff TEXT DEFAULT 'pro'")
                 await conn.execute("ALTER TABLE nuvi_vacancies ADD COLUMN IF NOT EXISTS skills TEXT")
@@ -850,6 +892,8 @@ async def db_get_nuvi_detailed_stats() -> dict:
                 tariff = m['tariff']
                 price = pro_price if tariff == 'pro' else (prem_price if tariff == 'premium' else vip_price)
                 monthly_turnover[m_str] = monthly_turnover.get(m_str, 0) + price
+            
+            monthly_turnover_sorted = dict(sorted(monthly_turnover.items()))
                 
             # 8. Referral & Promo Stats
             referral_signups = await conn.fetchval("SELECT COUNT(*) FROM nuvi_users WHERE referred_by IS NOT NULL") or 0
@@ -881,7 +925,7 @@ async def db_get_nuvi_detailed_stats() -> dict:
         logger.error(f"db_get_nuvi_detailed_stats xatosi: {e}")
         return {}
 
-async def db_align_vacancy_queue() -> bool:
+async def db_align_vacancy_queue() -> tuple[bool, list]:
     try:
         import pytz
         import datetime
@@ -1105,6 +1149,207 @@ async def db_get_posted_vacancies_count() -> int:
     except Exception as e:
         logger.error(f"db_get_posted_vacancies_count xatosi: {e}")
         return 0
+
+# ─── CVlar Tizimi (Resume Builder) ───
+async def db_save_cv(user_id: int, name: str, contact: str, specialty: str, skills: str, experience: str, education: str, about: str = None, pdf_file_id: str = None) -> bool:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO nuvi_cvs (user_id, name, contact, specialty, skills, experience, education, about, pdf_file_id, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+                ON CONFLICT (user_id) DO UPDATE 
+                SET name = $2, contact = $3, specialty = $4, skills = $5, experience = $6, education = $7, about = $8, pdf_file_id = $9, updated_at = NOW()
+            """, user_id, name, contact, specialty, skills, experience, education, about, pdf_file_id)
+        return True
+    except Exception as e:
+        logger.error(f"db_save_cv xatosi: {e}")
+        return False
+
+async def db_get_cv(user_id: int) -> Optional[dict]:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT * FROM nuvi_cvs WHERE user_id = $1", user_id)
+            return dict(row) if row else None
+    except Exception as e:
+        logger.error(f"db_get_cv xatosi: {e}")
+        return None
+
+# ─── Nomzodlarni Boshqarish (ATS) ───
+async def db_create_application(vacancy_id: int, candidate_id: int, cover_letter: str, resume_file_id: str = None) -> Optional[int]:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            val = await conn.fetchval("""
+                INSERT INTO nuvi_applications (vacancy_id, candidate_id, cover_letter, resume_file_id, status, created_at)
+                VALUES ($1, $2, $3, $4, 'pending', NOW())
+                RETURNING id
+            """, vacancy_id, candidate_id, cover_letter, resume_file_id)
+            return val
+    except Exception as e:
+        logger.error(f"db_create_application xatosi: {e}")
+        return None
+
+async def db_get_application(app_id: int) -> Optional[dict]:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow("""
+                SELECT a.*, v.title as vacancy_title, v.company as vacancy_company, v.user_id as employer_id, u.first_name as candidate_name, u.username as candidate_username
+                FROM nuvi_applications a
+                JOIN nuvi_vacancies v ON a.vacancy_id = v.id
+                JOIN nuvi_users u ON a.candidate_id = u.user_id
+                WHERE a.id = $1
+            """, app_id)
+            return dict(row) if row else None
+    except Exception as e:
+        logger.error(f"db_get_application xatosi: {e}")
+        return None
+
+async def db_update_application_status(app_id: int, status: str) -> bool:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute("UPDATE nuvi_applications SET status = $1 WHERE id = $2", status, app_id)
+        return True
+    except Exception as e:
+        logger.error(f"db_update_application_status xatosi: {e}")
+        return False
+
+# ─── Mos Vakansiyalar Obunasi (Job Alerts) ───
+async def db_save_preferences(user_id: int, keywords: str, location: str = None, is_active: bool = True) -> bool:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO nuvi_preferences (user_id, keywords, location, is_active, updated_at)
+                VALUES ($1, $2, $3, $4, NOW())
+                ON CONFLICT (user_id) DO UPDATE 
+                SET keywords = $2, location = $3, is_active = $4, updated_at = NOW()
+            """, user_id, keywords.lower(), location.lower() if location else None, is_active)
+        return True
+    except Exception as e:
+        logger.error(f"db_save_preferences xatosi: {e}")
+        return False
+
+async def db_get_preferences(user_id: int) -> Optional[dict]:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT * FROM nuvi_preferences WHERE user_id = $1", user_id)
+            return dict(row) if row else None
+    except Exception as e:
+        logger.error(f"db_get_preferences xatosi: {e}")
+        return None
+
+async def db_get_matching_candidates(vac_title: str, vac_desc: str, vac_skills: str, vac_loc: str) -> list[int]:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch("SELECT user_id, keywords, location FROM nuvi_preferences WHERE is_active = TRUE")
+            matched = []
+            
+            vac_title_safe = vac_title or ""
+            vac_desc_safe = vac_desc or ""
+            vac_text = f"{vac_title_safe} {vac_desc_safe} {vac_skills or ''}".lower()
+            vac_loc_lower = vac_loc.lower() if vac_loc else ""
+            
+            for r in rows:
+                user_id = r["user_id"]
+                loc = r["location"]
+                
+                if loc:
+                    if loc == "masofaviy" or loc == "remote":
+                        if "masofaviy" not in vac_loc_lower and "remote" not in vac_loc_lower:
+                            continue
+                    else:
+                        if loc not in vac_loc_lower:
+                            continue
+                        
+                kws = [k.strip() for k in r["keywords"].split(",") if k.strip()]
+                if not kws:
+                    continue
+                    
+                if any(kw in vac_text for kw in kws):
+                    matched.append(user_id)
+            return matched
+    except Exception as e:
+        logger.error(f"db_get_matching_candidates xatosi: {e}")
+        return []
+
+# ─── Reyting va Baholash (Trust Badge) ───
+async def db_save_review(employer_id: int, reviewer_id: int, rating: int, comment: str = None) -> bool:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO nuvi_reviews (employer_id, reviewer_id, rating, comment, created_at)
+                VALUES ($1, $2, $3, $4, NOW())
+                ON CONFLICT (employer_id, reviewer_id) DO UPDATE 
+                SET rating = $3, comment = $4, created_at = NOW()
+            """, employer_id, reviewer_id, rating, comment)
+        return True
+    except Exception as e:
+        logger.error(f"db_save_review xatosi: {e}")
+        return False
+
+async def db_get_employer_rating(employer_id: int) -> dict:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow("""
+                SELECT AVG(rating) as avg_rating, COUNT(*) as reviews_count 
+                FROM nuvi_reviews 
+                WHERE employer_id = $1
+            """, employer_id)
+            
+            avg_val = row["avg_rating"] if row and row["avg_rating"] is not None else 0.0
+            cnt_val = row["reviews_count"] if row else 0
+            
+            return {"avg_rating": float(avg_val), "reviews_count": cnt_val}
+    except Exception as e:
+        logger.error(f"db_get_employer_rating xatosi: {e}")
+        return {"avg_rating": 0.0, "reviews_count": 0}
+
+async def db_is_employer_verified(employer_id: int) -> bool:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            verified_flag = await conn.fetchval("SELECT is_verified FROM nuvi_users WHERE user_id = $1", employer_id)
+            if verified_flag:
+                return True
+                
+            row = await conn.fetchrow("""
+                SELECT AVG(rating) as avg_rating, COUNT(*) as reviews_count 
+                FROM nuvi_reviews 
+                WHERE employer_id = $1
+            """, employer_id)
+            
+            if row and row["avg_rating"] is not None:
+                if float(row["avg_rating"]) >= 4.5 and row["reviews_count"] >= 3:
+                    return True
+            return False
+    except Exception as e:
+        logger.error(f"db_is_employer_verified xatosi: {e}")
+        return False
+
+async def db_get_candidate_applications(candidate_id: int) -> list[dict]:
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT a.*, v.title as vacancy_title, v.company as vacancy_company, v.user_id as employer_id
+                FROM nuvi_applications a
+                JOIN nuvi_vacancies v ON a.vacancy_id = v.id
+                WHERE a.candidate_id = $1
+                ORDER BY a.id DESC
+            """, candidate_id)
+            return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"db_get_candidate_applications xatosi: {e}")
+        return []
+
 
 
 
