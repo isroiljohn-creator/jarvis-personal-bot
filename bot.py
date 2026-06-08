@@ -1511,6 +1511,14 @@ async def update_user_profile_in_obsidian(text_data: str) -> None:
 
 async def run_daily_digest() -> str:
     """Telegram chatlar tahlilini yig'adi, Gemini orqali tahlil qilib qaytaradi."""
+    global userbot
+    if not userbot:
+        try:
+            from api import BOT_CONTEXT
+            userbot = BOT_CONTEXT.get("userbot")
+        except Exception as e:
+            logger.warning(f"Could not resolve userbot from BOT_CONTEXT in run_daily_digest: {e}")
+
     if not userbot:
         return "❌ Telegram userbot ulanmagan."
     text_data = await userbot.get_daily_digest_messages(limit_dialogs=40)
@@ -1549,6 +1557,14 @@ async def daily_digest_job(context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.info("⏱ Daily Digest jarayoni boshlandi...")
     try:
         report = await run_daily_digest()
+        global userbot
+        if not userbot:
+            try:
+                from api import BOT_CONTEXT
+                userbot = BOT_CONTEXT.get("userbot")
+            except Exception as e:
+                logger.warning(f"Could not resolve userbot from BOT_CONTEXT in daily_digest_job: {e}")
+
         if userbot:
             if "===SPLIT===" in report:
                 parts = report.split("===SPLIT===")
