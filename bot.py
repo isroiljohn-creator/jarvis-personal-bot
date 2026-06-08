@@ -1524,6 +1524,7 @@ async def daily_digest_job(context: ContextTypes.DEFAULT_TYPE) -> None:
                         await userbot.send_message("@abdullayev_ii", part_str)
             else:
                 await userbot.send_message("@abdullayev_ii", report)
+            logger.info("✅ Daily Digest xabarlari muvaffaqiyatli yuborildi.")
     except Exception as e:
         logger.error(f"Digest yuborishda xato: {e}")
 
