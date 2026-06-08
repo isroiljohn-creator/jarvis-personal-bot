@@ -185,30 +185,73 @@ class UserBot:
 
     async def get_daily_digest_messages(self, limit_dialogs: int = 40) -> str:
         """Kungi xabarlarni tahlil uchun to'plash."""
+        # Ensure client is connected and active
+        try:
+            if not self.client.is_connected():
+                logger.info("Userbot is not connected. Connecting...")
+                await self.client.connect()
+            else:
+                # Test connection by fetching me
+                await asyncio.wait_for(self.client.get_me(), timeout=5.0)
+        except Exception as e:
+            logger.warning(f"Userbot connection check failed: {e}. Reconnecting...")
+            try:
+                await self.client.disconnect()
+            except:
+                pass
+            await self.client.connect()
+
         output = []
-        async for dialog in self.client.iter_dialogs(limit=limit_dialogs):
-            is_news_channel = dialog.is_channel and not dialog.is_group
-            if is_news_channel:
-                continue
-                
-            unread = dialog.unread_count
-            if unread > 0:
-                output.append(f"\n--- Chat: {dialog.name} ({unread} ta o'qilmagan xabar) ---")
-                count = 0
-                async for msg in self.client.iter_messages(dialog.id, limit=min(unread, 20)):
-                    sender = "Noma'lum"
-                    if msg.sender:
-                        if hasattr(msg.sender, "first_name"):
-                            sender = msg.sender.first_name or "Noma'lum"
-                        elif hasattr(msg.sender, "title"):
-                            sender = msg.sender.title or "Noma'lum"
-                    text = msg.text or "[Media/Stiker]"
-                    date_str = msg.date.strftime("%Y-%m-%d %H:%M") if msg.date else "Noma'lum vaqt"
-                    output.append(f"[{date_str}] {sender}: {text}")
-                    count += 1
-                if unread > 20:
-                    output.append(f"... (yana {unread - 20} ta xabar o'qilmadi)")
-                    
+        try:
+            async def fetch():
+                async for dialog in self.client.iter_dialogs(limit=limit_dialogs):
+                    is_news_channel = dialog.is_channel and not dialog.is_group
+                    if is_news_channel:
+                        continue
+                        
+                    unread = dialog.unread_count
+                    if unread > 0:
+                        output.append(f"\n--- Chat: {dialog.name} ({unread} ta o'qilmagan xabar) ---")
+                        async for msg in self.client.iter_messages(dialog.id, limit=min(unread, 20)):
+                            sender = "Noma'lum"
+                            if msg.sender:
+                                if hasattr(msg.sender, "first_name"):
+                                    sender = msg.sender.first_name or "Noma'lum"
+                                elif hasattr(msg.sender, "title"):
+                                    sender = msg.sender.title or "Noma'lum"
+                            text = msg.text or "[Media/Stiker]"
+                            date_str = msg.date.strftime("%Y-%m-%d %H:%M") if msg.date else "Noma'lum vaqt"
+                            output.append(f"[{date_str}] {sender}: {text}")
+            
+            await asyncio.wait_for(fetch(), timeout=25.0)
+        except asyncio.TimeoutError:
+            logger.error("Timeout fetching daily digest messages from Telegram. Reconnecting client...")
+            try:
+                await self.client.disconnect()
+            except:
+                pass
+            await self.client.connect()
+            
+            # Try one more time after reconnecting
+            output = []
+            async for dialog in self.client.iter_dialogs(limit=limit_dialogs):
+                is_news_channel = dialog.is_channel and not dialog.is_group
+                if is_news_channel:
+                    continue
+                unread = dialog.unread_count
+                if unread > 0:
+                    output.append(f"\n--- Chat: {dialog.name} ({unread} ta o'qilmagan xabar) ---")
+                    async for msg in self.client.iter_messages(dialog.id, limit=min(unread, 20)):
+                        sender = "Noma'lum"
+                        if msg.sender:
+                            if hasattr(msg.sender, "first_name"):
+                                sender = msg.sender.first_name or "Noma'lum"
+                            elif hasattr(msg.sender, "title"):
+                                sender = msg.sender.title or "Noma'lum"
+                        text = msg.text or "[Media/Stiker]"
+                        date_str = msg.date.strftime("%Y-%m-%d %H:%M") if msg.date else "Noma'lum vaqt"
+                        output.append(f"[{date_str}] {sender}: {text}")
+
         return "\n".join(output) if output else ""
 
 
