@@ -859,7 +859,7 @@ class CloudHub:
             if not video_id: return "❌ Youtube Linkdan ID topilmadi."
             
             def get_text():
-                transcriptList = YouTubeTranscriptApi.get_transcript(video_id, languages=['uz', 'ru', 'en'])
+                transcriptList = YouTubeTranscriptApi().fetch(video_id, languages=['uz', 'ru', 'en'])
                 return " ".join([t['text'] for t in transcriptList])
                 
             text = await asyncio.to_thread(get_text)
