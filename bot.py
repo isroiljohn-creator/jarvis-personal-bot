@@ -369,6 +369,9 @@ async def execute_tool(name: str, args: dict) -> str:
             except:
                 return "Ma'lumot topilmadi yoki hisoblashda xatolik."
             
+        elif name == "get_daily_telegram_digest":
+            return await run_daily_digest()
+            
         elif name == "scrape_website":
             return await cloud.scrape_website(args.get("url", ""))
         elif name == "youtube_transcript":
@@ -1464,15 +1467,13 @@ async def post_init(application: Application) -> None:
         logger.error(f"FastAPI ishga tushmadi: {e}")
 
 
-async def daily_digest_job(context: ContextTypes.DEFAULT_TYPE) -> None:
-    logger.info("⏱ Daily Digest jarayoni boshlandi...")
+async def run_daily_digest() -> str:
+    """Telegram chatlar tahlilini yig'adi, Gemini orqali tahlil qilib qaytaradi."""
     if not userbot:
-        return
+        return "❌ Telegram userbot ulanmagan."
     text_data = await userbot.get_daily_digest_messages(limit_dialogs=40)
     if not text_data:
-        try: await userbot.send_message("@abdullayev_ii", "📭 Yordamchi Tahlili: Bugun o'qilmagan xabarlar yo'q.")
-        except: pass
-        return
+        return "📭 Yordamchi Tahlili: Bugun o'qilmagan xabarlar yo'q."
 
     prompt = "Quyida foydalanuvchining bugungi barcha muhim chatlaridan yig'ilgan xabarlar ro'yxati berilgan. Har bir xabar oldida uning sanasi [YIL-OY-KUN SOAT:MINUT] formatida ko'rsatilgan. Bularni o'qib eng muhimlarini (priority bo'yicha) saralab, o'zbekcha chiroyli hisobot qilib (Digest) ber:\n\n" + text_data
     
@@ -1496,11 +1497,16 @@ async def daily_digest_job(context: ContextTypes.DEFAULT_TYPE) -> None:
         "- Har bir bo'limni o'zaro chiziqlar (---) bilan ajrat va juda professional, chiroyli dizaynda taqdim et."
     )
 
+    response = await ai.process_message("Menga bugungi chatlar tahlilini ber!\n\n" + prompt, sys_prompt, use_tools=False)
+    return f"📊 **Kunlik Kechki Telegram Tahlili**\n\n{response}"
+
+
+async def daily_digest_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.info("⏱ Daily Digest jarayoni boshlandi...")
     try:
-        response = await ai.process_message("Menga bugungi chatlar tahlilini ber!\n\n" + prompt, sys_prompt, use_tools=False)
-        report = f"📊 **Kunlik Kechki Telegram Tahlili (20:00)**\n\n{response}"
-        # @abdullayev_ii ga yuborish
-        await userbot.send_message("@abdullayev_ii", report)
+        report = await run_daily_digest()
+        if userbot:
+            await userbot.send_message("@abdullayev_ii", report)
     except Exception as e:
         logger.error(f"Digest yuborishda xato: {e}")
 

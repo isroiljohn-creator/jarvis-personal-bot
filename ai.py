@@ -687,6 +687,14 @@ Har doim bu toolni telefon bilan bog'liq so'rovlarda chaqir!""",
         "description": "Railway loyihalaridagi muhit o'zgaruvchilarini tekshirish. 'tokenlar joyidami', 'env vars' so'rovlarida.",
         "parameters": {"type": "OBJECT", "properties": {}},
     },
+    {
+        "name": "get_daily_telegram_digest",
+        "description": "Foydalanuvchining bugungi Telegram suhbatlaridan va muhim xabarlaridan kunlik tahliliy digest (hisobot) yig'ib tayyorlaydi. 'kunlik tahlilni ber', 'bugun nima gaplar', 'digest yoz' deganda ishlatiladi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {},
+        },
+    },
 ]
 
 
