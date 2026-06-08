@@ -370,7 +370,8 @@ async def execute_tool(name: str, args: dict) -> str:
                 return "Ma'lumot topilmadi yoki hisoblashda xatolik."
             
         elif name == "get_daily_telegram_digest":
-            return await run_daily_digest()
+            res = await run_daily_digest()
+            return res.replace("===SPLIT===", "\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
             
         elif name == "scrape_website":
             return await cloud.scrape_website(args.get("url", ""))
@@ -1478,27 +1479,36 @@ async def run_daily_digest() -> str:
     prompt = "Quyida foydalanuvchining bugungi barcha muhim chatlaridan yig'ilgan xabarlar ro'yxati berilgan. Har bir xabar oldida uning sanasi [YIL-OY-KUN SOAT:MINUT] formatida ko'rsatilgan. Bularni o'qib eng muhimlarini (priority bo'yicha) saralab, o'zbekcha chiroyli hisobot qilib (Digest) ber:\n\n" + text_data
     
     sys_prompt = (
-        "Sen AZIZA - aqlli shaxsiy yordamchisan. "
-        "Sening vazifang - foydalanuvchining bugungi Telegram chatlaridan yig'ilgan xabarlarni tahlil qilish va eng muhim ma'lumotlarni saralab, chiroyli, tushunarli va professional kunlik hisobot (Digest) tayyorlash.\n\n"
-        "HISOBOT STRUKTURASI:\n"
-        "1. 📊 **KUNLIK MUHIM MAVZULAR VA TRENDLAR**\n"
-        "   - Bugun chatlarda muhokama qilingan eng asosiy yangiliklar, trendlar va masalalar (qisqa, mazmunli bullet-point ko'rinishida).\n"
-        "2. 💬 **MUHIM CHATLAR VA TOPSHIRIQLAR**\n"
-        "   - Kimdan qanday muhim xabar kelganligi, topshiriqlar va e'tibor qaratish kerak bo'lgan vazifalar.\n"
-        "3. 📋 **PIPELINE VA JAMOA STATUSI (AGENCY)**\n"
-        "   - Agar guruhdagi AI xodimlarning (Trend Hunter, Ssenariynavis, Dizayner, Kopirayter, Loyiha Menejeri, Notion Mutaxassisi, Dasturchi) faolligi haqida ma'lumot bo'lsa, jamoaning holati va pipeline qaysi bosqichda ekanligi haqida qisqa hisobot.\n"
-        "4. 🧠 **SHAXSIY INTIZOM VA TAVSIYALAR**\n"
-        "   - Shaxsiy intizom bo'yicha qat'iy tavsiyalar va keyingi qadamlar.\n\n"
+        "Sen AZIZA - foydalanuvchining shaxsiy aqlli yordamchisisan. "
+        "Sening vazifang - foydalanuvchining bugungi Telegram chatlaridan yig'ilgan xabarlarni tahlil qilish, eng muhim ma'lumotlarni lo'nda saralab, "
+        "o'qishga juda qulay, qisqa va chiroyli hisobot tayyorlash.\n\n"
+        "Siz ikkita alohida qismdan iborat matn qaytarishingiz kerak. Ular orasida mutlaqo '===SPLIT===' kalit so'zi bo'lishi shart.\n\n"
+        "STRUKTURA:\n"
+        "1-QISM: BUGUNGI TEZKOR DIGEST (Mavzular va Trendlar)\n"
+        "Bu bo'limda bugun chatlarda muhokama qilingan eng muhim 2-3 ta asosiy voqea/trendning qisqa xulosasi yoziladi.\n"
+        "Format:\n"
+        "📊 **BUGUNGI KUNNING TEZKOR DIGESTI**\n\n"
+        "Assalomu alaykum! Bugungi chatlaringiz bo'yicha tezkor digest:\n\n"
+        "• **[Mavzu/Trend nomi (masalan, Mijoz Murojaati (Refund))]:** [1-2 gapdan iborat juda lo'nda, muhim va aniq ma'lumot. Hech qanday keraksiz gap va suv bo'lmasin]\n"
+        "• **[Mavzu/Trend nomi]:** [1-2 gapdan iborat juda lo'nda, muhim va aniq ma'lumot]\n\n"
+        "===SPLIT===\n\n"
+        "2-QISM: TELEGRAM CHATLAR TAHLILI VA TOPSHIRIQLAR\n"
+        "Bugun e'tibor talab qiladigan chatlar va vazifalar:\n\n"
+        "💬 **TELEGRAM CHATLAR TAHLILI VA TOPSHIRIQLAR**\n\n"
+        "• 🔴 **Eng yuqori ustuvorlik - [Ism/Username]:** [Nima so'ragan yoki nima muammo. Juda qisqa va lo'nda, 1-2 gapda]\n"
+        "• 🟡 **Yuqori ustuvorlik - [Ism/Username]:** [Topshiriq/so'rov tafsiloti. Juda qisqa va lo'nda, 1-2 gapda]\n"
+        "• 🟢 **O'rta ustuvorlik - [Ism/Username]:** [Xabar yoki topshiriq mazmuni. Juda qisqa va lo'nda, 1-2 gapda]\n\n"
+        "💡 **Tavsiya va Jamoa statusi:** [Jamoa yoki pipeline holati haqida gap bo'lsa qisqa 1-2 gaplik ma'lumot, aks holda shaxsiy intizom yoki kun bo'yicha foydali 1-2 gaplik tavsiya]\n\n"
         "MUHIM QOIDALAR:\n"
         "- Faqat o'zbek tilida yoz.\n"
+        "- Kerakli joylarida (ismlar, mavzu sarlavhalari, ustuvorlik belgilari) **qalin format (bold)** dan faol foydalan. Bu matnni skan qilishni osonlashtiradi.\n"
+        "- Har bir punkt faqat 1 yoki 2 ta o'ta qisqa va mazmunli gapdan iborat bo'lsin. Umuman cho'zma!\n"
         "- Senga hech qanday tool/funksiyalarni chaqirishga ruxsat berilmagan. Ularni umuman ishlatma.\n"
-        "- Matndagi havolalarni (YouTube, veb-sayt va boshqalar) shunchaki matn ko'rinishida tahlil qil, ularni ochish uchun tool chaqirma.\n"
-        "- Agar berilgan xabarlar ichida texnik xatoliklar yoki yuklash xatoliklari haqida xabarlar bo'lsa, ularni foydalanuvchiga yuboriladigan hisobotga qo'shma, ularni shunchaki e'tiborsiz qoldir.\n"
-        "- Har bir bo'limni o'zaro chiziqlar (---) bilan ajrat va juda professional, chiroyli dizaynda taqdim et."
+        "- Texnik xatoliklar yoki botlardan kelgan foydasiz xabarlarni tahlilga qo'shma."
     )
 
     response = await ai.process_message("Menga bugungi chatlar tahlilini ber!\n\n" + prompt, sys_prompt, use_tools=False)
-    return f"📊 **Kunlik Kechki Telegram Tahlili**\n\n{response}"
+    return response
 
 
 async def daily_digest_job(context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1506,7 +1516,14 @@ async def daily_digest_job(context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         report = await run_daily_digest()
         if userbot:
-            await userbot.send_message("@abdullayev_ii", report)
+            if "===SPLIT===" in report:
+                parts = report.split("===SPLIT===")
+                for part in parts:
+                    part_str = part.strip()
+                    if part_str:
+                        await userbot.send_message("@abdullayev_ii", part_str)
+            else:
+                await userbot.send_message("@abdullayev_ii", report)
     except Exception as e:
         logger.error(f"Digest yuborishda xato: {e}")
 
