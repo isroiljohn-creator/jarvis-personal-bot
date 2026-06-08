@@ -1468,6 +1468,47 @@ async def post_init(application: Application) -> None:
         logger.error(f"FastAPI ishga tushmadi: {e}")
 
 
+async def update_user_profile_in_obsidian(text_data: str) -> None:
+    """Foydalanuvchining shaxsiyat profili, yutuqlari va Tone of Voice'ini Obsidian'da yangilaydi."""
+    if not text_data or not ai:
+        return
+
+    filepath = "Profile/Shaxsiyat.md"
+    logger.info("🧠 Foydalanuvchi shaxsiyat profilini tahlil qilish boshlandi...")
+    try:
+        # Mavjud profilni o'qiymiz
+        existing_profile = await asyncio.to_thread(obsidian.read_note, filepath)
+        if "Qayd topilmadi" in existing_profile or existing_profile.startswith("❌"):
+            existing_profile = ""
+
+        sys_prompt = (
+            "Sen AZIZA - foydalanuvchining shaxsiy aqlli yordamchisisan. "
+            "Sening vazifang - foydalanuvchining bugungi Telegram chat xabarlarini tahlil qilib, uning shaxsiy xarakteri, bugungi yutuqlari va muloqot uslubini (Tone of Voice) aniqlash va mavjud shaxsiyat profili bilan birlashtirib, yangilangan profilni qaytarish.\n\n"
+            "MAVJUD PROFIL MATNI:\n"
+            f"{existing_profile}\n\n"
+            "QOIDALAR:\n"
+            "1. Matnni faqat o'zbek tilida yoz.\n"
+            "2. Quyidagi 3 ta asosiy bo'limni shakllantir yoki bor bo'lsa yangila (ularning tartibini saqla):\n"
+            "   - 🧠 **Mening xarakterim (Character)**: Foydalanuvchining shaxsiy sifatlari, qaror qabul qilishi, ish uslubi va odamlar bilan muomala uslubi haqida aniq kuzatuvlar.\n"
+            "   - 🏆 **Mening yutuqlarim (Achievements)**: Bugun va umuman erishilgan muvaffaqiyatlar, yutuqlar, olgan yangi buyurtmalari, bajargan ishlari yoki kurs ishtirokchilarining yutuqlari (agar u kurs rahbari bo'lsa).\n"
+            "   - 🗣️ **Mening Tone of Voice (Muloqot uslubi)**: Uning muloqot ohangi va yozish uslubi (masalan, salom-alik qilishi, hurmat bilan yozishi, ruscha-o'zbekcha so'zlarni qanday ishlatishi, professional va do'stona ekani, lo'nda javob berishi va h.k.).\n"
+            "3. Yangi ma'lumotlarni mavjud profil bilan aqlli ravishda birlashtir. Takrorlanishlarga yo'l qo'yma, yangi fakt va kuzatuvlarni qo'shib boyit.\n"
+            "4. Har doim toza va chiroyli Markdown formatida qaytar. Muhim joylarni **bold** formatda yoz. Hech qanday boshqa kirish yoki yakuniy gaplarni yozma."
+        )
+
+        response = await ai.process_message(
+            "Foydalanuvchining bugungi Telegram xabarlari:\n\n" + text_data,
+            sys_prompt,
+            use_tools=False
+        )
+        
+        # Obsidian'ga saqlaymiz
+        save_res = await asyncio.to_thread(obsidian.add_note, filepath, response, False)
+        logger.info(f"✅ Shaxsiyat profili Obsidian'da yangilandi: {save_res}")
+    except Exception as e:
+        logger.error(f"Shaxsiyat profilini yangilashda xato: {e}")
+
+
 async def run_daily_digest() -> str:
     """Telegram chatlar tahlilini yig'adi, Gemini orqali tahlil qilib qaytaradi."""
     if not userbot:
@@ -1476,25 +1517,18 @@ async def run_daily_digest() -> str:
     if not text_data:
         return "📭 Yordamchi Tahlili: Bugun o'qilmagan xabarlar yo'q."
 
-    prompt = "Quyida foydalanuvchining bugungi barcha muhim chatlaridan yig'ilgan xabarlar ro'yxati berilgan. Har bir xabar oldida uning sanasi [YIL-OY-KUN SOAT:MINUT] formatida ko'rsatilgan. Bularni o'qib eng muhimlarini (priority bo'yicha) saralab, o'zbekcha chiroyli hisobot qilib (Digest) ber:\n\n" + text_data
+    # Orqa fonda foydalanuvchi shaxsiyati, yutuqlari va Tone of Voice'ini Obsidian'ga yozib boramiz
+    asyncio.create_task(update_user_profile_in_obsidian(text_data))
+
+    prompt = "Quyida foydalanuvchining bugungi barcha muhim chatlaridan yig'ilgan xabarlar ro'yxati berilgan. Har bir xabar oldida uning sanasi [YIL-OY-KUN SOAT:MINUT] formatida ko'rsatilgan. Bularni o'qib eng muhimlarini (priority bo'yicha) saralab, o'zbekcha chiroyli hisobot qilib ber:\n\n" + text_data
     
     sys_prompt = (
         "Sen AZIZA - foydalanuvchining shaxsiy aqlli yordamchisisan. "
         "Sening vazifang - foydalanuvchining bugungi Telegram chatlaridan yig'ilgan xabarlarni tahlil qilish, eng muhim ma'lumotlarni lo'nda saralab, "
-        "o'qishga juda qulay, qisqa va chiroyli hisobot tayyorlash.\n\n"
-        "Siz ikkita alohida qismdan iborat matn qaytarishingiz kerak. Ular orasida mutlaqo '===SPLIT===' kalit so'zi bo'lishi shart.\n\n"
+        "o'qishga juda qulay, qisqa va chiroyli chatlar tahlili va topshiriqlar hisobotini tayyorlash.\n\n"
         "STRUKTURA:\n"
-        "1-QISM: BUGUNGI TEZKOR DIGEST (Mavzular va Trendlar)\n"
-        "Bu bo'limda bugun chatlarda muhokama qilingan eng muhim 2-3 ta asosiy voqea/trendning qisqa xulosasi yoziladi.\n"
-        "Format:\n"
-        "📊 **BUGUNGI KUNNING TEZKOR DIGESTI**\n\n"
-        "Assalomu alaykum! Bugungi chatlaringiz bo'yicha tezkor digest:\n\n"
-        "• **[Mavzu/Trend nomi (masalan, Mijoz Murojaati (Refund))]:** [1-2 gapdan iborat juda lo'nda, muhim va aniq ma'lumot. Hech qanday keraksiz gap va suv bo'lmasin]\n"
-        "• **[Mavzu/Trend nomi]:** [1-2 gapdan iborat juda lo'nda, muhim va aniq ma'lumot]\n\n"
-        "===SPLIT===\n\n"
-        "2-QISM: TELEGRAM CHATLAR TAHLILI VA TOPSHIRIQLAR\n"
-        "Bugun e'tibor talab qiladigan chatlar va vazifalar:\n\n"
         "💬 **TELEGRAM CHATLAR TAHLILI VA TOPSHIRIQLAR**\n\n"
+        "Bugun e'tibor talab qiladigan chatlar va vazifalar:\n\n"
         "• 🔴 **Eng yuqori ustuvorlik - [Ism/Username]:** [Nima so'ragan yoki nima muammo. Juda qisqa va lo'nda, 1-2 gapda]\n"
         "• 🟡 **Yuqori ustuvorlik - [Ism/Username]:** [Topshiriq/so'rov tafsiloti. Juda qisqa va lo'nda, 1-2 gapda]\n"
         "• 🟢 **O'rta ustuvorlik - [Ism/Username]:** [Xabar yoki topshiriq mazmuni. Juda qisqa va lo'nda, 1-2 gapda]\n\n"
