@@ -457,6 +457,12 @@ async def db_save_plan(plan_date: str, tasks: list) -> bool:
     Kunlik rejani saqlaydi yoki yangilaydi.
     tasks = [{"text": "...", "done": False, "priority": "high"}, ...]
     """
+    if isinstance(plan_date, str):
+        from datetime import datetime
+        try:
+            plan_date = datetime.strptime(plan_date, "%Y-%m-%d").date()
+        except ValueError:
+            pass
     try:
         pool = await get_pool()
         async with pool.acquire() as conn:
@@ -475,6 +481,12 @@ async def db_save_plan(plan_date: str, tasks: list) -> bool:
 
 async def db_get_plan(plan_date: str) -> list:
     """Berilgan sana uchun rejani qaytaradi."""
+    if isinstance(plan_date, str):
+        from datetime import datetime
+        try:
+            plan_date = datetime.strptime(plan_date, "%Y-%m-%d").date()
+        except ValueError:
+            pass
     try:
         pool = await get_pool()
         async with pool.acquire() as conn:
