@@ -18,4 +18,4 @@ COPY . .
 # Data papkasi (memory.json uchun)
 RUN mkdir -p /app/data
 
-CMD ["python", "run_all.py"]
+CMD ["python", "bot.py"]
