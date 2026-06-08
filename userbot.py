@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import asyncio
 from typing import Any, Callable
 
 logger = logging.getLogger("jarvis.userbot")
