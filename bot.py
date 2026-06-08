@@ -64,7 +64,7 @@ BRAINSTORM_SESSIONS = {}
 GROUP_HISTORY: dict[int, list[dict]] = {}  # {chat_id: [{role, content}]}
 GROUP_HISTORY_LIMIT = 40  # har guruh uchun max xabarlar soni
 
-DICTATOR_PROMPT = """You are J.A.R.V.I.S, Isroiljon's Personal Productivity Partner and Discipline Commander.
+DICTATOR_PROMPT = """You are AZIZA, Isroiljon's Personal Productivity Partner and Discipline Commander.
 Your mission is to ensure Isroiljon achieves his goals with maximum discipline and focus.
 
 CORE PERSONALITY:
@@ -78,7 +78,7 @@ DISCIPLINE PROTOCOL:
 - If he avoids a main task, bring him back.
 - If he asks for creative research, support it fully as part of his "Deep Work".
 
-I am Isroiljon. Your name is J.A.R.V.I.S. Address me strictly as "Isroiljon". Your language is Uzbek.
+I am Isroiljon. Your name is AZIZA. Address me strictly as "Isroiljon". Your language is Uzbek.
 """
 
 SYSTEM_PROMPT = """Sening isming Aziza. (Chief AI Officer, Tizimli Arxitektura va Biznes Strategiyasi Bo'yicha Bosh Maslahatchi).
@@ -318,7 +318,7 @@ async def execute_tool(name: str, args: dict) -> str:
                 push_phone_command("reminder_add", _json.dumps({
                     "title": message,
                     "due_date": dt.isoformat(),
-                    "list_name": "J.A.R.V.I.S",
+                    "list_name": "AZIZA",
                     "priority": 5
                 }))
 
@@ -972,7 +972,7 @@ async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYP
         clean_text = "Salom"
 
     group_system_prompt = (
-        f"Sen J.A.R.V.I.S. — Isroiljon Abdullayevning shaxsiy AI yordamchisisan.\n"
+        f"Sen AZIZA — Isroiljon Abdullayevning shaxsiy AI yordamchisisan.\n"
         f"Hozir '{chat_title}' guruhidasiz. Guruhda boshqa a'zolar ham bor.\n"
         f"Quyida guruhda bo'lgan so'nggi suhbat tarixi (kontekst uchun):\n"
         f"{history_text}\n\n"
@@ -1472,7 +1472,7 @@ async def daily_digest_job(context: ContextTypes.DEFAULT_TYPE) -> None:
     prompt = "Quyida foydalanuvchining bugungi barcha muhim chatlaridan yig'ilgan xabarlar ro'yxati berilgan. Har bir xabar oldida uning sanasi [YIL-OY-KUN SOAT:MINUT] formatida ko'rsatilgan. Bularni o'qib eng muhimlarini (priority bo'yicha) saralab, o'zbekcha chiroyli hisobot qilib (Digest) ber:\n\n" + text_data
     
     sys_prompt = (
-        "Sen J.A.R.V.I.S. - aqlli shaxsiy yordamchisan. "
+        "Sen AZIZA - aqlli shaxsiy yordamchisan. "
         "Sening vazifang - foydalanuvchining bugungi Telegram chatlaridan yig'ilgan xabarlarni tahlil qilish va eng muhim ma'lumotlarni saralab, chiroyli, tushunarli va professional kunlik hisobot (Digest) tayyorlash.\n\n"
         "HISOBOT STRUKTURASI:\n"
         "1. 📊 **KUNLIK MUHIM MAVZULAR VA TRENDLAR**\n"
@@ -1572,7 +1572,7 @@ async def morning_briefing_job(context: ContextTypes.DEFAULT_TYPE) -> None:
         f"GOOGLE CALENDAR BUGUNGI EVENTLARI:\n{cal_events}\n\n"
         f"GMAIL O'QILMAGAN XABARLAR:\n{gmail_unread}\n\n"
         f"OB-HAVO MA'LUMOTLARI:\n{weather}\n\n"
-        "Sen unga ertalabki brifingni o'zbek tilida qat'iy va intizomli yordamchi (J.A.R.V.I.S) tonida yozib ber. "
+        "Sen unga ertalabki brifingni o'zbek tilida qat'iy va intizomli yordamchi (AZIZA) tonida yozib ber. "
         "Matnda quyidagi bo'limlar bo'lsin:\n"
         "1. 🌤 Ob-havo va kun boshlanishi\n"
         "2. 📅 Taqvim uchrashuvlari (Calendar)\n"
@@ -2138,7 +2138,7 @@ async def weekly_finance_report_job(context: ContextTypes.DEFAULT_TYPE) -> None:
             f"Haftalik jami xarajat, jami daromad va sof foyda hisobini chiqaring. "
             f"Qaysi yo'nalishga eng ko'p mablag' sarflanganini aniqlang. "
             f"Kelgusi hafta uchun 3 ta amaliy va tejamkor moliyaviy maslahat bering. "
-            f"O'zbek tilida, professional va intizomli ohangda (J.A.R.V.I.S. moliya tahlili) chiroyli hisobot qiling. Markdown formatida bo'lsin."
+            f"O'zbek tilida, professional va intizomli ohangda (AZIZA moliya tahlili) chiroyli hisobot qiling. Markdown formatida bo'lsin."
         )
         
         response = await ai.process_message(
@@ -2164,7 +2164,7 @@ async def weekly_finance_report_job(context: ContextTypes.DEFAULT_TYPE) -> None:
         note_content = (
             f"# Haftalik Moliyaviy Tahlil ({today_str})\n\n"
             f"- **Davr:** {(now - datetime.timedelta(days=7)).strftime('%Y-%m-%d')} dan {today_str} gacha\n"
-            f"- **Tahlilchi:** J.A.R.V.I.S. AI\n\n"
+            f"- **Tahlilchi:** AZIZA AI\n\n"
             f"{response}"
         )
         await asyncio.to_thread(obsidian.add_note, filepath, note_content, False)
@@ -2678,7 +2678,7 @@ def main() -> None:
                 allowed_updates=["message", "edited_message", "channel_post", "edited_channel_post", "inline_query", "chosen_inline_result", "callback_query", "shipping_query", "pre_checkout_query", "poll", "poll_answer", "my_chat_member", "chat_member", "chat_join_request"],
                 drop_pending_updates=True
             )
-            logger.info("✅ J.A.R.V.I.S tayyor! Webhook rejimida ishga tushdi.")
+            logger.info("✅ AZIZA tayyor! Webhook rejimida ishga tushdi.")
             
             # Keep running
             while True:
@@ -2690,7 +2690,7 @@ def main() -> None:
             pass
     else:
         # Local run - Polling
-        logger.info("✅ J.A.R.V.I.S tayyor! Polling boshlandi.")
+        logger.info("✅ AZIZA tayyor! Polling boshlandi.")
         app.run_polling(
             drop_pending_updates=True,
             allowed_updates=Update.ALL_TYPES,

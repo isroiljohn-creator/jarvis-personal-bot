@@ -27,7 +27,7 @@ def _gh_headers() -> dict:
     return {
         "Authorization": f"token {GITHUB_TOKEN}",
         "Accept": "application/vnd.github.v3+json",
-        "User-Agent": "Jarvis-Bot/1.0",
+        "User-Agent": "Aziza-Bot/1.0",
     }
 
 

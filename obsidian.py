@@ -151,7 +151,7 @@ class ObsidianVault:
             
             self._run_git(["add", clean_path])
             try:
-                commit_msg = f"Jarvis: Added file {clean_path}"
+                commit_msg = f"Aziza: Added file {clean_path}"
                 self._run_git(["commit", "-m", commit_msg])
                 self._run_git(["push"])
                 return f"✅ Fayl muvaffaqiyatli saqlandi: `{clean_path}`"

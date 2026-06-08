@@ -31,7 +31,7 @@ def _load_data() -> dict:
         default_data = {
             "urls": {
                 "https://jarvis-personal-bot-production.up.railway.app/health": {
-                    "name": "Jarvis Bot Health",
+                    "name": "Aziza Bot Health",
                     "last_status": None,
                     "added": "2026-06-09T03:00:00"
                 }

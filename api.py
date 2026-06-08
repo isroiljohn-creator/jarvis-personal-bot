@@ -208,7 +208,7 @@ async def root():
     html = """<!DOCTYPE html>
 <html lang="uz">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>J.A.R.V.I.S API</title>
+<title>AZIZA API</title>
 <style>
   body{margin:0;background:#000;color:#00d4ff;font-family:monospace;display:flex;
        align-items:center;justify-content:center;min-height:100vh;flex-direction:column;}
@@ -223,7 +223,7 @@ async def root():
   .status{margin-top:24px;color:#22c55e;font-size:13px;}
 </style></head>
 <body>
-  <h1>J.A.R.V.I.S</h1>
+  <h1>AZIZA</h1>
   <p>Personal AI Gateway · Online</p>
   <div class="endpoints">
     <div class="ep"><span><span class="method">GET</span><span class="path">/siri?message=...</span></span><span class="desc">iOS PWA · Telegram</span></div>

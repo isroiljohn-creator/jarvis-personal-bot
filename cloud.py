@@ -959,7 +959,7 @@ class CloudHub:
                         
                         page_text = f"Sahifa {self._pageNumber} / {num_pages}"
                         self.drawRightString(letter[0] - 54, 40, page_text)
-                        self.drawString(54, 40, "© J.A.R.V.I.S. Marketing Lead Magnet")
+                        self.drawString(54, 40, "© AZIZA. Marketing Lead Magnet")
                         self.line(54, 52, letter[0] - 54, 52)
                         self.restoreState()
                     super().showPage()
@@ -1025,12 +1025,12 @@ class CloudHub:
             story.append(Spacer(1, 150))
             story.append(Paragraph(title, title_style))
             story.append(Spacer(1, 10))
-            story.append(Paragraph("J.A.R.V.I.S tomonidan avtomatik yaratilgan marketing qo'llanmasi (Lead Magnet)", subtitle_style))
+            story.append(Paragraph("AZIZA tomonidan avtomatik yaratilgan marketing qo'llanmasi (Lead Magnet)", subtitle_style))
             story.append(Spacer(1, 150))
             
             today_str = datetime.datetime.now().strftime("%Y-%m-%d")
             meta_style = ParagraphStyle('CoverMeta', parent=body_style, alignment=1)
-            story.append(Paragraph(f"<b>Tayyorlovchi:</b> Isroiljon Abdullayev<br/><b>Tahlilchi:</b> J.A.R.V.I.S. AI<br/><b>Sana:</b> {today_str}", meta_style))
+            story.append(Paragraph(f"<b>Tayyorlovchi:</b> Isroiljon Abdullayev<br/><b>Tahlilchi:</b> AZIZA AI<br/><b>Sana:</b> {today_str}", meta_style))
             story.append(PageBreak())
             
             for section in sections:
