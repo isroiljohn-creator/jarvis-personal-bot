@@ -111,9 +111,36 @@ class CloudHub:
             else:
                 logger.warning("⚠️ PROXY_URL topilmadi. Instagram ulanishi bloklanishi mumkin.")
             
-            # Login (to_thread orqali bloklanishdan qochamiz)
-            logger.info(f"🔐 Instagramga kirish: {INSTA_USERNAME}...")
-            await asyncio.to_thread(cl.login, INSTA_USERNAME, INSTA_PASSWORD)
+            # Load session settings from database
+            session_loaded = False
+            try:
+                import database
+                session_json = await database.db_get_nuvi_setting("insta_session")
+                if session_json:
+                    logger.info("💾 Instagram sessiya sozlamalari yuklanmoqda...")
+                    settings = json.loads(session_json)
+                    cl.set_settings(settings)
+                    
+                    # Test if session is valid by running a lightweight command
+                    await asyncio.to_thread(cl.get_timeline_feed)
+                    session_loaded = True
+                    logger.info("✅ Instagram sessiyasi yuklandi va tasdiqlandi.")
+            except Exception as ex:
+                logger.warning(f"⚠️ Instagram eski sessiyasi yaroqsiz yoki yuklab bo'lmadi: {ex}")
+
+            if not session_loaded:
+                # Login (to_thread orqali bloklanishdan qochamiz)
+                logger.info(f"🔐 Instagramga yangidan kirish: {INSTA_USERNAME}...")
+                await asyncio.to_thread(cl.login, INSTA_USERNAME, INSTA_PASSWORD)
+                
+                # Save new session settings
+                try:
+                    import database
+                    new_settings = cl.get_settings()
+                    await database.db_set_nuvi_setting("insta_session", json.dumps(new_settings))
+                    logger.info("💾 Yangi Instagram sessiyasi bazaga saqlandi.")
+                except Exception as ex:
+                    logger.warning(f"⚠️ Instagram sessiyasini saqlashda xato: {ex}")
             
             self._insta = cl
             logger.info("✅ Instagram ulandi.")

@@ -1,13 +1,23 @@
 import os
 import subprocess
 import logging
+import threading
 from pathlib import Path
 from typing import Optional
 
 logger = logging.getLogger("jarvis.obsidian")
 
+
+def lock_vault(func):
+    def wrapper(self, *args, **kwargs):
+        with self.lock:
+            return func(self, *args, **kwargs)
+    return wrapper
+
+
 class ObsidianVault:
     def __init__(self):
+        self.lock = threading.RLock()
         self.repo_url = os.environ.get("OBSIDIAN_REPO_URL")
         self.github_token = os.environ.get("GITHUB_TOKEN")
         if os.path.exists("/app"):
@@ -78,6 +88,7 @@ class ObsidianVault:
             logger.error(f"Failed to sync Obsidian vault: {e}")
             return False
 
+    @lock_vault
     def add_note(self, filepath: str, content: str, append: bool = False) -> str:
         """Creates or appends a note, commits, and pushes it."""
         if not self.sync():
@@ -118,6 +129,7 @@ class ObsidianVault:
             logger.error(f"Error adding note: {e}")
             return f"❌ Qayd yozishda xatolik: {e}"
 
+    @lock_vault
     def add_file(self, filepath: str, source_path: str) -> str:
         """Copies a file into the vault, commits, and pushes it."""
         if not self.sync():
@@ -148,6 +160,7 @@ class ObsidianVault:
             return f"❌ Fayl yozishda xatolik: {e}"
 
 
+    @lock_vault
     def read_note(self, filepath: str) -> str:
         """Pulls and reads a note."""
         if not self.sync():
@@ -173,6 +186,7 @@ class ObsidianVault:
             logger.error(f"Error reading note: {e}")
             return f"❌ Qayd o'qishda xatolik: {e}"
 
+    @lock_vault
     def search_notes(self, query: str) -> str:
         """Searches files in the vault."""
         if not self.sync():

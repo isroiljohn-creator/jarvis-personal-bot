@@ -1393,6 +1393,7 @@ async def post_init(application: Application) -> None:
     BOT_CONTEXT["bot"] = application.bot
     BOT_CONTEXT["owner_id"] = OWNER_ID
     BOT_CONTEXT["obsidian"] = obsidian
+    BOT_CONTEXT["application"] = application
 
     # ── PostgreSQL DB jadvallarini yaratish ──
     try:
@@ -2655,11 +2656,43 @@ def main() -> None:
     app.job_queue.run_daily(smart_kundalik_job, time=datetime.time(hour=21, minute=45, tzinfo=tz))  # Har kuni
 
 
-    logger.info("✅ J.A.R.V.I.S tayyor! Polling boshlandi.")
-    app.run_polling(
-        drop_pending_updates=True,
-        allowed_updates=Update.ALL_TYPES,
-    )
+    # Check if running in production (Railway Webhook mode)
+    webhook_domain = os.environ.get("RAILWAY_PUBLIC_DOMAIN")
+    if webhook_domain:
+        # Run Webhook mode integrated with FastAPI
+        import asyncio
+        
+        async def start_webhook():
+            from api import BOT_CONTEXT
+            BOT_CONTEXT["application"] = app
+            
+            await app.initialize()
+            await app.start()
+            
+            webhook_url = f"https://{webhook_domain}/webhook/bot"
+            logger.info(f"Setting webhook to {webhook_url}...")
+            await app.bot.set_webhook(
+                url=webhook_url,
+                allowed_updates=["message", "edited_message", "channel_post", "edited_channel_post", "inline_query", "chosen_inline_result", "callback_query", "shipping_query", "pre_checkout_query", "poll", "poll_answer", "my_chat_member", "chat_member", "chat_join_request"],
+                drop_pending_updates=True
+            )
+            logger.info("✅ J.A.R.V.I.S tayyor! Webhook rejimida ishga tushdi.")
+            
+            # Keep running
+            while True:
+                await asyncio.sleep(3600)
+                
+        try:
+            asyncio.run(start_webhook())
+        except KeyboardInterrupt:
+            pass
+    else:
+        # Local run - Polling
+        logger.info("✅ J.A.R.V.I.S tayyor! Polling boshlandi.")
+        app.run_polling(
+            drop_pending_updates=True,
+            allowed_updates=Update.ALL_TYPES,
+        )
 
 if __name__ == "__main__":
     main()

@@ -1103,3 +1103,22 @@ async def ios_messages(data: MessagesData):
     )
     sent = await _send_to_telegram(report)
     return {"status": "ok", "sent": sent, "unread": data.unread_count}
+
+
+@app.post("/webhook/bot")
+async def telegram_webhook(request: Request):
+    """Telegram Webhook receiver. Updates are routed to python-telegram-bot application."""
+    application = BOT_CONTEXT.get("application")
+    if not application:
+        logger.error("Telegram Webhook error: application context is empty!")
+        return {"status": "error", "reason": "application not initialized"}
+    
+    try:
+        from telegram import Update
+        data = await request.json()
+        update = Update.de_json(data, application.bot)
+        await application.update_queue.put(update)
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Webhook error parsing update: {e}")
+        return {"status": "error", "reason": str(e)}
