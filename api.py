@@ -1122,3 +1122,18 @@ async def telegram_webhook(request: Request):
     except Exception as e:
         logger.error(f"Webhook error parsing update: {e}")
         return {"status": "error", "reason": str(e)}
+
+
+@app.get("/test-digest")
+async def test_digest():
+    """Trigger the daily digest job manually for testing."""
+    application = BOT_CONTEXT.get("application")
+    if not application:
+        return {"status": "error", "reason": "application not initialized"}
+    try:
+        import asyncio
+        from bot import daily_digest_job
+        asyncio.create_task(daily_digest_job(None))
+        return {"status": "triggered"}
+    except Exception as e:
+        return {"status": "error", "reason": str(e)}
