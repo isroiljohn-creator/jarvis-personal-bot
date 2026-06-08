@@ -374,3 +374,58 @@ class UserBot:
                     }
                 )
         return unread
+
+    async def get_channels_from_folder(self, folder_name: str) -> list[Any]:
+        """Folder nomi bo'yicha undagi barcha kanallarni qaytaradi."""
+        from telethon.tl.functions.messages import GetDialogFiltersRequest
+        from telethon.tl.types import DialogFilter, PeerChannel
+        
+        # Connection check
+        if not self.client.is_connected():
+            await self.client.connect()
+            
+        try:
+            res = await self.client(GetDialogFiltersRequest())
+        except Exception as e:
+            logger.error(f"Error fetching dialog filters: {e}")
+            return []
+            
+        target_filter = None
+        for f in res.filters:
+            if isinstance(f, DialogFilter) and f.title and f.title.lower() == folder_name.lower():
+                target_filter = f
+                break
+                
+        if not target_filter:
+            logger.warning(f"Folder '{folder_name}' topilmadi.")
+            return []
+            
+        # Extract explicit channel IDs from include_peers
+        included_channel_ids = set()
+        for peer in target_filter.include_peers:
+            if isinstance(peer, PeerChannel):
+                included_channel_ids.add(peer.channel_id)
+                
+        # Fetch all dialogs to resolve entities
+        dialogs = await self.client.get_dialogs(limit=None)
+        channels = []
+        for dialog in dialogs:
+            if dialog.is_channel and not dialog.is_group:
+                # Check if explicitly included
+                is_in_folder = dialog.entity.id in included_channel_ids
+                
+                # Check if folder matches broadcasts (channels) generally, and chat not explicitly excluded
+                if not is_in_folder and getattr(target_filter, "broadcasts", False):
+                    # Check if excluded
+                    is_excluded = False
+                    for ex_peer in target_filter.exclude_peers:
+                        if isinstance(ex_peer, PeerChannel) and ex_peer.channel_id == dialog.entity.id:
+                            is_excluded = True
+                            break
+                    if not is_excluded:
+                        is_in_folder = True
+                        
+                if is_in_folder:
+                    channels.append(dialog.entity)
+                    
+        return channels

@@ -1578,6 +1578,178 @@ async def daily_digest_job(context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         logger.error(f"Digest yuborishda xato: {e}")
 
+
+async def curate_ai_content() -> str:
+    """Telegram folder 'Kanallar' yoki 'Каnaly'dagi kanallarni o'qib, yangiliklar asosida PDF, post va reels tayyorlaydi."""
+    global userbot
+    if not userbot:
+        try:
+            from api import BOT_CONTEXT
+            userbot = BOT_CONTEXT.get("userbot")
+        except Exception as e:
+            logger.warning(f"Could not resolve userbot from BOT_CONTEXT in curate_ai_content: {e}")
+            
+    if not userbot or not userbot.client:
+        return "❌ Telegram userbot ulanmagan."
+        
+    logger.info("📡 'Каналы' papkasidan AI yangiliklarini yig'ish boshlandi...")
+    try:
+        channels = await userbot.get_channels_from_folder("Каnaly")
+        # Try Cyrillic and Latin just in case
+        if not channels:
+            channels = await userbot.get_channels_from_folder("Каналы")
+        if not channels:
+            logger.warning("⚠️ 'Каналы' papkasi topilmadi yoki unda hech qanday kanal yo'q.")
+            return "📭 'Каналы' papkasida hech qanday kanal topilmadi."
+            
+        import datetime
+        from datetime import timedelta, timezone
+        import tempfile
+        import json
+        
+        now = datetime.datetime.now(timezone.utc)
+        time_limit = now - timedelta(hours=24)
+        
+        aggregated_messages = []
+        for channel in channels:
+            try:
+                channel_msgs = []
+                async for msg in userbot.client.iter_messages(channel.id, limit=10):
+                    if not msg.text or len(msg.text.strip()) < 30:
+                        continue
+                    
+                    # Filter for last 24h messages
+                    if msg.date and msg.date >= time_limit:
+                        channel_msgs.append(f"[{msg.date.strftime('%H:%M')}] {msg.text}")
+                
+                # Fallback to last 3 messages if no recent messages
+                if not channel_msgs:
+                    async for msg in userbot.client.iter_messages(channel.id, limit=3):
+                        if msg.text and len(msg.text.strip()) >= 30:
+                            channel_msgs.append(f"[{msg.date.strftime('%Y-%m-%d')}]: {msg.text}")
+                            
+                if channel_msgs:
+                    aggregated_messages.append(f"=== KANAL: {channel.title} ===")
+                    aggregated_messages.extend(channel_msgs[:5]) # Max 5 per channel
+            except Exception as ch_err:
+                logger.warning(f"Kanal {channel.title} xabarlarini o'qishda xatolik: {ch_err}")
+                
+        if not aggregated_messages:
+            return "📭 Kanallarda yangi va foydali material topilmadi."
+            
+        text_data = "\n".join(aggregated_messages)[:30000] # Safe limit for prompt
+        
+        sys_prompt = (
+            "Sen AZIZA - foydalanuvchining shaxsiy AI kontent yordamchisisan. "
+            "Sening vazifang - quyidagi Telegram kanallaridan yig'ilgan so'nggi xabar va materiallarni tahlil qilib, eng qiziqarli va foydali bitta sun'iy intellekt (AI) yoki texnologiya mavzusini tanlash hamda o'sha mavzu asosida foydalanuvchi uchun 3 ta kontent turini o'zbek tilida tayyorlash:\n"
+            "1. 🎁 **Qo'llanma (PDF Guide)**: Foydalanuvchi mijozlariga taqdim etishi mumkin bo'lgan bepul, amaliy va qiziqarli qo'llanma matni. Buni so'ralgan JSON formatida qaytar (title va sections: heading hamda paragraphs).\n"
+            "2. 📝 **Telegram Post**: Foydalanuvchining shaxsiy Telegram kanali uchun tayyorlangan chiroyli formatlangan, emojilar bilan boyitilgan o'zbekcha post.\n"
+            "3. 🎬 **Reels Ssenariy**: 30-60 soniyalik Reels/qisqa video uchun ssenariy. Sahna tasviri va gapiriladigan Voiceover matnlari bo'lishi lozim.\n\n"
+            "Javobni FAQAT va FAQAT quyidagi JSON formatida qaytaring, boshqa hech qanday izoh, kirish yoki yakuniy gaplarni qo'shmang (to'g'ridan-to'g'ri JSON formatida bo'lsin):\n"
+            "{\n"
+            "  \"selected_topic\": \"[Tanlangan mavzu nomi]\",\n"
+            "  \"pdf_guide\": {\n"
+            "    \"title\": \"[Qo'llanma Sarlavhasi (masalan, Sun'iy Intellektdan Foydalanish Bo'yicha Bepul Qo'llanma)]\",\n"
+            "    \"sections\": [\n"
+            "      {\n"
+            "        \"heading\": \"[1-bo'lim sarlavhasi]\",\n"
+            "        \"paragraphs\": [\n"
+            "          \"[1-paragraf matni]\",\n"
+            "          \"[2-paragraf matni]\"\n"
+            "        ]\n"
+            "      }\n"
+            "    ]\n"
+            "  },\n"
+            "  \"telegram_post\": \"[Telegram post matni (markdown formatda, emojilar bilan)]\",\n"
+            "  \"reels_script\": \"[Reels ssenariysi matni (sahna 1, sahna 2 shaklida va visual + audio ko'rsatmalar bilan)]\"\n"
+            "}"
+        )
+        
+        response = await ai.process_message(
+            "Yig'ilgan kanallar xabarlari:\n\n" + text_data,
+            sys_prompt,
+            use_tools=False
+        )
+        
+        clean_json = response.strip()
+        if clean_json.startswith("```json"):
+            clean_json = clean_json[7:]
+        if clean_json.endswith("```"):
+            clean_json = clean_json[:-3]
+        clean_json = clean_json.strip()
+        
+        data = json.loads(clean_json)
+        
+        pdf_data = data.get("pdf_guide", {})
+        title = pdf_data.get("title", f"AI Qo'llanma")
+        sections = pdf_data.get("sections", [])
+        
+        if not sections:
+            return "❌ Matn generatori bo'sh bo'limlar qaytardi."
+            
+        tmp_pdf = tempfile.mktemp(suffix=".pdf")
+        await cloud.generate_lead_magnet_pdf(title, sections, tmp_pdf)
+        
+        clean_title = "".join([c for c in title if c.isalnum() or c in (" ", "-", "_")]).strip()
+        
+        # Obsidian paths
+        pdf_filepath = f"ReadLater/LeadMagnets/{clean_title}.pdf"
+        post_filepath = f"Content/TelegramPosts/{clean_title}.md"
+        reels_filepath = f"Content/ReelsScripts/{clean_title}.md"
+        
+        # Save Telegram Post
+        post_content = data.get("telegram_post", "")
+        await asyncio.to_thread(obsidian.add_note, post_filepath, post_content, False)
+        
+        # Save Reels Script
+        reels_content = data.get("reels_script", "")
+        await asyncio.to_thread(obsidian.add_note, reels_filepath, reels_content, False)
+        
+        # Save PDF File
+        obs_res = await asyncio.to_thread(obsidian.add_file, pdf_filepath, tmp_pdf)
+        
+        caption = (
+            f"🎁 **Siz uchun AI va Texnologiya yangiliklari asosida kontent tayyorlandi!**\n\n"
+            f"📌 **Mavzu:** {data.get('selected_topic', 'AI Yangiliklari')}\n"
+            f"🎁 **Qo'llanma PDF:** `{pdf_filepath}`\n"
+            f"📝 **Telegram Post:** `{post_filepath}`\n"
+            f"🎬 **Reels Ssenariy:** `{reels_filepath}`\n\n"
+            f"--- 📝 **TELEGRAM POST** ---\n\n{post_content}\n\n"
+            f"--- 🎬 **REELS SSENARIY** ---\n\n{reels_content}"
+        )
+        
+        # Send PDF file to user
+        with open(tmp_pdf, "rb") as f:
+            await userbot.client.send_file(
+                "@abdullayev_ii",
+                f,
+                caption=caption[:4000],
+                parse_mode="md"
+            )
+            
+        if len(caption) > 4000:
+            await userbot.send_message("@abdullayev_ii", caption)
+            
+        try: os.unlink(tmp_pdf)
+        except: pass
+        
+        logger.info("✅ Daily AI Content successfully generated, saved to Obsidian, and sent.")
+        return f"✅ Kontent tayyorlandi! Obsidian: `{pdf_filepath}`"
+        
+    except Exception as e:
+        logger.error(f"Error in curate_ai_content: {e}", exc_info=True)
+        return f"❌ Kontent yaratishda xato: {e}"
+
+
+async def curate_ai_content_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.info("⏱ Curate AI Content jarayoni boshlandi...")
+    try:
+        res = await curate_ai_content()
+        logger.info(f"Curator job natijasi: {res}")
+    except Exception as e:
+        logger.error(f"Curator job xatosi: {e}")
+
+
 async def habit_tracker_prompt_job(context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.info("⏱ Habit tracker prompt jo'natilmoqda...")
     msg = (
@@ -2741,6 +2913,8 @@ def main() -> None:
     app.job_queue.run_repeating(scheduled_posts_sender_job, interval=60, first=10) # har 1 daqiqa
     app.job_queue.run_daily(competitor_check_job, time=datetime.time(hour=9, minute=0, tzinfo=tz), days=(1,))  # Dushanba
     app.job_queue.run_daily(smart_kundalik_job, time=datetime.time(hour=21, minute=45, tzinfo=tz))  # Har kuni
+    app.job_queue.run_daily(curate_ai_content_job, time=datetime.time(hour=10, minute=0, tzinfo=tz))  # Har kuni
+
 
 
     # Check if running in production (Railway Webhook mode)

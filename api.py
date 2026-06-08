@@ -1137,3 +1137,18 @@ async def test_digest():
         return {"status": "triggered"}
     except Exception as e:
         return {"status": "error", "reason": str(e)}
+
+
+@app.get("/test-curator")
+async def test_curator():
+    """Trigger the curation job manually for testing."""
+    application = BOT_CONTEXT.get("application")
+    if not application:
+        return {"status": "error", "reason": "application not initialized"}
+    try:
+        import asyncio
+        from bot import curate_ai_content_job
+        asyncio.create_task(curate_ai_content_job(None))
+        return {"status": "triggered"}
+    except Exception as e:
+        return {"status": "error", "reason": str(e)}
