@@ -2198,6 +2198,13 @@ async def send_news_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await update.message.reply_text("Yangiliklar qidirilmoqda...")
     await viral_news_job(context)
 
+
+async def send_digest_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Qo'lda /digest buyrug'i — Telegram chatlar tahlilini darhol yuboradi."""
+    if not await check_auth(update): return
+    await update.message.reply_text("Telegram chatlar tahlili tayyorlanmoqda, kuting...")
+    await daily_digest_job(context)
+
 async def cmd_plan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await check_auth(update): return
     global PLAN_COLLECTION_MODE
@@ -2606,6 +2613,7 @@ def main() -> None:
     app.add_handler(CommandHandler("brief", send_brief_cmd))
     app.add_handler(CommandHandler("news", send_news_cmd))
     app.add_handler(CommandHandler("coach", send_coach_cmd))
+    app.add_handler(CommandHandler("digest", send_digest_cmd))
     app.add_handler(CommandHandler("plan", cmd_plan))
     app.add_handler(CommandHandler("done", cmd_done))
     app.add_handler(CommandHandler("deadline", cmd_deadline))
