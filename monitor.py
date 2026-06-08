@@ -28,7 +28,23 @@ def _load_data() -> dict:
         with open(MONITOR_DATA_FILE) as f:
             return json.load(f)
     except Exception:
-        return {"urls": {}, "prices": {}, "competitors": [], "crash_notified": {}}
+        default_data = {
+            "urls": {
+                "https://jarvis-personal-bot-production.up.railway.app/health": {
+                    "name": "Jarvis Bot Health",
+                    "last_status": None,
+                    "added": "2026-06-09T03:00:00"
+                }
+            },
+            "prices": {},
+            "competitors": [],
+            "crash_notified": {}
+        }
+        try:
+            _save_data(default_data)
+        except Exception:
+            pass
+        return default_data
 
 
 def _save_data(data: dict) -> None:

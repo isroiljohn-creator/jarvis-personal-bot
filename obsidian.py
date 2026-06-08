@@ -20,7 +20,11 @@ class ObsidianVault:
         self.lock = threading.RLock()
         self.repo_url = os.environ.get("OBSIDIAN_REPO_URL")
         self.github_token = os.environ.get("GITHUB_TOKEN")
-        if os.path.exists("/app"):
+        # Prioritize writable /data volume for persistent storage on Railway
+        data_dir = Path("/data")
+        if data_dir.exists() and os.access(data_dir, os.W_OK):
+            self.vault_path = data_dir / "obsidian_vault"
+        elif os.path.exists("/app"):
             self.vault_path = Path("/app/obsidian_vault")
         else:
             self.vault_path = Path("/tmp/obsidian_vault")
