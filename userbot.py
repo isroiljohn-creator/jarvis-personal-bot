@@ -392,7 +392,7 @@ class UserBot:
             
         target_filter = None
         for f in res.filters:
-            if isinstance(f, DialogFilter) and f.title and f.title.lower() == folder_name.lower():
+            if isinstance(f, DialogFilter) and f.title and str(f.title).lower() == folder_name.lower():
                 target_filter = f
                 break
                 
