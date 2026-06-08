@@ -2667,6 +2667,8 @@ def main() -> None:
             BOT_CONTEXT["application"] = app
             
             await app.initialize()
+            if app.post_init:
+                await app.post_init(app)
             await app.start()
             
             webhook_url = f"https://{webhook_domain}/webhook/bot"
