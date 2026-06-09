@@ -392,9 +392,12 @@ class UserBot:
             
         target_filter = None
         for f in res.filters:
-            if isinstance(f, DialogFilter) and f.title and str(f.title).lower() == folder_name.lower():
-                target_filter = f
-                break
+            if isinstance(f, DialogFilter) and f.title:
+                title_str = str(f.title)
+                logger.info(f"Topilgan Telegram papkasi: '{title_str}'")
+                if title_str.lower() == folder_name.lower():
+                    target_filter = f
+                    break
                 
         if not target_filter:
             logger.warning(f"Folder '{folder_name}' topilmadi.")
