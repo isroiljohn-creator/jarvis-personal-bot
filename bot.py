@@ -1713,9 +1713,7 @@ async def curate_ai_content() -> str:
             f"📌 **Mavzu:** {data.get('selected_topic', 'AI Yangiliklari')}\n"
             f"🎁 **Qo'llanma PDF:** `{pdf_filepath}`\n"
             f"📝 **Telegram Post:** `{post_filepath}`\n"
-            f"🎬 **Reels Ssenariy:** `{reels_filepath}`\n\n"
-            f"--- 📝 **TELEGRAM POST** ---\n\n{post_content}\n\n"
-            f"--- 🎬 **REELS SSENARIY** ---\n\n{reels_content}"
+            f"🎬 **Reels Ssenariy:** `{reels_filepath}`"
         )
         
         # Send PDF file to user
@@ -1723,12 +1721,22 @@ async def curate_ai_content() -> str:
             await userbot.client.send_file(
                 "@abdullayev_ii",
                 f,
-                caption=caption[:4000],
+                caption=caption[:1024],
                 parse_mode="md"
             )
             
-        if len(caption) > 4000:
-            await userbot.send_message("@abdullayev_ii", caption)
+        # Send full text contents as separate message(s) to avoid caption limit issues
+        full_content_msg = (
+            f"📌 **Mavzu:** {data.get('selected_topic', 'AI Yangiliklari')}\n\n"
+            f"--- 📝 **TELEGRAM POST** ---\n\n{post_content}\n\n"
+            f"--- 🎬 **REELS SSENARIY** ---\n\n{reels_content}"
+        )
+        
+        if len(full_content_msg) <= 4000:
+            await userbot.send_message("@abdullayev_ii", full_content_msg)
+        else:
+            await userbot.send_message("@abdullayev_ii", f"--- 📝 **TELEGRAM POST** ---\n\n{post_content}")
+            await userbot.send_message("@abdullayev_ii", f"--- 🎬 **REELS SSENARIY** ---\n\n{reels_content}")
             
         try: os.unlink(tmp_pdf)
         except: pass
