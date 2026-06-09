@@ -1692,28 +1692,14 @@ async def curate_ai_content() -> str:
         
         clean_title = "".join([c for c in title if c.isalnum() or c in (" ", "-", "_")]).strip()
         
-        # Obsidian paths
-        pdf_filepath = f"ReadLater/LeadMagnets/{clean_title}.pdf"
-        post_filepath = f"Content/TelegramPosts/{clean_title}.md"
-        reels_filepath = f"Content/ReelsScripts/{clean_title}.md"
-        
-        # Save Telegram Post
+        # Get content texts
         post_content = data.get("telegram_post", "")
-        await asyncio.to_thread(obsidian.add_note, post_filepath, post_content, False)
-        
-        # Save Reels Script
         reels_content = data.get("reels_script", "")
-        await asyncio.to_thread(obsidian.add_note, reels_filepath, reels_content, False)
-        
-        # Save PDF File
-        obs_res = await asyncio.to_thread(obsidian.add_file, pdf_filepath, tmp_pdf)
         
         caption = (
             f"🎁 **Siz uchun AI va Texnologiya yangiliklari asosida kontent tayyorlandi!**\n\n"
             f"📌 **Mavzu:** {data.get('selected_topic', 'AI Yangiliklari')}\n"
-            f"🎁 **Qo'llanma PDF:** `{pdf_filepath}`\n"
-            f"📝 **Telegram Post:** `{post_filepath}`\n"
-            f"🎬 **Reels Ssenariy:** `{reels_filepath}`"
+            f"📖 **Qo'llanma Sarlavhasi:** {title}"
         )
         
         # Send PDF file to user
@@ -1741,8 +1727,8 @@ async def curate_ai_content() -> str:
         try: os.unlink(tmp_pdf)
         except: pass
         
-        logger.info("✅ Daily AI Content successfully generated, saved to Obsidian, and sent.")
-        return f"✅ Kontent tayyorlandi! Obsidian: `{pdf_filepath}`"
+        logger.info("✅ Daily AI Content successfully generated and sent to user via Telegram.")
+        return f"✅ Kontent tayyorlandi va Telegram orqali yuborildi."
         
     except Exception as e:
         logger.error(f"Error in curate_ai_content: {e}", exc_info=True)
