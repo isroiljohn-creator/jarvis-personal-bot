@@ -393,7 +393,7 @@ class UserBot:
         target_filter = None
         for f in res.filters:
             if isinstance(f, DialogFilter) and f.title:
-                title_str = str(f.title)
+                title_str = f.title.text if hasattr(f.title, "text") else str(f.title)
                 logger.info(f"Topilgan Telegram papkasi: '{title_str}'")
                 if title_str.lower() == folder_name.lower():
                     target_filter = f
